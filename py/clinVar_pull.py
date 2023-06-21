@@ -4,19 +4,26 @@ import copy
 import pandas as pd
 from pathlib import Path
 # Installed modules
-import urllib.request
 import urllib.error
 import urllib3
 import xmltodict
-import yaml
 # Biopython
 from Bio import Entrez
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 
 # Load config file
-with open("config/guide_prediction.yaml", "r") as f:
-	config = yaml.load(f, Loader=yaml.FullLoader)
+# with open("config/guide_prediction.yaml", "r") as f:
+# 	config = yaml.load(f, Loader=yaml.FullLoader)
+
+
+def list_lines_from_txt(file_path):
+	with open(file_path, "r") as file_handle:
+		list_of_entries = []
+		for line in file_handle:
+			clean_line = line.strip()
+			list_of_entries.append(clean_line)
+	return list_of_entries
 
 
 def get_clinvar_uid(word_query):
@@ -59,7 +66,8 @@ def elink_routine(dbfrom, dbto, hit_uid):
 
 
 def url2xml_dict(url):
-	file = urllib3.request("GET", url)
+	http = urllib3.PoolManager()
+	file = http.request('GET', str(url))
 	data = file.data
 	data = xmltodict.parse(data)
 	return data
@@ -94,8 +102,10 @@ def get_gene_coords(gene_xml_dict):
 def get_genbank(gene_coords, win_size):
 	prot_dict = {}
 	record_target = {}
+	print("Fetch GenBank data via Entrez")
 	for gene_uid in gene_coords:
 		for chromosome_id in gene_coords[gene_uid]:
+			print("Processing Gene gi", gene_uid, " from chromosome ", chromosome_id)
 			# Fetch Genbank entry
 			handle = Entrez.efetch(db="nucleotide", id=str(chromosome_id), rettype="gbwithparts", retmode="text")
 			record = SeqIO.read(handle, "genbank")
@@ -151,53 +161,67 @@ def create_new_dir(path):
 	Path(path).mkdir(parents=True, exist_ok=True)
 
 
-def export_gbs(gb_dict, parent_path):
+def export_gbs(gb_dict, hgvs_id, parent_path):
 	for gene_uid in gb_dict:
-		output_directory = f"{parent_path}{os.sep}gi_{gene_uid}"
-		create_new_dir(output_directory)
-		# if not os.path.exists(output_directory):
-		# 	os.mkdir(output_directory)
+		hgvs_output_directory = f"{parent_path}{os.sep}{gene_uid}:{hgvs_id}"
+		genbank_output_directory = f"{hgvs_output_directory}{os.sep}gb"
+		fasta_output_directory = f"{hgvs_output_directory}{os.sep}fna"
+		create_new_dir(genbank_output_directory)
+		create_new_dir(fasta_output_directory)
 		for chromosome_id in gb_dict[gene_uid]:
 			gbk = gb_dict[gene_uid][chromosome_id]
-			with open(f"{output_directory}{os.sep}{chromosome_id}.gb", "w") as gb_handle:
+			with open(f"{genbank_output_directory}{os.sep}{chromosome_id}.gb", "w") as gb_handle:
 				SeqIO.write(gbk, gb_handle, "genbank")
-			with open(f"{output_directory}{os.sep}{chromosome_id}.fna", "w") as gb_handle:
+			with open(f"{fasta_output_directory}{os.sep}{chromosome_id}.fna", "w") as gb_handle:
 				SeqIO.write(gbk, gb_handle, "fasta")
 
 
 # DEBUG INPUT
-hgvs_list = ['NM_001355224.2:c.867C>A']
+# hgvs_id = 'NM_001355224.2:c.867C>A'
+# entrez_login = 'thedoudnalab@gmail.com'
+# genomic_window_size = 1000
 
 def main():
 	# SNAKEMAKE IMPORTS
 	# Inputs
-	hgvs_id = list(snakemake.input.hgvs_list)
+	hgvs_file_path = str(snakemake.input.hgvs_list)
 	# Outputs
-	report_out = str(snakemake.output.report)
+	report_out = str(snakemake.output.database_report)
 	# Params
-	genomic_window_size = str(snakemake.params.window_size)
+	genomic_window_size = int(snakemake.params.window_size)
 	entrez_login = str(snakemake.params.entrez_login)
+	# Wildcards
+	output_directory = str(snakemake.wildcards.output_directory)
+	run_name = str(snakemake.wildcards.run)
 
-	Entrez.email = config[entrez_login]
+	# Get list of HGVSs from file
+	hgvs_list = list_lines_from_txt(hgvs_file_path)
 
-	# Find NCBI's UID for a given HGVS query
-	clinvar_uid = get_clinvar_uid(hgvs_id)
+	# Set the analysis directory name
+	analysis_directory = f"{output_directory}{os.sep}{run_name}"
 
-	# Retrieve GENE object from Entrez based on clinvar
-	(linked, hit_id, notfound) = elink_routine('clinvar', 'gene', clinvar_uid)
+	for hgvs_id in hgvs_list:
+		# Entrez login
+		Entrez.email = entrez_login
 
-	# Generate a genomic coordinate dictionary from the GENE object
-	ncbi_gene_dict = get_gene_xml(linked)
-	gene_coordinates = get_gene_coords(ncbi_gene_dict)
+		# Find NCBI's UID for a given HGVS query
+		clinvar_uid = get_clinvar_uid(hgvs_id)
 
-	# Consolidate focused GenBank entries
-	(report_dict, focus_gb_dict) = get_genbank(gene_coordinates, genomic_window_size)
+		# Retrieve GENE object from Entrez based on clinvar
+		(linked, hit_id, notfound) = elink_routine('clinvar', 'gene', clinvar_uid)
 
-	# Export focused GenBank to text files
-	export_gbs(focus_gb_dict, config["output_directory"])
+		# Generate a genomic coordinate dictionary from the GENE object
+		ncbi_gene_dict = get_gene_xml(linked)
+		gene_coordinates = get_gene_coords(ncbi_gene_dict)
 
-	# Export report file
-	pd.DataFrame.from_dict(report_dict[list(report_dict.keys())[0]]).to_csv(report_out)
+		# Consolidate focused GenBank entries
+		(report_dict, focus_gb_dict) = get_genbank(gene_coordinates, genomic_window_size)
+
+		# Export focused GenBank to text files
+		export_gbs(focus_gb_dict, hgvs_id, analysis_directory)
+
+		# Export report file
+		pd.DataFrame.from_dict(report_dict[list(report_dict.keys())[0]]).to_csv(report_out)
 
 
 if __name__ == "__main__":

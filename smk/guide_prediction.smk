@@ -16,17 +16,15 @@ import glob
 rule all:
     input:
         # Pull information from clinVar
-        expand("{output_directory}/{hgvs}/clinvar_pull.report",
+        expand("{output_directory}/{run}/clinvar_pull.report",
             output_directory=config["output_directory"],
-            hgvs=config["hgvs_list"])
+            run=config["run_name_suffix"])
 
 rule clinVar_pull:
     input:
-        # TODO: Aqui vai precisar de um arquivo texto contendo os HGVSs
-        hgvs_list = config["hgvs_list"]
+        hgvs_list = config["hgvs_path"]
     output:
-        # TODO: Isso feito, a estrutura de nomes do output vai ter q mudar tb
-        database_report = "{output_directory}/{hgvs}/clinvar_pull.report"
+        database_report = "{output_directory}/{run}/clinvar_pull.report"
     params:
         window_size = config["window_size"],
         entrez_login = config["entrez_login"]

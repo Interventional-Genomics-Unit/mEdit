@@ -5,5 +5,5 @@ entrez_login: "thedoudnalab@gmail.com"
 window_size: 1000
 
 # Parent output directory where files should be stored after processing
-output_directory: "jobs"
+output_directory: "jobs/prediction"
 
