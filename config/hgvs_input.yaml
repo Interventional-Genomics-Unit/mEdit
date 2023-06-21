@@ -1,0 +1,5 @@
+# This config contains the list of HGVSs to be analyzed by the pipeline
+# In the functional version of the application as an online tool,
+#  this file should be generated dynamically ahead of the guide_prediction.smk run
+# Then, all the user-requested HGVSs can be loaded into this list and supplied to the above pipeline
+hgvs_list: ['NM_001355224.2:c.867C>A']

@@ -1,7 +1,8 @@
 # Native modules
 import os
 import copy
-import re
+import pandas as pd
+from pathlib import Path
 # Installed modules
 import urllib.request
 import urllib.error
@@ -14,7 +15,7 @@ from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 
 # Load config file
-with open("config/entrez.yaml", "r") as f:
+with open("config/guide_prediction.yaml", "r") as f:
 	config = yaml.load(f, Loader=yaml.FullLoader)
 
 
@@ -76,114 +77,128 @@ def get_gene_coords(gene_xml_dict):
 	gene_coords = {}
 	chromosomes = gene_xml_dict['Entrezgene-Set']['Entrezgene']['Entrezgene_locus']['Gene-commentary']
 	chromosomes_list_length = len(gene_xml_dict['Entrezgene-Set']['Entrezgene']['Entrezgene_locus']['Gene-commentary'])
+	gene_uid = gene_xml_dict['Entrezgene-Set']['Entrezgene']['Entrezgene_track-info']['Gene-track']['Gene-track_geneid']
 
 	# Get gene coordinates for each individual chromosome
 	for chr_index in range(0, chromosomes_list_length):
 		chromosome_acc = chromosomes[chr_index]['Gene-commentary_accession']
 		chromosome_version = chromosomes[chr_index]['Gene-commentary_version']
 		chromosome_id = f"{chromosome_acc}.{chromosome_version}"
-		gene_coords.setdefault(chromosome_id, [
+		gene_coords.setdefault(gene_uid, {}).setdefault(chromosome_id, [
 			gene_xml_dict['Entrezgene-Set']['Entrezgene']['Entrezgene_locus']['Gene-commentary'][chr_index]['Gene-commentary_seqs']['Seq-loc']['Seq-loc_int']['Seq-interval']['Seq-interval_from'],
 			gene_xml_dict['Entrezgene-Set']['Entrezgene']['Entrezgene_locus']['Gene-commentary'][chr_index]['Gene-commentary_seqs']['Seq-loc']['Seq-loc_int']['Seq-interval']['Seq-interval_to']
 		])
 	return gene_coords
 
-# TODO: Editar funcao pra aglutinar todos os GENE UIDs ligados aos seus respectivos SeqRecords -> facilitar busca na funcao get_genbank
-# def parse_features(seqrecords_list):
-
 
 def get_genbank(gene_coords, win_size):
 	prot_dict = {}
 	record_target = {}
-	for chromosome_id in gene_coords:
-		# Fetch Genbank entry
-		handle = Entrez.efetch(db="nucleotide", id=str(chromosome_id), rettype="gbwithparts", retmode="text")
-		record = SeqIO.read(handle, "genbank")
-		# Select the 'features' object from the GB file
-		features = record.features[0]
+	for gene_uid in gene_coords:
+		for chromosome_id in gene_coords[gene_uid]:
+			# Fetch Genbank entry
+			handle = Entrez.efetch(db="nucleotide", id=str(chromosome_id), rettype="gbwithparts", retmode="text")
+			record = SeqIO.read(handle, "genbank")
+			# Select the 'features' object from the GB file
+			features = record.features[0]
 
+			#
+			# prot_id = qualifiers["protein_id"][0]
+			# # Search for the protein-ids of interest
+			# if re.search(prot_id, uid_to_acc[query][hit_uid][0]):
 
-		#
-		# prot_id = qualifiers["protein_id"][0]
-		# # Search for the protein-ids of interest
-		# if re.search(prot_id, uid_to_acc[query][hit_uid][0]):
+			# Process feature information for future ref
+			f_start = int(gene_coords[gene_uid][chromosome_id][0])
+			f_end = int(gene_coords[gene_uid][chromosome_id][1])
+			f_strand = features.strand
+			highlight_feature = copy.deepcopy(features)
+			highlight_feature.type = "highlight"
+			# Set start/end coords using window size
+			start = max(int(min([f_start, f_end])) - win_size, 0)
+			end = min(int(max([f_start, f_end])) + win_size + 1, len(record.seq))
+			f_len = end - start
 
-		# Process feature information for future ref
-		f_start = int(gene_coords[chromosome_id][0])
-		f_end = int(gene_coords[chromosome_id][1])
-		f_strand = features.strand
-		highlight_feature = copy.deepcopy(features)
-		highlight_feature.type = "highlight"
-		# Set start/end coords using window size
-		start = max(int(min([f_start, f_end])) - win_size, 0)
-		end = min(int(max([f_start, f_end])) + win_size + 1, len(record.seq))
-		f_len = end - start
-	
-		# Create a SeqRecord object with the feature of interest
-		record_focused = SeqRecord(
-			id=record.id,
-			annotations=record.annotations,
-			dbxrefs=record.dbxrefs,
-			seq=record.seq[start:end + 1],
-			description=record.description
-		)
-		record_focused.features.append(highlight_feature)
-	
-		# Gather protein data for reference
-		prep_prot_dict = {
-		                  "nuccore_acc": record.id,
-		                  # "region_seq": record.seq[start:end + 1],
-		                  "window_start": start,
-		                  "window_end": end,
-		                  "feature_start": f_start,
-		                  "feature_end": f_end,
-		                  "strand": f_strand,
-		                  "feature_len": f_len,
-		                  "sequence": record.seq[start:end + 1]
-		                  }
-		prot_dict.setdefault(record.id,  prep_prot_dict)
-		record_target.setdefault(record.id, record_focused)
+			# Create a SeqRecord object with the feature of interest
+			record_focused = SeqRecord(
+				id=record.id,
+				annotations=record.annotations,
+				dbxrefs=record.dbxrefs,
+				seq=record.seq[start:end + 1],
+				description=record.description
+			)
+			record_focused.features.append(highlight_feature)
+
+			# Create a fasta record with the feature of interes
+			fasta_focused: record.seq[start:end + 1]
+
+			# Gather protein data for reference
+			prep_prot_dict = {
+			                  "nuccore_acc": record.id,
+			                  # "region_seq": record.seq[start:end + 1],
+			                  "window_start": start,
+			                  "window_end": end,
+			                  "feature_start": f_start,
+			                  "feature_end": f_end,
+			                  "strand": f_strand,
+			                  "feature_len": f_len,
+			                  }
+			prot_dict.setdefault(gene_uid, {}).setdefault(record.id,  prep_prot_dict)
+			record_target.setdefault(gene_uid, {}).setdefault(record.id, record_focused)
 	return prot_dict, record_target
 
 
+def create_new_dir(path):
+	Path(path).mkdir(parents=True, exist_ok=True)
+
+
 def export_gbs(gb_dict, parent_path):
-	if not os.path.exists(parent_path):
-		os.mkdir(parent_path)
-	for chromosome_id in gb_dict:
-		query_suffix = re.sub(r'\|', '_', chromosome_id[0:20])
-		out_path = f"{parent_path}{os.sep}{query_suffix}"
-		if not os.path.exists(out_path):
-			os.mkdir(out_path)
+	for gene_uid in gb_dict:
+		output_directory = f"{parent_path}{os.sep}gi_{gene_uid}"
+		create_new_dir(output_directory)
+		# if not os.path.exists(output_directory):
+		# 	os.mkdir(output_directory)
+		for chromosome_id in gb_dict[gene_uid]:
+			gbk = gb_dict[gene_uid][chromosome_id]
+			with open(f"{output_directory}{os.sep}{chromosome_id}.gb", "w") as gb_handle:
+				SeqIO.write(gbk, gb_handle, "genbank")
+			with open(f"{output_directory}{os.sep}{chromosome_id}.fna", "w") as gb_handle:
+				SeqIO.write(gbk, gb_handle, "fasta")
 
-		gbk = gb_dict[chromosome_id]
-		filename = f"{chromosome_id}.gb"
-		with open(f"{out_path}{os.sep}{filename}", "w") as gb_handle:
-			SeqIO.write(gbk, gb_handle, "genbank")
 
+# DEBUG INPUT
+hgvs_list = ['NM_001355224.2:c.867C>A']
 
 def main():
 	# SNAKEMAKE IMPORTS
 	# Inputs
+	hgvs_id = list(snakemake.input.hgvs_list)
 	# Outputs
+	report_out = str(snakemake.output.report)
 	# Params
+	genomic_window_size = str(snakemake.params.window_size)
+	entrez_login = str(snakemake.params.entrez_login)
 
-	Entrez.email = config["entrez_login"]
+	Entrez.email = config[entrez_login]
 
 	# Find NCBI's UID for a given HGVS query
-	clinvar_uid = get_clinvar_uid('NM_001355224.2:c.867C>A')
+	clinvar_uid = get_clinvar_uid(hgvs_id)
 
 	# Retrieve GENE object from Entrez based on clinvar
 	(linked, hit_id, notfound) = elink_routine('clinvar', 'gene', clinvar_uid)
 
-	# Generate a dictionary from the GENE object
+	# Generate a genomic coordinate dictionary from the GENE object
 	ncbi_gene_dict = get_gene_xml(linked)
 	gene_coordinates = get_gene_coords(ncbi_gene_dict)
 
-	(report_dict, focus_gb_dict) = get_genbank(gene_coordinates, 2000)
+	# Consolidate focused GenBank entries
+	(report_dict, focus_gb_dict) = get_genbank(gene_coordinates, genomic_window_size)
 
-	export_gbs(focus_gb_dict, "jobs")
+	# Export focused GenBank to text files
+	export_gbs(focus_gb_dict, config["output_directory"])
+
+	# Export report file
+	pd.DataFrame.from_dict(report_dict[list(report_dict.keys())[0]]).to_csv(report_out)
 
 
-qual = []
-for f in record.features:
-	qual.append(f.qualifiers)
+if __name__ == "__main__":
+	main()

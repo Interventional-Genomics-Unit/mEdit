@@ -1,0 +1,9 @@
+# Email address required for Entrez queries
+entrez_login: "thedoudnalab@gmail.com"
+
+# The genomic window to be opened on each side of a gene harboring a variant of interest
+window_size: 1000
+
+# Parent output directory where files should be stored after processing
+output_directory: "jobs"
+
