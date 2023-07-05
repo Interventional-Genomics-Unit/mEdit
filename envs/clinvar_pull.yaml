@@ -1,0 +1,15 @@
+name: igu
+channels:
+  - defaults
+dependencies:
+  - pandas
+  - seaborn
+  - numpy
+  - biopython
+  - pyyaml
+  - entrezpy
+  - beautifulsoup4
+  - xmltodict
+  - urllib3
+  - snakemake
+prefix: /Users/bellieny/miniconda3/envs/igu

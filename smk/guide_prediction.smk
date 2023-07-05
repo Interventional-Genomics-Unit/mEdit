@@ -21,6 +21,8 @@ rule all:
             run=config["run_name_suffix"])
 
 rule clinVar_pull:
+    # Pulls genomic context, based on the {window_size}, of a gene(s) associated with a
+    #   HGVS (or a list of) identifier(s).
     input:
         hgvs_list = config["hgvs_path"]
     output:
@@ -29,6 +31,6 @@ rule clinVar_pull:
         window_size = config["window_size"],
         entrez_login = config["entrez_login"]
     conda:
-        ""
+        "../envs/clinvar_pull.yaml"
     script:
         "../py/clinVar_pull.py"
