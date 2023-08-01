@@ -7,7 +7,7 @@ Created 8/1/23 by TH
 parses  Crispr bb and makes files per chromosome
 '''
 
-def bed_to_bigbed(df, out, type = "bed+3",bedToBigBed_path = "/groups/clinical/projects/editability/bedToBigBed", chrom_sizes_path ="/groups/clinical/projects/editability/hg38.chrom.sizes"):
+def bed_to_bigbed(df, out, btype = "bed6+3",bedToBigBed_path = "/groups/clinical/projects/editability/bedToBigBed", chrom_sizes_path ="/groups/clinical/projects/editability/hg38.chrom.sizes"):
     bed = df.copy()
     columns = bed.columns.to_list()
     bed["chrom"] = bed["chrom"].astype(str)
@@ -17,7 +17,7 @@ def bed_to_bigbed(df, out, type = "bed+3",bedToBigBed_path = "/groups/clinical/p
         bed.to_csv(
             f.name, sep="\t", columns=columns, index=False, header=False, na_rep="nan")
 
-        cmd = f"{bedToBigBed_path} -type={type} -tab {f.name} {chrom_sizes_path} {out}"
+        cmd = f"{bedToBigBed_path} -type={btype} -tab {f.name} {chrom_sizes_path} {out}"
         p = subprocess.run(cmd,shell=True,
                            capture_output=True,
         )
