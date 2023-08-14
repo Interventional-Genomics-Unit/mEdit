@@ -1,6 +1,15 @@
+import os
 import pandas as pd
 import bbi
 import regex as re
+import argparse
+import sys
+import subprocess
+
+
+# hgvs_id = 'NM_000152.5:c.271G>A' ,win_size=[4,8])
+query = str(sys.argv[1])
+qtype = str(sys.argv[2])
 
 class DataHandler:
 
@@ -41,9 +50,13 @@ class DataHandler:
 			end = list(bbi.chromsizes(bbfile).values())
 			df = f.fetch_intervals(chrom=f"chr{chrom}", start=1, end=end)
 		else:
-			start = pos-win_size[0]
-			end = pos+23+(win_size[1]-win_size[0])
-			df = f.fetch_intervals(chrom=f"chr{chrom}", start=start, end=start)
+			win_dif = win_size[1]-win_size[0]
+			start1,end1 = pos-win_size[0], pos-win_size[0] +23
+			start2,end2 = (pos-win_size[0]) + win_dif, pos-win_size[0] +23+ win_dif
+			df1 = f.fetch_intervals(chrom=f"chr{chrom}", start=start1, end=start1)
+			df2 = f.fetch_intervals(chrom=f"chr{chrom}", start=start2, end=start2)
+			df = pd.concat([df1, df2], ignore_index=True).drop_duplicates()
+
 		self.guide_tab = df
 		return df
 
@@ -64,11 +77,39 @@ class DataHandler:
 #####
 # Data Query Functions
 #####
-
+def aggData(guides,vardf):
+	n_guides = guides.shape[0]
+	print("------------------------------------------------")
+	print("HGVS ID: ",vardf.Name.iloc[0])
+	print("SNV Type: ", vardf.Type.iloc[0])
+	print("Gene Name: ", vardf.GeneSymbol.iloc[0])
+	print("  >>>>>> Phenotype <<<<<<   ")
+	print("Listed Phenotypes: ", vardf.PhenotypeList.iloc[0])
+	print("Tissue Enrichment: ", vardf['RNA tissue cell type enrichment'].iloc[0])
+	print("Molecular Function: ", vardf['Molecular function'].iloc[0])
+	print("  >>>>>> Guides Found <<<<<< ")
+	cnt = 1
+	variant_pos = vardf["PositionVCF"].iloc[0]
+	'''
+		
+		CCC-TTAGCTTCGCCGACAACCCC
+		GGG-AATCGAAGCGGCTGTTGGGG
+	'''
+	for i in range(n_guides):
+		print(f"  ---- Guide{cnt} -----")
+		pos = variant_pos - guides.start.iloc[i]
+		print("        ","".join(" " if p != pos else "*" for p in range(23)))
+		print("guideSeq: ", guides.field8.iloc[i])
+		print("PAM: ", guides.field9.iloc[i])
+		x = guides.field10.iloc[i]
+		scores = re.findall("(\w+:[()%0-9]+)",x.replace(" ",""))
+		for s in scores:
+			print(f"  {s}")
+		cnt+=1
 
 def query_HGVS(hgvs_id,win_size=[4,8]):
 	# test   hgvs_id = 'NM_000152.5:c.271G>A'
-    dh = DataHandler()
+    	dh = DataHandler()
 
 	if hgvs_id.startswith('NM'):
 
@@ -83,7 +124,7 @@ def query_HGVS(hgvs_id,win_size=[4,8]):
 		try:
 			var_desc = re.search("\d+\w+>\w+", hgvs_id).captures()[0]
 			try:
-				vardf = vardf.loc[df["Name"].str.contains(var_desc)]
+				vardf = vardf.loc[vardf["Name"].str.contains(var_desc)]
 			except IndexError:
 				raise "No HGVSs were found for this search"
 		except:
@@ -92,6 +133,14 @@ def query_HGVS(hgvs_id,win_size=[4,8]):
 		variant_pos = vardf["PositionVCF"].iloc[0]
 
 		guides = dh.get_Guidetable(chrom,variant_pos,win_size)
+				aggData(guides, vardf)
+
+
+def queryGuides(query,qtype):
+	if qtype == 'HGVS':
+		query_HGVS(hgvs_id=query, win_size=[4, 8])
+
+queryGuides(query,qtype)
 
 
 		return guides, vardf
