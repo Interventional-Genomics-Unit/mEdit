@@ -154,8 +154,8 @@ def summary(dh,guides, outfolder):
     text output and phenotype CSV, Guides will be outputted in a seperate CSV file
     '''
     var_out = f"{outfolder}Variant_Report_{dh.hgvs_id}.csv"
-    fname = dh.prefix + "_" +re.search("[.+-]*(\d+\w+>\w+)", dh.hgvs_id).captures()[0].replace(">","_")
-    summary_out = f"{outfolder}Summary_Report_{fname.replace(".","")}.txt"
+    fname = dh.prefix + "_" +re.search("[.+-]*(\d+\w+>\w+)", dh.hgvs_id).captures()[0].replace(">","_").replace(".","")
+    summary_out = f"{outfolder}Summary_Report_{fname}.txt"
     #guides_out = f"{outfolder}Guides_Report_{dh.hgvs_id}.csv")
     #guideCSV(guides_out)
     vardf = dh.vardf
@@ -191,9 +191,12 @@ def summary(dh,guides, outfolder):
                 print("guideSeq: ", file=out)
                 print("".join(" " if p != guides[editor]['SNV Position'][i] else "*" for p in range(23)), file=out)
                 print(guides[editor]['gRNA'][i], file=out)
-                codon = "".join(" " if p != guides[editor]['Codon Position'][i]-3 else f"ABC" for p in range(23))
-                print(codon.replace("ABC",f"{guides[editor]['Alternate (Codon>AA)'][i][0:3]}"), file = out)
-                print(codon.replace("ABC", f" {guides[editor]['Alternate (Codon>AA)'][i][-1]} "), file=out)
+                if guides[editor]['Strand'][i] == '+':
+                    codon = "".join(" " if p != guides[editor]['Codon Position'][i] else f"ABC" for p in range(23))
+
+                else:
+                    codon = "".join(" " if p != guides[editor]['Codon Position'][i]-3 else f"ABC" for p in range(23))
+                print(codon.replace("ABC", f"|{guides[editor]['Alternate (Codon>AA)'][i][-1]}|"), file=out)
                 print(f"Editing Outcome   {guides[editor]['Alternate (Codon>AA)'][i][-1]} -->  {guides[editor]['BE Converted (Codon>AA)'][i][-1]}" , file=out)
                 print("PAM: ", guides[editor]['PAM'][i], file=out)
                 if guides[editor]['Conversion Type'][i] == 'Conservative':
@@ -221,7 +224,8 @@ def summary(dh,guides, outfolder):
     out.close()
     report = open(summary_out, "r")
     for line in report:
-        print(line)
+        print(line.rstrip())
+
 
 
 def check_HGVS(query):
