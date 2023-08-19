@@ -1,8 +1,9 @@
 import pandas as pd
 import bbi
 import subprocess
-from datetime import datetime, timedelta, date
+from datetime import datetime, date
 import regex as re
+
 
 
 class DataHandler:
@@ -26,10 +27,9 @@ class DataHandler:
         #Variables
         self.chrom = str()
         self.hgvs_id = str()
+        self.prefix = str()
         self.ref_allele = str()
         self.alt_allele = str()
-
-
 
         #Determine if an update is needed
         f = open(self.lastUpdate_file,"r").readlines()
@@ -52,7 +52,7 @@ class DataHandler:
             today = date.today()
             f.write(str(today))
         f.close()
-        #import Update_clinvar.py to parse newly updated filed
+        #TO DO :import Update_clinvar.py to parse newly updated filed
 
 
     def get_HGVStable(self):
@@ -63,26 +63,34 @@ class DataHandler:
         return hgvs_tab
 
     def getChrom(self, hgvs_id):
-
+        '''
+        Search HGVS Table for Chromosome to determine which Clinvar file is needed
+        '''
         self.hgvs_id = hgvs_id
         hgvs_tab = self.get_HGVStable()
         hgvs_list = hgvs_tab["HGVS"]
+        if hgvs_id.startswith('NM'):
+            try:
+                prefix = re.search("NM_\d+.", hgvs_id).captures()[0]
+            except:
+                print("Be sure hgvs_id contains the prefix ex: NM_0000")
         try:
             chrom = hgvs_tab['Chr'].iloc[list(hgvs_list).index(hgvs_id.split(".")[0])]
-            self.chrom = chrom
+            self.chrom,self.prefix = chrom, prefix
 
         except IndexError:
             raise "No HGVSs were found for this search"
-        return chrom
+        return prefix, chrom
 
-    def get_ClinVartable(self,prefix):
+    def get_ClinVartable(self, hgvs_id):
         # df = pd.read_csv("/groups/clinical/projects/editability/clinvar/17_variant.txt", dtype = object)
+        prefix, chrom = self.getChrom(hgvs_id)
         df = pd.read_csv(f"{self.clinvar_folder}{self.chrom}_variant.txt", dtype = object)
         df = df.loc[df["Name"].str.startswith(prefix)]
         df1 = df[df.Name == self.hgvs_id]
         if df1.shape[0] < 1:
             try:
-                var_desc = re.search("(\d+|c|.)[.+-]\d+\w+>\w+", self.hgvs_id).captures()[0]
+                var_desc = re.search("[0-9c.]?[.+-]*\d+\w+>\w+", self.hgvs_id).captures()[0]
                 try:
                     df = df.loc[df["Name"].str.contains(var_desc)]
                 except IndexError:

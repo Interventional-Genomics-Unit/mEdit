@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime, date
 import pandas as pd
 import regex as re
 import sys
@@ -9,23 +9,20 @@ from Bio.Seq import Seq
 
 #test
 query, qtype = 'NM_000152.5:c.271G>A','HGVS'
-hgvs_id = 'NM_000152.5:c.271G>A'
+outfolder = '/home/thudson/edit_test_out/'
 
 #####
 # Data Query Functions
 #####
 def mutationType(codon1,codon2):
-
-   aa_groups =  [["G","A","V","L","I"],
+    aa_groups =  [["G","A","V","L","I"],
                  ["S","C","U","T","M"],
                  ["F","Y","W"],
                  ["H","K","R"],
                  ["D","E","N","Q"]]
-
     codon1,codon2 = Seq(codon1),Seq(codon2)
     aa1, aa2 = codon1.translate(), codon2.translate()
     mtype = ""
-
     if aa1== aa2:
         mtype = 'Synonymous'
         if codon1 == codon2:
@@ -43,6 +40,7 @@ def mutationType(codon1,codon2):
 def getBE(dh,guides,strand,editor,win_size= [4,8]):
     '''
     Finds codon level SNV and determines if the Base Editor Conversion can work
+    *TO DO : Check HGVS term to find protein change and then bypass this 'manual' conversion
     '''
 
     BE_guides = {'gRNA': [],
@@ -156,16 +154,15 @@ def summary(dh,guides, outfolder):
     text output and phenotype CSV, Guides will be outputted in a seperate CSV file
     '''
     var_out = f"{outfolder}Variant_Report_{dh.hgvs_id}.csv"
-    summary_out = f"{outfolder}Summary_Report_{dh.hgvs_id}.txt"
+    fname = dh.prefix + "_" +re.search("[.+-]*(\d+\w+>\w+)", dh.hgvs_id).captures()[0].replace(">","_")
+    summary_out = f"{outfolder}Summary_Report_{fname.replace(".","")}.txt"
     #guides_out = f"{outfolder}Guides_Report_{dh.hgvs_id}.csv")
     #guideCSV(guides_out)
-
-    dh.vardf.T.to_csv(var_out, index = False)
+    vardf = dh.vardf
+    dh.vardf.T.to_csv(var_out)
 
     variant_pos = vardf["PositionVCF"].iloc[0]
     l = len(vardf.Name.iloc[0]) + 10
-
-
     with open(summary_out, "w") as out:
         print(datetime.today().strftime("%m/%d/%y"),file = out)
         print("\n", file=out)
@@ -181,27 +178,14 @@ def summary(dh,guides, outfolder):
         print("Listed Phenotypes: ", vardf.PhenotypeList.iloc[0],file = out)
         print("Tissue Enrichment: ", vardf['RNA tissue cell type enrichment'].iloc[0],file = out)
         print("Molecular Function: ", vardf['Molecular function'].iloc[0],file = out)
-        print("\n",file =out)
-        print("  >>>>>> spCas9 Guides Found <<<<<< ", file = out)
 
-        cnt = 0
-        for i in range(len(guides['spCas9']['gRNA'])):
-            print(f"  ---- spCas9 Guide{cnt+1} -----",file = out)
-            print("guideSeq: ",file = out)
-            print("".join(" " if p != guides['spCas9']['SNV_position'][i] else "*" for p in range(23)),file = out)
-            print(guides['spCas9']['gRNA'][i],file = out)
-            print("PAM: ", guides['spCas9']['PAM'][i],file = out)
-            x = guides['spCas9']['Scores'][i]
-            scores = re.findall("(\w+:[()%0-9]+)", x.replace(" ", ""))
-            for s in scores:
-                print(f"  {s}", file =out)
-            cnt += 1
-
-
-        if 'ABE' in guides.keys():
-            editor = 'ABE'
+        #Print Base Editors
+        if len(guides.keys()) > 1:
+            editor = 'ABE' if 'ABE' in guides.keys() else 'CBE'
             print("\n", file=out)
             print("  >>>>>> ABE Guides Found <<<<<< ", file=out)
+            print("SNV Reference Translation: ", guides[editor]['Reference (Codon>AA)'][0], file=out)
+
             for i in range(len(guides[editor]['gRNA'])):
                 print(f"  ---- {editor} Guide{i + 1} -----", file=out)
                 print("guideSeq: ", file=out)
@@ -218,26 +202,22 @@ def summary(dh,guides, outfolder):
                 if guides[editor]['Bystander'][i] >0:
                     print("** Warning: this editor has bystander bases in the target window", file = out)
 
-        if 'CBE' in guides.keys():
-            editor = 'CBE'
-            print("\n", file=out)
-            print("  >>>>>> ABE Guides Found <<<<<< ", file=out)
-            for i in range(len(guides[editor]['gRNA'])):
-                print(f"  ---- {editor} Guide{i + 1} -----", file=out)
-                print("guideSeq: ", file=out)
-                print("".join(" " if p != guides[editor]['SNV Position'][i] else "*" for p in range(23)), file=out)
-                print(guides[editor]['gRNA'][i], file=out)
-                codon = "".join(" " if p != guides[editor]['Codon Position'][i] - 3 else f"ABC" for p in range(23))
-                print(codon.replace("ABC", f"{guides[editor]['Alternate (Codon>AA)'][i][0:3]}"), file=out)
-                print(codon.replace("ABC", f" {guides[editor]['Alternate (Codon>AA)'][i][-1]} "), file=out)
-                print(f"Editing Outcome   {guides[editor]['Alternate (Codon>AA)'][i][-1]} -->  {guides[editor]['BE Converted (Codon>AA)'][i][-1]}", file = out)
-                print(codon.replace("ABC", f" {guides[editor]['BE Converted (Codon>AA)'][i][-1]} "), file=out)
-                print("PAM: ", guides[editor]['PAM'][i], file=out)
-                if guides[editor]['Conversion Type'][i] == 'Conservative':
-                    print("** Converted codon translates is not the same amino acid as the Reference", file=out)
-                print("Conversion Type: ", guides[editor]['Conversion Type'][i], file=out)
-                if guides[editor]['Bystander'][i] > 0:
-                    print("** Warning: this editor has bystander bases in the target window", file=out)
+        #Print spCas9 to file
+        print("\n", file =out)
+        print("  >>>>>> spCas9 Guides Found <<<<<< ", file = out)
+        cnt = 0
+        for i in range(len(guides['spCas9']['gRNA'])):
+            print(f"  ---- spCas9 Guide{cnt+1} -----",file = out)
+            print("guideSeq: ",file = out)
+            print("".join(" " if p != guides['spCas9']['SNV_position'][i] else "*" for p in range(23)),file = out)
+            print(guides['spCas9']['gRNA'][i],file = out)
+            print("PAM: ", guides['spCas9']['PAM'][i],file = out)
+            x = guides['spCas9']['Scores'][i]
+            scores = re.findall("(\w+:[()%0-9]+)", x.replace(" ", ""))
+            for s in scores:
+                print(f"  {s}", file =out)
+            cnt += 1
+
     out.close()
     report = open(summary_out, "r")
     for line in report:
@@ -253,19 +233,11 @@ def check_HGVS(query):
     '''
     pass
 
-
 def query_HGVS(hgvs_id):
     dh = DataHandler()
-    if hgvs_id.startswith('NM'):
-        try:
-            prefix = re.search("NM_\d+.", hgvs_id).captures()[0]
-            chrom = dh.getChrom(hgvs_id)
-            vardf = dh.get_ClinVartable(prefix)
-            guides = aggGuides(dh)
-        except:
-            print("Be sure hgvs_id contains the prefix ex: NM_0000")
+    vardf = dh.get_ClinVartable(hgvs_id)
+    guides = aggGuides(dh)
     return dh, guides, vardf
-
 
 
 def queryGuides(query, qtype,outfolder):
@@ -279,7 +251,5 @@ def queryGuides(query, qtype,outfolder):
     return guides, vardf
 
 
-
-outfolder = '/home/thudson/edit_test_out/'
 guides, vardf = queryGuides(query, qtype, outfolder)
 
