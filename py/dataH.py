@@ -1,7 +1,10 @@
 import pandas as pd
 import regex as re
+import numpy as np
 from pyfaidx import Fasta
 from Bio.Seq import Seq
+from Bio import SeqUtils
+import math
 
 
 class Variant_DataHandler:
@@ -25,8 +28,10 @@ class Variant_DataHandler:
         self.hgvs_id = str()
         self.prefix = str() # prefix of hgvs_id/query term
         self.SNV_chr_pos = int() #chrom position of variant
-        self.NC_ref_allele = str()  # genomic ref seq
-        self.NC_alt_allele = str()  # genomic ref seq
+        self.NC_ref_allele = str()  # genomic ref allele
+        self.NC_alt_allele = str()  # genomic alt allele
+        self.NM_ref_allele = str()  # coding_seq ref allele
+        self.NM_alt_allele = str()  # coding_seq alt allele
 
     def get_HGVStable(self):
         '''
@@ -54,7 +59,7 @@ class Variant_DataHandler:
 
         return self.prefix, self.chrom
 
-    def get_ClinVartable(self, query, qtype):
+    def get_ClinVartable(self, query, qtype = 'HGVS'):
 
         if qtype == 'HGVS':
             hgvs_id = query
@@ -68,7 +73,13 @@ class Variant_DataHandler:
                     self.vardf = df
                     self.NC_ref_allele, self.NC_alt_allele = df.RefAlleleVCF.iloc[0], df.AltAlleleVCF.iloc[
                         0]
+
                     self.SNV_chr_pos = int(df.PositionVCF)
+                    if df['Coding Strand'].iloc[0] == '-':
+                        self.NM_ref_allele, self.NM_alt_allele = str(Seq(self.NC_ref_allele).complement()), str(Seq(self.NC_alt_allele).complement())
+                    else:
+                        self.NM_ref_allele, self.NM_alt_allele =self.NC_ref_allele, self.NC_alt_allele
+
 
                 except IndexError:
                     print(f"No HGVSs were found {hgvs_id} this search")
@@ -83,7 +94,7 @@ class Variant_DataHandler:
 class DataHandler(Variant_DataHandler):
     '''
     search hg38 fasta for guides given reqs
-    pam, len, targetable window and optionally scores
+    pam, len, targe table window and optionally scores
     '''
 
     def __init__(self):
@@ -92,12 +103,22 @@ class DataHandler(Variant_DataHandler):
         #paths
         self.hg38_path ="/groups/clinical/projects/clinical_shared_data/hg38/hg38.fa"
 
+        #search params
+        self.pam = str() # Ex. 'NGG'
+        self.pamISfirst = False #Boolean
+        self.win_size = list() # Ex. list [4,8]
+        self.scoring = None #Ex. True/False
+        self.guidelen = 20
+
+        #variables
+        self.search_window = 30
+        self.extracted_seq = str()
+
         #outputs
         self.guides = {}
+        self.BEguides = {}
 
         #tables and dictionaries
-
-
         self.doenchParams = [
             # pasted/typed table from PDF and converted to zero-based positions
             (1, 'G', -0.2753771), (2, 'A', -0.3238875), (2, 'C', 0.17212887), (3, 'C', -0.1006662),
@@ -119,10 +140,16 @@ class DataHandler(Variant_DataHandler):
             (23, 'AG', 0.64907554), (24, 'AG', -0.0773007), (24, 'CG', 0.28793562), (24, 'TG', -0.2216372),
             (26, 'GT', 0.11787758), (28, 'GG', -0.69774)]
 
+    def set_guide_search_params(self,pam, pamISfirst,win_size,scoring,guidelen):
+        self.pam = pam
+        self.pamISfirst = pamISfirst
+        self.win_size = win_size
+        self.scoring = scoring
+        self.guidelen = guidelen
+
 
     def calcDoenchScores(self, seq):
         """
-        Code reproduced following paper's methods section. Thanks to Daniel McPherson for fixing it.
         Input is a 30mer: 4bp 5', 20bp guide, 3bp PAM, 3bp 5'
         """
         intercept = 0.59763615
@@ -148,20 +175,256 @@ class DataHandler(Variant_DataHandler):
         score = int(100 * (1.0 / (1.0 + math.exp(-score))))
 
         return score
+    def get_AAconversion_type(self,codon1,codon2):
+        '''
+        codon1: codon of Alt allele to be changed by BE
+        codon2: codon after changed by BE
+        '''
+        aa_groups = [["G","A","V","L","I"],
+                     ["S","C","U","T","M"],
+                     ["F","Y","W"],
+                     ["H","K","R"],
+                     ["D","E","N","Q"]]
+        codon1,codon2 = Seq(codon1),Seq(codon2)
+        aa1, aa2 = codon1.translate(), codon2.translate()
+        mtype = ""
+        if aa1 == aa2:
+            mtype = 'Synonymous'
+            if codon1 == codon2:
+                mtype= 'Silent'
+        else:
+            if codon2 in ['TAA', 'TAG', 'TGA']:
+                mtype = 'Nonsense'
+            elif [aa_groups.index(x) for x in aa_groups if str(aa1) in x] == [aa_groups.index(x) for x in aa_groups if str(aa2) in x]:
+                mtype = 'Conservative'
+            else:
+                mtype = 'Non-conservative'
+        return mtype
 
-    def get_Guide(self, pam, win_size,score,guidelen=20):
+    def codingType(self):
+        '''
+        Determine if translated region
         '''
 
+        #genenomic_strand = self.vardf.strand.iloc[0]
+        exon_pos = re.search("([\d\\-\\+]*)\w+>\w+", self.hgvs_id).groups()[0] #Ex. 1541+1 or 141
+
+        if "-" in exon_pos or "+" in exon_pos:
+            if exon_pos.startswith("-") or exon_pos.startswith("+"):
+                coding_type = "5UTR" if exon_pos.startswith("-") else "3UTR"
+            else:
+                coding_type = 'intron'
+        else:
+            coding_type = "exon"
+
+        return coding_type, exon_pos
+
+    def getBE(self,guides,conversion,win_size):
+        '''
+        Finds codon level SNV and determines if the Base Editor Conversion can work
+        *TO DO : Check HGVS term to find protein change and then bypass this 'manual' conversion
+        '''
+
+        BE_guides = {'Chr':[],
+                     'Start':[],
+                     'End':[],
+                     'gRNA': [],
+                     'Pam' : [],
+                     'SNV Position': [],
+                     'Codon Position':[],
+                     'Strand':[],
+                     'Reference (Codon>AA)':[],
+                     'Alternate (Codon>AA)': [],
+                     'BE Converted (Codon>AA)': [],
+                     'Conversion Type':[],
+                     'Bystander': []
+                     }
+
+        f_delta = conversion # CT or AG
+        r_delta = [str(Seq(conversion[0]).complement()),str(Seq(conversion[1]).complement())] ## the complment so GA or TC
+
+        #Determine Reading frame
+        coding_type, exon_pos = self.codingType()
+        coding_strand = self.vardf['Coding Strand'].iloc[0]
+        guide_strand = guides['Strand'][0]
+        ref_allele = self.NM_ref_allele
+        alt_allele = self.NM_alt_allele
+
+        for i in range(len(guides['gRNA'])):
+            gseq = Seq(guides['gRNA'][i])
+            SNVpos = guides['SNV Position'][i]
+            target_bases = Seq(gseq[win_size[0] - 1:win_size[1] + 1])  # Bases inside 4-8 window
+
+            # Converted case
+            convert = str(f_delta[1] if alt_allele == f_delta[0] else r_delta[1])
+            bystander = target_bases.count(f_delta[0]) - 1
+
+            if coding_type != 'exon':
+                alt = ref_allele
+                ref = alt_allele
+
+            else:
+                ## In Exon
+                #Determine codon and tranlated product
+                coding_pos = round(int(exon_pos) /3,1) #find exon positiom
+                if guide_strand == coding_strand:
+                    rf = 2 if coding_pos - round(coding_pos) == 0 else 1 if (coding_pos - round(
+                        coding_pos)) == 0.5 else 0
+                else:
+                    rf = 0 if coding_pos - round(coding_pos) == 0 else 1 if (coding_pos - round(
+                        coding_pos)) == 0.5 else 2
+
+                codon_start = int(int(SNVpos) - rf)
+
+                #Alternative codon
+                alt_codon = Seq(gseq[codon_start:codon_start+3])
+                if coding_strand != guide_strand:
+                    alt_codon = alt_codon.reverse_complement()
+                aa_alt = alt_codon.translate()
+
+                #Reference codon
+                ref_codon = Seq("".join(alt_codon[x] if x != rf else ref_allele for x in [0,1,2]))
+                if coding_strand != guide_strand:
+                    ref_codon = Seq("".join(alt_codon[x] if 2-x != rf else ref_allele for x in [0, 1, 2]))
+                aa_ref = ref_codon.translate()
+
+                ##Converted allele
+                convert = f_delta[1] if alt_allele == f_delta[0] else r_delta[1]
+                new_codon = Seq("".join(alt_codon[x] if x != rf else convert for x in [0,1,2]))
+                if coding_strand != guide_strand:
+                    new_codon = Seq("".join(alt_codon[x] if 2-x != rf else convert for x in [0, 1, 2]))
+                aa_new = new_codon.translate()
+
+                mtype = self.get_AAconversion_type(codon1 = ref_codon, codon2 = new_codon)
+
+                ### If conversion leads to Ref change or REf change keep
+
+            if coding_type != 'exon' or mtype == 'Synonymous' or mtype == 'Silent' or mtype == 'Conservative':
+                    BE_guides['Chr'] += guides['Chr'][i],
+                    BE_guides['Start'] += guides['Start'][i],
+                    BE_guides['End'] += guides['End'][i],
+                    BE_guides['gRNA'] += [str(gseq)]
+                    BE_guides['Pam']+= [guides['Pam'][i]]
+                    BE_guides['SNV Position']+= [SNVpos]
+                    BE_guides['Strand'] += [guide_strand]
+                if coding_type != 'exon':
+                    BE_guides['Codon Position'] += ['NA']
+                    BE_guides['Reference (Codon>AA)'] += [ref]
+                    BE_guides['Alternate (Codon>AA)'] += [alt]
+                    BE_guides['BE Converted (Codon>AA)'] += [convert]
+                    BE_guides['Conversion Type'] += ['NA']
+                    BE_guides['Bystander'] += [bystander]
+                else:
+                    BE_guides['Codon Position'] += [codon_start]
+                    BE_guides['Reference (Codon>AA)'] += [f"{ref_codon}>{aa_ref}"]
+                    BE_guides['Alternate (Codon>AA)'] += [f"{alt_codon}>{aa_alt}"]
+                    BE_guides['BE Converted (Codon>AA)'] += [f"{new_codon}>{aa_new}"]
+                    BE_guides['Conversion Type'] += [mtype]
+                    BE_guides['Bystander'] += [bystander]
+
+        return BE_guides
+
+    def extract_Seqs(self, SNV_pos):
+        genes = Fasta(self.hg38_path)
+        self.extracted_seq = str(genes[f"chr{self.chrom}"][SNV_pos- self.search_window:SNV_pos + self.search_window])
+        # replace with ref allele with variant
+        self.extracted_seq = Seq(self.extracted_seq[0:self.search_window] + self.NC_alt_allele + self.extracted_seq[self.search_window + 1:])
+        return self.extracted_seq
+
+
+    def get_Guides(self, search_params, BEsearch_params = None):
+        '''
+                search_params = {'spCas9':('NGG', False,20,[4,8], 'Sp Cas9, SpCas9-HF1, eSpCas9 1.1'),
+                              'saCas9-20':('NNGRRT',False,20,[4,8],'Cas9 S. Aureus 21 base guide'),
+                              'CasX':('TTCN',True,20,[4,8],'Cas12e'),
+                              'Cpf1':('TTTV',True,23,[4,8],'TTT(A/C/G)-23bp - Cas12a (Cpf1)')
+                              }
+
+                BEsearch_params = {'spCas9-def': [('NGG', False, 20, [4, 8]), ('CT', 'BE1', 'BE2', 'BE3', 'HF-BE3', 'BE4', 'BE4max', 'BE4-Gam'), ('AG','ABE7.9', 'ABE7.10', 'ABEmax')]}
+
+        '''
+        guides_found = {}
+
+        for name, params, in search_params.items():
+            scoring = 'doench' if name == 'spCas9' else None
+            pam, pamISfirst, guidelen, win_size = params[0], params[1], params[2], params[3]
+
+            guides = self.get_guide_set(pam, pamISfirst, win_size, scoring, guidelen)
+            if len(guides['gRNA']) > 0:
+                guides_found[name] = guides
+
+
+        # if BE mode is on
+        if BEsearch_params != None:
+
+            BEguides_found = {}
+
+            for name, params, in BEsearch_params.items():
+                scoring = None
+                pam, pamISfirst, guidelen, win_size = params[0][0], params[0][1], params[0][2], params[0][3]
+                bguides = self.get_guide_set(pam, pamISfirst, win_size, scoring, guidelen)
+
+
+                BEguides = {}
+                # if guides are found sep neg and pos strand guides
+                if len(bguides.keys()) > 0:
+
+                    mat = np.matrix(list(bguides.values()))
+                    pos_guides, neg_guides = {}, {}
+
+                    # negative strand guides
+                    try:
+                        sel = np.where(mat[3] == '-')[1]
+                        k = list(bguides.keys())
+                        for i in range(len(k)):
+                            neg_guides[k[i]] = mat[i, sel].tolist()[0]
+                    except:
+                        pass
+
+                    # positive strand guides
+                    try:
+                        sel = np.where(mat[3] == '+')[1]
+                        k = list(bguides.keys())
+                        for i in range(len(k)):
+                            pos_guides[k[i]] = mat[i, sel].tolist()[0]
+                    except:
+                        pass
+
+                    #See if SNV can be BE edited
+                    for p in range(1,len(params[1:])+1):
+
+                        try:
+                            conversion = params[p][0]  # 'CT'
+                            name = ",".join(
+                                [n for n in params[p][1:]])  # ('BE1', 'BE2', 'BE3', 'HF-BE3', 'BE4', 'BE4max', 'BE4-Gam')
+
+                            if self.NC_alt_allele == conversion[0]:
+                                if len(pos_guides.keys()) > 0:
+                                    BEguides = self.getBE(pos_guides, conversion=conversion, win_size =win_size )
+
+                            if self.NC_alt_allele == str(Seq(conversion[0]).complement()):
+                                if len(neg_guides.keys()) > 0:
+                                    BEguides = self.getBE(neg_guides, conversion=conversion,win_size =win_size)
+
+                            if len(BEguides.keys()) > 0:
+                                BEguides_found[name] = BEguides
+                        except:
+                            pass
+            return guides_found, BEguides_found
+        else:
+            return guides_found
+
+
+    def get_guide_set(self,pam, pamISfirst, win_size, scoring, guidelen):
+        '''
         :param pam: pam seq ex:'NGG'
+        param pamISfirst: 5'or3'PAM ex:True/False
         :param win_size: list containing upper and lower limits of the targetable window. Ex:[4,8]
         :param score: Boolean Optional Deonch scoring used for spCas9 only
+        :param search window: intial search + or - SNV site
         :param guidelen: guide without pam length
         :return: Guide Dictionary
         '''
-        # pos, chrom = 80104857,17
-        # win_size,pam,score,guidelen = [4,8], 'NGG',True, 20
-        # hgvs_id = 'NM_000152.5(GAA):c.271G>T'
-
         guides = {
             'Chr': [],
             'Start': [],
@@ -170,69 +433,97 @@ class DataHandler(Variant_DataHandler):
             'gRNA': [],
             'Pam': [],
             'Score':[],
-            'SNV Position': []
-        }
+            'SNV Position': []}
 
-        genes = Fasta(self.hg38_path)
-        pam_len = len(pam)
-        site_len = guidelen + pam_len
-        search_window = 30  # intial search + or - SNV site
+        pamlen = len(pam)
+        sitelen = guidelen + pamlen
 
-        seq = str(genes[f"chr{self.chrom}"][self.SNV_chr_pos- search_window:self.SNV_chr_pos + search_window])
-        # replace with variant
-        seq = seq[0:search_window] + self.NC_alt_allele + seq[search_window+1 :]
+        if len(self.extracted_seq) == 0: #if a extracted sequence is not already set, set it
+            self.extracted_seq = self.extract_Seqs(SNV_pos=self.SNV_chr_pos)
 
-        seq = Seq(seq)
 
+        #Narrow based on guide params
         for strand in ["-","+"]:
-            found, slider = 0, 0
-            search_seq = seq if strand == "+" else seq.reverse_complement()
-            guide_temp = seq if strand == "+" else seq.reverse_complement()
+            search_seq = self.extracted_seq if strand == "+" else self.extracted_seq.reverse_complement()
+            guide_temp = search_seq
 
-            while found != -1:
-                pam_position = found + slider
-                pam_start = pam_position - 1
-                target_start = pam_start - guidelen
+            pam_index = SeqUtils.nt_search(str(search_seq), pam)[1:]
 
-                if target_start <= (search_window - win_size[0]) and target_start >= (search_window - win_size[1]):
+            for i in pam_index:
+                if pamISfirst == False:
 
-                    guide = guide_temp[target_start:target_start + site_len]
-                    if score == True:
-                        print(guide_temp[target_start - 3:target_start + site_len + 4])
-                        guides['Score'].append(self.calcDoenchScores(guide_temp[target_start - 3:target_start + site_len + 4]))
-                    else:
+                    target_start = i - guidelen
+
+                    if target_start <= (self.search_window - win_size[0]) and target_start >= (self.search_window - win_size[1]):
+
+                        guide = guide_temp[target_start:target_start + guidelen]
+
+                        if scoring == 'doench':
+                            guides['Score'].append(self.calcDoenchScores(guide_temp[target_start -3:target_start + sitelen + 4]))
+                        else:
+                            guides['Score'].append('-')
+
+
+                        if strand == '+':
+                            guides['Start'].append((self.SNV_chr_pos - self.search_window) + target_start)
+                            guides['End'].append((self.SNV_chr_pos - self.search_window) + target_start + sitelen)
+                        else:
+
+                            guides['End'].append(self.SNV_chr_pos + (self.search_window - target_start))
+                            guides['Start'].append(self.SNV_chr_pos + (self.search_window - target_start) - sitelen)
+
+                        guides['Chr'].append(self.chrom)
+                        guides['Strand'].append(strand)
+                        guides['Pam'].append(str(guide_temp[i:i+pamlen]))
+                        guides['gRNA'].append(str(guide))
+                        guides['SNV Position'].append(
+                            (self.search_window - target_start) if strand == "-" else (self.search_window - target_start) - 1)
+                else:
+                    target_start = i + sitelen
+
+                    if target_start <= (self.search_window + win_size[1]) and target_start >= (self.search_window + win_size[0]):
+
+                        guide = guide_temp[target_start - sitelen:target_start]
+
                         guides['Score'].append('-')
 
-                    if strand == '+':
-                        guides['Start'].append((self.SNV_chr_pos - search_window) + target_start)
-                        guides['End'].append((self.SNV_chr_pos - search_window) + target_start + site_len)
-                    else:
-
-                        guides['End'].append(self.SNV_chr_pos + (search_window - target_start))
-                        guides['Start'].append(self.SNV_chr_pos + (search_window - target_start) - site_len)
-
-                    guides['Chr'].append(self.chrom)
-                    guides['Strand'].append(strand)
-                    guides['Pam'].append(str(guide[20:]))
-                    guides['gRNA'].append(str(guide[0:20]))
-                    guides['SNV Position'].append(
-                        (search_window - target_start) if strand == "-" else (search_window - target_start) - 1)
-
-                search_seq = search_seq[found + 1:]
-                slider = (2 * search_window) - len(search_seq)
-                found = search_seq.find('GG')
-        self.guides = guides
-
-        return self.guides
+                        if strand == '+':
+                            start = (self.SNV_chr_pos - self.search_window) + i
+                            guides['Start'].append(start)
+                            guides['End'].append(start + target_start)
+                        else:
+                            end = (self.SNV_chr_pos - self.search_window) + i
+                            guides['End'].append(end)
+                            guides['Start'].append(start + target_start)
+                        guides['Chr'].append(17)
+                        guides['Strand'].append(strand)
+                        guides['Pam'].append(str(guide_temp[i:i + pamlen]))
+                        guides['gRNA'].append(str(guide))
+                        guides['SNV Position'].append(
+                            (target_start - self.search_window) if strand == "-" else (target_start - self.search_window) - 1)
+        return guides
 
 '''
  test
+search_params = {'spCas9':('NGG', False,20,[4,8], 'Sp Cas9, SpCas9-HF1, eSpCas9 1.1'),
+                              'saCas9-20':('NNGRRT',False,20,[4,8],'Cas9 S. Aureus 21 base guide'),
+                              'CasX':('TTCN',True,20,[4,8],'Cas12e'),
+                              'Cpf1':('TTTV',True,23,[4,8],'TTT(A/C/G)-23bp - Cas12a (Cpf1)')
+                              }
+
+BEsearch_params = {'spCas9-def': [('NGG', False, 20, [4, 8]), ('CT', 'BE1', 'BE2', 'BE3', 'HF-BE3', 'BE4', 'BE4max', 'BE4-Gam'), ('AG','ABE7.9', 'ABE7.10', 'ABEmax')]}
+hgvs_id = 'NM_000152.5(GAA):c.271G>T'
+qtype= 'HGVS'
 
 dh = DataHandler()
-clindf = dh.get_ClinVartable(hgvs_id = 'NM_000152.5(GAA):c.271G>T')
-guides = dh.get_Guide(pam = 'NGG', win_size = [4,8],score = True, guidelen = 20)
-for k,v in guides.items():
+clindf = dh.get_ClinVartable(hgvs_id,qtype )
+guides_found, BEguides_found = dh.get_Guides(search_params,BEsearch_params)
+for k,v in guides_found.items():
     print(k,v)
+for k,v in BEguides_found.items():
+    print(k,v)
+
+---output----
 
 Chr ['17', '17', '17', '17', '17', '17']
 Start [80104842, 80104841, 80104840, 80104839, 80104838, 80104852]
@@ -242,4 +533,20 @@ gRNA ['GGCGCAAACGAAGCGGCTGT', 'GCGCAAACGAAGCGGCTGTT', 'CGCAAACGAAGCGGCTGTTG', 'G
 Pam ['TGG', 'GGG', 'GGG', 'GGG', 'GGG', 'AGG']
 Score [6, 0, 7, 13, 7, 36]
 SNV Position [8, 7, 6, 5, 4, 4]
+
+
+{'ABE7.9,ABE7.10,ABEmax': {'Chr': ['17', '17', '17', '17', '17'],
+ 'Start': ['80104842', '80104841', '80104840', '80104839', '80104838'], 
+ 'End': ['80104865', '80104864', '80104863', '80104862', '80104861'], 
+ 'gRNA': ['GGCGCAAACGAAGCGGCTGT', 'GCGCAAACGAAGCGGCTGTT', 'CGCAAACGAAGCGGCTGTTG', 'GCAAACGAAGCGGCTGTTGG', 'CAAACGAAGCGGCTGTTGGG'],
+  'Pam': ['TGG', 'GGG', 'GGG', 'GGG', 'GGG'],
+   'SNV Position': ['8', '7', '6', '5', '4'],
+    'Codon Position': [6, 5, 4, 3, 2], 
+    'Strand': ['-', '-', '-', '-', '-'], 
+    'Reference (Codon>AA)': ['GTT>V', 'GTT>V', 'GTT>V', 'GTT>V', 'GTT>V'],
+     'Alternate (Codon>AA)': ['GTT>V', 'GTT>V', 'GTT>V', 'GTT>V', 'GTT>V'], 
+     'BE Converted (Codon>AA)': ['CTT>L', 'CTT>L', 'CTT>L', 'CTT>L', 'CTT>L'], 
+     'Conversion Type': ['Conservative', 'Conservative', 'Conservative', 'Conservative', 'Conservative'],
+      'Bystander': [2, 2, 3, 3, 2]}}
+
 '''
