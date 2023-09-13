@@ -9,7 +9,7 @@ import gzip
 import regex as re
 
 
-datadir = "/groups/clinical/projects/editability/tables/"
+#datadir = "/groups/clinical/projects/editability/tables/"
 
 class Validator:
     '''
@@ -21,18 +21,24 @@ class Validator:
 
     def __init__(self, datadir):
 
-        # paths
-        self.datadir = datadir
-        self.clinvar_folder = f"{self.datadir}clinvar/"  # folder containing clinvar raw and cleaned output
-        self.clinvar_summary = f"{self.clinvar_folder}variant_summary.txt.gz"  # raw clinvar table
-        self.gencode_path = f"{self.datadir}/gencode/GENEonly_cleaned_genecode_annotation.csv"
-        self.HPApath = f"{self.datadir}HPA/proteinatlas.tsv"
-        self.HGVSlookup_path = f"{self.clinvar_folder}HGVSlookup.csv"
-        self.lastUpdate_file = f"{self.clinvar_folder}clinvar_lastUpdate.txt"
+        # database paths
+        self.raw_tables = f"{datadir}/raw_tables/"
+        self.clinvar_summary = f"{self.raw_tables}variant_summary.txt.gz"  # raw clinvar table
+        self.gencode_path = f"{self.raw_tables}gencode/GENEonly_cleaned_genecode_annotation.csv" #Genecode Table
+        self.HPApath = f"{self.raw_tables}HPA/proteinatlas.tsv"
+
+        self.processed_tables = f"{datadir}/processed_tables/"
+        self.HGVSlookup_path = f"{self.processed_tables}HGVSlookup.csv" #Chrom to refID key table
+        self.lastUpdate_file = f"{self.processed_tables}clinvar_lastUpdate.txt"
+
+
+        #user input
+        self.input_df = pd.DataFrame()
 
         #variables
-        self.chroms = ['7', '15', '11', '14', '6', '2', '20', '10', '19', '16', '22', '12',
-              '1', '8', '9', '13', '21', '5', '4', '17', '18', '3', 'MT', 'Y', 'X']
+        self.chroms = [ '18', '3', 'MT', 'Y', 'X']
+        self.possible_queryTypes = ["coordinates","hgvs","phenotype"]
+        self.possible_editors = ["all", "spCas9","baseeditor"]
 
     def extractOMIM(self,vdf):
         '''
@@ -115,7 +121,7 @@ class Validator:
 
         cols = [allcols[i] for i in range(34) if i not in to_drop]
         for ch in self.chroms:
-            out_fname = f"{self.clinvar_folder}{ch}_variant.txt"
+            out_fname = f"{self.processed_tables}{ch}_variant.txt"
             lines = []
             for line in contents:
                 line = line.split("\t")
@@ -176,8 +182,9 @@ class Validator:
         hpa_og = hpa_og[cols]
 
         for ch in self.chroms:
+            print(ch)
             #import cleaned clinvar
-            vdf = pd.read_csv(f"{self.clinvar_folder}{ch}_variant.txt")
+            vdf = pd.read_csv(f"{self.processed_tables}{ch}_variant.txt")
             hpa = hpa_og[hpa_og["Chromosome"] == str(ch)]
             vdf.Gene_ID = [str(x).split(".")[0] for x in vdf.Gene_ID]
             vdf = vdf.rename(columns = {'Gene_ID': 'Ensembl',"strand": "Coding Strand"})
@@ -208,8 +215,8 @@ class Validator:
             df['Gene synonym'] = gene_syns
             df = df.drop(columns =['Gene_Name','Gene'])
 
-            df.to_csv(f"{self.clinvar_folder}{ch}_variant.txt", index=None)
-            return df
+            df.to_csv(f'{self.processed_tables}{ch}_variant.txt', index=False)
+        return df
 
 
 
@@ -219,7 +226,7 @@ class Validator:
         '''
         names, chrs = [], []
         for ch in self.chroms:
-            clin = pd.read_csv(f"{self.clinvar_folder}{ch}_variant.txt")
+            clin = pd.read_csv(f"{self.processed_tables}{ch}_variant.txt")
             names += list(clin['HGVS_ID'])
             chrs += [ch for i in range(len(clin['HGVS_ID']))]
 
@@ -227,7 +234,7 @@ class Validator:
         new_HGVS = [x.split(".")[0] for x in df['HGVS']]
         df = pd.DataFrame({"HGVS": new_HGVS, "Chr": chrs}).drop_duplicates()
         df = df.loc[df["HGVS"].str.startswith("NM")]
-        out_file = f"{self.clinvar_folder}HGVSlookup.csv"
+        out_file = f"{self.processed_tables}HGVSlookup.csv"
         df.to_csv(out_file, index=None)
 
 
@@ -267,4 +274,28 @@ class Validator:
         else:
             print('You are using the latest clinvar data')
             print(f"Last updated {lastdate}")
+
+    def validate_input_file(self, input_file):
+        cols = ["Query", "Type","Editor"]
+        try:
+            self.input_df = pd.read_csv(input_file,usecols= cols)
+        except:
+            raise FileNotFoundError(f"There was was a problem reading {input_file}. \n"
+                                    f"Be sure this is a csv file with the column headers {cols}")
+
+        for term in self.input_df['Type'].unique():
+            if term not in self.possible_queryTypes:
+                raise ValueError(f"Query type must be either {self.possible_queryTypes}")
+
+        for term in self.input_df['Editor'].unique():
+            if term not in self.possible_editors:
+                raise ValueError(f"Editor type must be either {self.possible_editors}")
+
+
+        return self.input_df
+
+    def validate_query_terms(self):
+        #TODO Validated HGVS terms or validate
+        pass
+
 
