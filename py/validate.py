@@ -36,7 +36,8 @@ class Validator:
         self.input_df = pd.DataFrame()
 
         #variables
-        self.chroms = [ '18', '3', 'MT', 'Y', 'X']
+        self.chroms =  ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12',
+                         '13', '14', '15', '16', '17', '18', '19', '20', '21', '22','MT', 'Y', 'X']
         self.possible_queryTypes = ["coordinates","hgvs","phenotype"]
         self.possible_editors = ["all", "spCas9","baseeditor"]
 
@@ -120,8 +121,10 @@ class Validator:
                    "SubmitterCategories", "VariationID", "PositionVCF", "RefAlleleVCF", "AltAlleleVCF"]
 
         cols = [allcols[i] for i in range(34) if i not in to_drop]
+        print('total_variants',len(contents))
+
         for ch in self.chroms:
-            out_fname = f"{self.processed_tables}{ch}_variant.txt"
+            out_fname = f"{val.processed_tables}{ch}_variant.txt"
             lines = []
             for line in contents:
                 line = line.split("\t")
@@ -132,6 +135,7 @@ class Validator:
                             if len(line[-2]) < 2 and line[-2] != 'na':  # remove Alt allele that are less than 2bp
                                 line = [line[i] for i in range(34) if i not in to_drop]
                                 lines.append(line)
+
 
             vdf = pd.DataFrame(lines, columns = cols)
             vdf['HGNC_ID'] = vdf['HGNC_ID'].apply(lambda x: x.replace("HGNC:",""))
@@ -182,7 +186,7 @@ class Validator:
         hpa_og = hpa_og[cols]
 
         for ch in self.chroms:
-            print(ch)
+
             #import cleaned clinvar
             vdf = pd.read_csv(f"{self.processed_tables}{ch}_variant.txt")
             hpa = hpa_og[hpa_og["Chromosome"] == str(ch)]
@@ -294,8 +298,43 @@ class Validator:
 
         return self.input_df
 
-    def validate_query_terms(self):
-        #TODO Validated HGVS terms or validate
-        pass
 
+
+def create_mutome():
+    val = Validator(datadir)
+    tot = 0
+    path = 0
+    orgs = 0
+    for ch in val.chroms:
+        # import cleaned clinvar
+        vdf = pd.read_csv(f"{val.processed_tables}{ch}_variant.txt")
+        tot += len(vdf['ClinicalSign'])
+        temp = vdf[vdf['ClinicalSign'].str.contains('Pathogenic',na=False)]
+        path+=len(temp['ClinicalSign'])
+        temp = temp[temp['RNA tissue cell type enrichment'].str.contains('Brain|Liver|Lung',na = False,regex = True)]
+        orgs += len(temp['ClinicalSign'])
+        if ch == val.chroms[0]:
+            mutome = pd.DataFrame(temp)
+        else:
+            mutome = pd.concat([mutome,temp])
+
+mutome.to_csv('/home/thudson/edit_test_out/mutome.csv',index = False)
+
+mutome = pd.read_csv('/home/thudson/edit_test_out/mutome.csv')
+genes=pd.read_csv("/home/thudson/edit_test_out/PanelApp IEM Panels - Likely IEM.csv")
+genes = list(genes['Gene'])
+IEM = mutome.loc[mutome['GeneSymbol'].isin(genes)]
+
+IEM.to_csv('/home/thudson/edit_test_out/IEM.csv',index = False)
+variants = ['ACADM','ACADVL','ACAT1','ASS1','BCKDHA','BCKDHB','BTD','CPS1','GCDH','HLCS','IVD','PCCA','PCCB']
+
+variants = ['NM_000016.6(ACADM):c.727C>T (p.Arg243Ter),'
+            'NM_000016.6(ACADM):c.1085G>A (p.Gly362Glu)',
+            'NM_000016.6(ACADM):c.985A>C (p.Lys329Gln)',
+            'NM_000016.6(ACADM):c.216+2T>G',
+            'NM_000016.6(ACADM):c.157C>T (p.Arg53Cys)',
+'NM_002225.5(IVD):c.1175G>A (p.Arg392His)',
+            'NM_000159.4(GCDH):c.1244-2A>C',
+'NM_183050.4(BCKDHB):c.331C>T (p.Arg111Ter)']
+IEM = IEM.loc[IEM['GeneSymbol'].isin(variants)]
 

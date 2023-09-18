@@ -22,7 +22,7 @@ class Fetch_Guides:
         '''
         :param queries: list of queries
         :param qtype: 'hgvs' or 'coord' #coord is not function yet
-        :param editor: 'all', 'custom'(custom must contain kwargs, see below), or one of the editor choices
+        :param editor: 'all', 'custom'(custom must contain kwargs, see below), or selected list or str() of the editor choices
         :param BEmode: 'off','default','all', or select BE editor
         :param kwargs:
 
@@ -39,17 +39,17 @@ class Fetch_Guides:
 
         ##---------------libraries and keys--------------------##
         # [editor]: pam, pamISfirst, win_size, guidelen, scoring, notes/altnames
-        self.editor_choices = ['spCas9', 'saCas9-20', 'saCas9-21', 'spG', 'SpRY-HighE', 'LbCpf1', 'scCas9', 'stCas9', 'iSpyMacCas9', 'CasX', 'Cpf1']
+        self.editor_choices = ['spCas9', 'saCas9', 'spG', 'SpRY-HighE', 'LbCpf1',
+                               'scCas9', 'stCas9', 'iSpyMacCas9', 'CasX', 'Cpf1']
 
         self.BE_choices = ['BE1', 'BE2', 'BE3', 'HF-BE3', 'BE4', 'BE4max', 'BE4-Gam', 'YE1-BE3', 'EE-BE3', 'YE2-BE3',
-                     'YEE-BE3,VQR-BE3,VRER-BE3,SaBE3,SaBE4,SaBE4-Gam,Sa(KKH)-BE3,Target-AID,Target-AID-NG,xBE3,eA3A-BE3,'
+                     'YEE-BE3,VQR-BE3,VRER-BE3,SaBE3,SaBE4,SaBE4-Gam,Sa(KKH)-BE3,xBE3,eA3A-BE3,'
                      'A3A-BE3,BE-PLUS,ABE7.9,ABE7.10,xABE,ABESa,VQR-ABE,VRER-ABE,Sa(KKH)-ABE']
 
 
 
         self.editor_pamlib = {'spCas9':('NGG', False,20,[4,8], 'Sp Cas9, SpCas9-HF1, eSpCas9 1.1'),
-                              'saCas9-20':('NNGRRT',False,20,[4,8],'Cas9 S. Aureus 21 base guide'),
-                              'saCas9-21': ('NNGRRT', False, 21,[4,8], 'Cas9 S. Aureus 21 base guide'),
+                              'saCas9': ('NNGRRT', False, 21,[4,8], 'Cas9 S. Aureus 21 base guide'),
                               'spG':('NGN',False,20,[4,8],'20bp-NGN - SpG'),
                               'SpRY-HighE': ('NRN',False,20,[4,8],'High Efficiency Pam'),
                               'LbCpf1': ('TTTA', True, 23,[4,8], 'LbCpf1'),
@@ -71,7 +71,8 @@ class Fetch_Guides:
 
 
         #---------------Ouputs--------------------------##
-        self.all_clininfo = pd.DataFrame()
+        self.all_variant = pd.DataFrame()
+        self.all_gene = pd.DataFrame()
         self.all_guides = {}
         self.all_BE = {}
 
@@ -85,6 +86,11 @@ class Fetch_Guides:
         # search for all guides
         if 'all' == self.editor:
             self.search_params = self.editor_pamlib
+
+        if type(self.editor) is list:
+            self.search_params = {}
+            for e in self.editor:
+                self.search_params[e] = self.editor_pamlib[e]
 
 
 
@@ -141,14 +147,14 @@ class Fetch_Guides:
 
     def set_BE_params(self):
 
-        BE_lib = {'spCas9-def': [('NGG', False, 20,[4,8]),('CT','BE1','BE2', 'BE3', 'HF-BE3', 'BE4', 'BE4max', 'BE4-Gam'),('AG','ABE7.9','ABE7.10','ABEmax')],
+        BE_lib = {'spCas9-def': [('NGG', False, 20,[4,8]),('CT','BE3', 'BE4', 'BE4max', 'BE4-Gam'),('AG','ABE7.9','ABE7.10','ABEmax')],
                        'spCas9-YE': [('NGG', False, 20, [5, 6]),('CT','YE1-BE3','EE-BE3', 'YE2-BE3','YEE-BE3')],
                        'spCas9-VQR': [('NGA', False, 20, [4, 8]), ('CT','VQR-BE3'),('AG','VQR-ABE')],
                        'spCas9-VRER': [('NGCG', False, 20, [4, 8]), ('CT','VRER-BE3'),('AG','VRER-ABE')],
                        'saCas9-KKH': [('NNGRRT', False, 20, [3, 12]),('CT','SaBE3','SaBE4','SaBE4-Gam,Sa(KKH)-BE3'),('AG','ABESa','Sa(KKH)-ABE')]}
 
         if self.BEmode == 'default':
-            self.BE_search_params = BE_lib['spCas9-def']
+            self.BE_search_params = {'spCas9-def':BE_lib['spCas9-def']}
 
         if self.BEmode =='all':
             self.BE_search_params = BE_lib
@@ -165,35 +171,65 @@ class Fetch_Guides:
 
 
     def run_FetchGuides(self):
+        genes = []
+        for query in self.queries:
+            dh = DataHandler()
+            #clininfo = dh.get_ClinVartable(queries[3], qtype)
+            clininfo = dh.get_ClinVartable(query, self.qtype)
 
-            for query in self.queries:
-                dh = DataHandler()
-                #clininfo = dh.get_ClinVartable(queries[1], qtype)
-                clininfo = dh.get_ClinVartable(query, self.qtype)
-
-                try: # If query found in database search guides
-                    variant_pos = dh.vardf["PositionVCF"].iloc[0]
-                    if self.BEmode != 'off':
-                        guides, BEguides = dh.get_Guides(self.search_params, self.BE_search_params)
-                        if len(BEguides.keys()) > 0:
-                            self.all_BE[query] = BEguides
-
-                    else:
-                        guides = dh.get_Guides(self.search_params)
-
-                    if len(guides.keys()) > 0:
-                        self.all_guides[query] = guides
-
-                        if len(self.all_clininfo.index) == 0:
-                            self.all_clininfo = clininfo
+            try: # If query found in database search guides
+                variant_pos = dh.vardf["PositionVCF"].iloc[0]
+                if self.BEmode != 'off':
+                    guides, BEguides = dh.get_Guides(self.search_params, self.BE_search_params)
+                    #guides, BEguides = dh.get_Guides(fg.search_params, fg.BE_search_params)
+                    if len(BEguides['gRNA']) > 0:
+                        if len(self.all_BE.keys()) == 0:
+                            for k, v in BEguides.items():
+                                self.all_BE[k] = v
                         else:
-                            self.all_clininfo = pd.concat([self.all_clininfo, clininfo])
+
+                            for k, v in BEguides.items():
+                                self.all_BE[k] += v
+
+                else:
+                    guides = dh.get_Guides(self.search_params)
+
+                if len(guides['gRNA']) > 0:
+                    if len(self.all_guides.keys()) == 0:
+                        for k, v in guides.items():
+                            self.all_guides[k] = v
 
                     else:
-                        print(f"No guides found for the query {query}")
-                except:
-                    pass
-            return self.all_clininfo, self.all_guides, self.all_BE
+
+                        for k, v in guides.items():
+                            self.all_guides[k] += v
+                    print((guides['gRNA']), ' guides found for ', query)
+
+                    clininfo = clininfo[['HGVS_ID', 'GeneSymbol', 'Chr', 'Start', 'End', 'Coding Strand', 'AltAlleleVCF', 'RefAlleleVCF','AlleleID', 'Type', 'GeneID', 'HGNC_ID', 'ClinicalSign',
+                                'ClinSigSimple', 'nsv/esv (dbVar)', 'RCVaccession', 'PhenoList', 'OriginSimple', 'ChrAccession', 'VariationID', 'PositionVCF','OMIM']]
+
+
+                    if len(self.all_variant.index) == 0:
+                        self.all_variant= clininfo
+
+                    else:
+                        self.all_variant = pd.concat([self.all_variant, clininfo])
+
+
+                        if clininfo['GeneSymbol'].iloc[0] not in genes:
+                            geneinfo = clininfo[['GeneSymbol', 'Chr', 'Start', 'End', 'Coding Strand', 'Biological process',
+                                 'Disease involvement', 'GeneID', 'OMIM', 'IDs', 'Gene_Type', 'Molecular function',
+                                 'Ensembl', 'Gene synonym',
+                                 'Gene description', 'RNA tissue specific nTPM', 'RNA tissue distribution',
+                                 'RNA tissue cell type enrichment', 'RNA single cell type specific nTPM',
+                                 'RNA tissue specific nTPM.1']]
+                            self.all_gene = pd.concat([self.all_gene, clininfo])
+                            genes.append(geneinfo['GeneSymbol'].iloc[0])
+                else:
+                    print(f"No guides found for the query {query}")
+            except:
+                pass
+        return self.all_variant,self.all_gene, self.all_guides, self.all_BE
 
 
 
@@ -221,8 +257,8 @@ editor = 'all'
 
 # Get query items
 queries= [h for h in queries if '>' in str(h)]
-fg = Fetch_Guides([queries[1]],qtype,editor,BEmode='all')
-all_clin_info, all_guides, all_BE = fg.run_FetchGuides()
+fg = Fetch_Guides([queries,qtype,editor,BEmode='all')
+all_clin_info, all_gene, all_guides, all_BE = fg.run_FetchGuides()
 
 '''
 

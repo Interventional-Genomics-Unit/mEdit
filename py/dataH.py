@@ -74,7 +74,7 @@ class Variant_DataHandler:
                     self.NC_ref_allele, self.NC_alt_allele = df.RefAlleleVCF.iloc[0], df.AltAlleleVCF.iloc[
                         0]
 
-                    self.SNV_chr_pos = int(df.PositionVCF)
+                    self.SNV_chr_pos = int(df.PositionVCF.iloc[0])
                     if df['Coding Strand'].iloc[0] == '-':
                         self.NM_ref_allele, self.NM_alt_allele = str(Seq(self.NC_ref_allele).complement()), str(Seq(self.NC_alt_allele).complement())
                     else:
@@ -115,8 +115,28 @@ class DataHandler(Variant_DataHandler):
         self.extracted_seq = str()
 
         #outputs
-        self.guides = {}
-        self.BEguides = {}
+        self.guides_found ={'HGVS_ID':[],'Name': [],'Chr': [],
+                            'Start': [],'End': [],
+                            'Strand': [],'gRNA': [],
+                            'Pam': [],'Score':[],
+                            'SNV Position': []}
+
+        self.BEguides = {'HGVS_ID':[],
+                         'Name':[],
+                         'Chr':[],
+                         'Start':[],
+                         'End':[],
+                         'gRNA': [],
+                         'Pam' : [],
+                         'SNV Position': [],
+                         'Codon Position':[],
+                         'Strand':[],
+                         'Reference (Codon>AA)':[],
+                         'Alternate (Codon>AA)': [],
+                         'BE Converted (Codon>AA)': [],
+                         'Conversion Type':[],
+                         'Bystander': []
+                         }
 
         #tables and dictionaries
         self.doenchParams = [
@@ -223,9 +243,12 @@ class DataHandler(Variant_DataHandler):
         '''
         Finds codon level SNV and determines if the Base Editor Conversion can work
         *TO DO : Check HGVS term to find protein change and then bypass this 'manual' conversion
+
         '''
 
-        BE_guides = {'Chr':[],
+        BE_guides = {'HGVS_ID':[],
+                     'Name':[],
+                     'Chr':[],
                      'Start':[],
                      'End':[],
                      'gRNA': [],
@@ -249,8 +272,10 @@ class DataHandler(Variant_DataHandler):
         guide_strand = guides['Strand'][0]
         ref_allele = self.NM_ref_allele
         alt_allele = self.NM_alt_allele
+        mtype = ''
 
         for i in range(len(guides['gRNA'])):
+
             gseq = Seq(guides['gRNA'][i])
             SNVpos = guides['SNV Position'][i]
             target_bases = Seq(gseq[win_size[0] - 1:win_size[1] + 1])  # Bases inside 4-8 window
@@ -260,8 +285,8 @@ class DataHandler(Variant_DataHandler):
             bystander = target_bases.count(f_delta[0]) - 1
 
             if coding_type != 'exon':
-                alt = ref_allele
-                ref = alt_allele
+                alt = alt_allele
+                ref = ref_allele
 
             else:
                 ## In Exon
@@ -300,13 +325,16 @@ class DataHandler(Variant_DataHandler):
                 ### If conversion leads to Ref change or REf change keep
 
             if coding_type != 'exon' or mtype == 'Synonymous' or mtype == 'Silent' or mtype == 'Conservative':
-                    BE_guides['Chr'] += guides['Chr'][i],
-                    BE_guides['Start'] += guides['Start'][i],
-                    BE_guides['End'] += guides['End'][i],
-                    BE_guides['gRNA'] += [str(gseq)]
-                    BE_guides['Pam']+= [guides['Pam'][i]]
-                    BE_guides['SNV Position']+= [SNVpos]
-                    BE_guides['Strand'] += [guide_strand]
+                BE_guides['HGVS_ID'] += [self.hgvs_id],
+                BE_guides['Name'] += guides['Name'][i],
+                BE_guides['Chr'] += guides['Chr'][i],
+                BE_guides['Start'] += guides['Start'][i],
+                BE_guides['End'] += guides['End'][i],
+                BE_guides['gRNA'] += [str(gseq)]
+                BE_guides['Pam']+= [guides['Pam'][i]]
+                BE_guides['SNV Position']+= [SNVpos]
+                BE_guides['Strand'] += [guide_strand]
+
                 if coding_type != 'exon':
                     BE_guides['Codon Position'] += ['NA']
                     BE_guides['Reference (Codon>AA)'] += [ref]
@@ -331,6 +359,18 @@ class DataHandler(Variant_DataHandler):
         self.extracted_seq = Seq(self.extracted_seq[0:self.search_window] + self.NC_alt_allele + self.extracted_seq[self.search_window + 1:])
         return self.extracted_seq
 
+    def add_guides(self,guides):
+
+        for k,v in guides.items():
+            self.guides_found[k] += v
+
+        return self.guides_found
+    def add_BEguides(self,beguides):
+
+        for k,v in beguides.items():
+            self.BEguides[k] += v
+
+        return self.BEguides
 
     def get_Guides(self, search_params, BEsearch_params = None):
         '''
@@ -340,41 +380,42 @@ class DataHandler(Variant_DataHandler):
                               'Cpf1':('TTTV',True,23,[4,8],'TTT(A/C/G)-23bp - Cas12a (Cpf1)')
                               }
 
-                BEsearch_params = {'spCas9-def': [('NGG', False, 20, [4, 8]), ('CT', 'BE1', 'BE2', 'BE3', 'HF-BE3', 'BE4', 'BE4max', 'BE4-Gam'), ('AG','ABE7.9', 'ABE7.10', 'ABEmax')]}
+                BEsearch_params = {'spCas9-def': [('NGG', False, 20, [4, 8]),
+                ('CT', 'BE3', 'BE4', 'BE4max', 'BE4-Gam'), ('AG', 'ABE7.9', 'ABE7.10', 'ABEmax')]}
 
         '''
-        guides_found = {}
 
         for name, params, in search_params.items():
             scoring = 'doench' if name == 'spCas9' else None
             pam, pamISfirst, guidelen, win_size = params[0], params[1], params[2], params[3]
 
-            guides = self.get_guide_set(pam, pamISfirst, win_size, scoring, guidelen)
+            guides = self.get_guide_set(name,pam, pamISfirst, win_size, scoring, guidelen)
+
             if len(guides['gRNA']) > 0:
-                guides_found[name] = guides
+
+                self.add_guides(guides)
 
 
         # if BE mode is on
         if BEsearch_params != None:
 
-            BEguides_found = {}
-
-            for name, params, in BEsearch_params.items():
+            ct = 1
+            for k, params, in BEsearch_params.items():
+                name = ",".join(
+                    [n for n in params[ct][1:]])  # ('BE3', 'HF-BE3', 'BE4', 'BE4max')
                 scoring = None
                 pam, pamISfirst, guidelen, win_size = params[0][0], params[0][1], params[0][2], params[0][3]
-                bguides = self.get_guide_set(pam, pamISfirst, win_size, scoring, guidelen)
-
-
-                BEguides = {}
+                bguides = self.get_guide_set(name,pam, pamISfirst, win_size, scoring, guidelen)
+                ct+=1
                 # if guides are found sep neg and pos strand guides
-                if len(bguides.keys()) > 0:
+                if len(bguides['gRNA']) > 0:
 
                     mat = np.matrix(list(bguides.values()))
                     pos_guides, neg_guides = {}, {}
 
                     # negative strand guides
                     try:
-                        sel = np.where(mat[3] == '-')[1]
+                        sel = np.where(mat[list(bguides.keys()).index('Strand')] == '-')[1]
                         k = list(bguides.keys())
                         for i in range(len(k)):
                             neg_guides[k[i]] = mat[i, sel].tolist()[0]
@@ -383,7 +424,7 @@ class DataHandler(Variant_DataHandler):
 
                     # positive strand guides
                     try:
-                        sel = np.where(mat[3] == '+')[1]
+                        sel = np.where(mat[list(bguides.keys()).index('Strand')] == '+')[1]
                         k = list(bguides.keys())
                         for i in range(len(k)):
                             pos_guides[k[i]] = mat[i, sel].tolist()[0]
@@ -400,22 +441,25 @@ class DataHandler(Variant_DataHandler):
 
                             if self.NC_alt_allele == conversion[0]:
                                 if len(pos_guides.keys()) > 0:
-                                    BEguides = self.getBE(pos_guides, conversion=conversion, win_size =win_size )
+                                    beguides = self.getBE(guides=pos_guides, conversion=conversion, win_size =win_size )
 
                             if self.NC_alt_allele == str(Seq(conversion[0]).complement()):
                                 if len(neg_guides.keys()) > 0:
-                                    BEguides = self.getBE(neg_guides, conversion=conversion,win_size =win_size)
+                                    beguides = self.getBE(neg_guides, conversion=conversion,win_size =win_size)
 
-                            if len(BEguides.keys()) > 0:
-                                BEguides_found[name] = BEguides
+
+                            if len(beguides['gRNA']) > 0:
+                                self.add_BEguides(beguides)
                         except:
                             pass
-            return guides_found, BEguides_found
+
+
+            return self.guides_found, self.BEguides
         else:
-            return guides_found
+            return self.guides_found
 
 
-    def get_guide_set(self,pam, pamISfirst, win_size, scoring, guidelen):
+    def get_guide_set(self,name,pam, pamISfirst, win_size, scoring, guidelen):
         '''
         :param pam: pam seq ex:'NGG'
         param pamISfirst: 5'or3'PAM ex:True/False
@@ -426,6 +470,8 @@ class DataHandler(Variant_DataHandler):
         :return: Guide Dictionary
         '''
         guides = {
+            'HGVS_ID': [],
+            'Name': [],
             'Chr': [],
             'Start': [],
             'End': [],
@@ -443,6 +489,7 @@ class DataHandler(Variant_DataHandler):
 
 
         #Narrow based on guide params
+        cnt = 0
         for strand in ["-","+"]:
             search_seq = self.extracted_seq if strand == "+" else self.extracted_seq.reverse_complement()
             guide_temp = search_seq
@@ -465,14 +512,17 @@ class DataHandler(Variant_DataHandler):
 
 
                         if strand == '+':
-                            guides['Start'].append((self.SNV_chr_pos - self.search_window) + target_start)
-                            guides['End'].append((self.SNV_chr_pos - self.search_window) + target_start + sitelen)
+                            start = (self.SNV_chr_pos - self.search_window) + target_start
+                            end = (self.SNV_chr_pos - self.search_window) + target_start + sitelen
+
                         else:
-
-                            guides['End'].append(self.SNV_chr_pos + (self.search_window - target_start))
-                            guides['Start'].append(self.SNV_chr_pos + (self.search_window - target_start) - sitelen)
-
+                            end = self.SNV_chr_pos + (self.search_window - target_start)
+                            start = self.SNV_chr_pos + (self.search_window - target_start) - sitelen
+                        guides['HGVS_ID'].append(self.hgvs_id),
+                        guides['Name'].append(f'{name}_{self.chrom}{start}{strand}')
                         guides['Chr'].append(self.chrom)
+                        guides['Start'].append(start)
+                        guides['End'].append(end)
                         guides['Strand'].append(strand)
                         guides['Pam'].append(str(guide_temp[i:i+pamlen]))
                         guides['gRNA'].append(str(guide))
@@ -489,19 +539,22 @@ class DataHandler(Variant_DataHandler):
 
                         if strand == '+':
                             start = (self.SNV_chr_pos - self.search_window) + i
-                            guides['Start'].append(start)
-                            guides['End'].append(start + target_start)
+                            end = start + target_start
                         else:
                             end = (self.SNV_chr_pos - self.search_window) + i
-                            guides['End'].append(end)
-                            guides['Start'].append(start + target_start)
-                        guides['Chr'].append(17)
+                            start = end + target_start
+                        guides['HGVS_ID'].append(self.hgvs_id),
+                        guides['Name'].append(f'{name}_{self.chrom}{start}{strand}')
+                        guides['Chr'].append(self.chrom)
+                        guides['End'].append(end)
+                        guides['Start'].append(end)
                         guides['Strand'].append(strand)
                         guides['Pam'].append(str(guide_temp[i:i + pamlen]))
                         guides['gRNA'].append(str(guide))
                         guides['SNV Position'].append(
                             (target_start - self.search_window) if strand == "-" else (target_start - self.search_window) - 1)
         return guides
+
 
 '''
  test
@@ -511,13 +564,14 @@ search_params = {'spCas9':('NGG', False,20,[4,8], 'Sp Cas9, SpCas9-HF1, eSpCas9 
                               'Cpf1':('TTTV',True,23,[4,8],'TTT(A/C/G)-23bp - Cas12a (Cpf1)')
                               }
 
-BEsearch_params = {'spCas9-def': [('NGG', False, 20, [4, 8]), ('CT', 'BE1', 'BE2', 'BE3', 'HF-BE3', 'BE4', 'BE4max', 'BE4-Gam'), ('AG','ABE7.9', 'ABE7.10', 'ABEmax')]}
+BEsearch_params = {'spCas9-def': [('NGG', False, 20, [4, 8]), ('CT', 'BE1', 'BE2', 'BE3', 'HF-BE3', 'BE4', 'BE4max', 'BE4-Gam'),
+ ('AG','ABE7.9', 'ABE7.10', 'ABEmax')]}
 hgvs_id = 'NM_000152.5(GAA):c.271G>T'
 qtype= 'HGVS'
 
 dh = DataHandler()
-clindf = dh.get_ClinVartable(hgvs_id,qtype )
-guides_found, BEguides_found = dh.get_Guides(search_params,BEsearch_params)
+clindf = dh.get_ClinVartable('NM_000016.6(ACADM):c.727C>T (p.Arg243Ter)',qtype)
+guides_found, BEguides_found = dh.get_Guides(fg.search_params,fg.BE_search_params)
 for k,v in guides_found.items():
     print(k,v)
 for k,v in BEguides_found.items():
