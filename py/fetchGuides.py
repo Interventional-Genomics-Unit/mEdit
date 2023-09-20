@@ -12,18 +12,21 @@ from Bio.Seq import Seq
 from Bio import motifs
 
 from py.dataH import DataHandler
-from py.validate import Validator
+#from py.validate import Validator
+
+
+
 
 
 class Fetch_Guides:
 
 
-    def __init__(self, queries:list, qtype:str, editor:str, BEmode:str,**kwargs):
+    def __init__(self, queries:list, qtype:str, editor:str, BEmode:str,resultsfolder:str,datadir:str,fasta_path:str,**kwargs):
         '''
-        :param queries: list of queries
+        :param queries: list of query terms
         :param qtype: 'hgvs' or 'coord' #coord is not function yet
         :param editor: 'all', 'custom'(custom must contain kwargs, see below), or selected list or str() of the editor choices
-        :param BEmode: 'off','default','all', or select BE editor
+        :param BEmode: 'off','default','all', or select BE editor for base editor choices below
         :param kwargs:
 
         ** if 'custom' selcted as editor in kwargs must include pam, pamISFirst, window_size (optional:name)
@@ -37,14 +40,22 @@ class Fetch_Guides:
         self.BEmode = BEmode
         self.kwargs = kwargs
 
+        #input paths
+        self.datadir = "/groups/clinical/projects/editability/tables"
+        self.processed_tables = f"{self.datadir}/processed_tables/"  # folder with cleaned clinvar/hpa tabs
+        self.fasta_path = fasta_path
+
+        #outputfolder
+        self.resultsfolder = resultsfolder
+
         ##---------------libraries and keys--------------------##
         # [editor]: pam, pamISfirst, win_size, guidelen, scoring, notes/altnames
         self.editor_choices = ['spCas9', 'saCas9', 'spG', 'SpRY-HighE', 'LbCpf1',
                                'scCas9', 'stCas9', 'iSpyMacCas9', 'CasX', 'Cpf1']
 
-        self.BE_choices = ['BE1', 'BE2', 'BE3', 'HF-BE3', 'BE4', 'BE4max', 'BE4-Gam', 'YE1-BE3', 'EE-BE3', 'YE2-BE3',
-                     'YEE-BE3,VQR-BE3,VRER-BE3,SaBE3,SaBE4,SaBE4-Gam,Sa(KKH)-BE3,xBE3,eA3A-BE3,'
-                     'A3A-BE3,BE-PLUS,ABE7.9,ABE7.10,xABE,ABESa,VQR-ABE,VRER-ABE,Sa(KKH)-ABE']
+        self.BE_choices = ['BE3', 'HF-BE3', 'BE4', 'BE4max', 'BE4-Gam', 'YE1-BE3', 'EE-BE3', 'YE2-BE3',
+                           'YEE-BE3','VQR-BE3','VRER-BE3','SaBE3','SaBE4','SaBE4-Gam','Sa(KKH)-BE3','xBE3','eA3A-BE3',
+                           'A3A-BE3','BE-PLUS','ABE7.9','ABE7.10','xABE,ABESa','VQR-ABE','VRER-ABE','Sa(KKH)-ABE']
 
 
 
@@ -76,6 +87,8 @@ class Fetch_Guides:
         self.all_guides = {}
         self.all_BE = {}
 
+        self.found_genes = []
+
     def set_guidelen(self,guidelen):
         self.guidelen = guidelen
 
@@ -83,20 +96,22 @@ class Fetch_Guides:
         self.win_size = win_size
 
     def configure_search_params(self):
+        '''
+        set paramteres for the selected editor or editors(not BE editors)
+        '''
         # search for all guides
         if 'all' == self.editor:
             self.search_params = self.editor_pamlib
 
+        #search for selected subset
         if type(self.editor) is list:
             self.search_params = {}
             for e in self.editor:
                 self.search_params[e] = self.editor_pamlib[e]
 
-
-
         # else use single set parameters
         else:
-            # default
+            # default - spCas9 params
             self.win_size = [4, 8]
             self.guidelen = 20
             self.scoring = 'doench'
@@ -105,10 +120,11 @@ class Fetch_Guides:
             self.name = 'spCas9'
             self.notes = 'none'
 
-            # set variables
+            # set custom editor params
             if 'custom' == self.editor:
                 self.search_params = self.set_params(self.kwargs)
 
+            # select a single editor
             if self.editor in self.editor_choices:
                 self.search_params = self.set_params({'name': self.editor,
                                                       'pam': self.editor_pamlib[self.editor][0],
@@ -146,6 +162,8 @@ class Fetch_Guides:
 
 
     def set_BE_params(self):
+        # sets base editor search params, each key is a list of 2 or more; refernce seq search params,
+        # then any set that follows starts with the conversion (ex. 'AG' is A --> G) and then the base editors that have the same params
 
         BE_lib = {'spCas9-def': [('NGG', False, 20,[4,8]),('CT','BE3', 'BE4', 'BE4max', 'BE4-Gam'),('AG','ABE7.9','ABE7.10','ABEmax')],
                        'spCas9-YE': [('NGG', False, 20, [5, 6]),('CT','YE1-BE3','EE-BE3', 'YE2-BE3','YEE-BE3')],
@@ -168,20 +186,52 @@ class Fetch_Guides:
 
         return self.BE_search_params
 
+    def write_guide_csv(self,guides,gtype):
+        df = pd.DataFrame(guides)
+        nameout = 'BaseEditors_found.csv' if gtype == 'BE' else 'Guides_found.csv'
+        datenow = date.today().strftime('%Y-%m-%d')
+        out = f'{self.resultsfolder}_{datenow}_{nameout}'
+        df.to_csv(out,index = False)
+        return df
 
+    def add_clininfo(self,clininfo):
+        variantinfo = clininfo[
+            ['HGVS_ID', 'GeneSymbol', 'Chr', 'Start', 'End', 'Coding Strand', 'AltAlleleVCF', 'RefAlleleVCF',
+             'AlleleID', 'Type', 'GeneID', 'HGNC_ID', 'ClinicalSign',
+             'ClinSigSimple', 'nsv/esv (dbVar)', 'RCVaccession', 'PhenoList', 'OriginSimple', 'ChrAccession',
+             'VariationID', 'PositionVCF', 'OMIM']]
+        geneinfo = clininfo[['GeneSymbol', 'Chr', 'Start', 'End', 'Coding Strand', 'Biological process',
+                             'Disease involvement', 'GeneID', 'OMIM', 'IDs', 'Gene_Type', 'Molecular function',
+                             'Ensembl', 'Gene synonym',
+                             'Gene description', 'RNA tissue specific nTPM', 'RNA tissue distribution',
+                             'RNA tissue cell type enrichment', 'RNA single cell type specific nTPM',
+                             'RNA tissue specific nTPM.1']]
+
+        if len(self.all_variant.index) == 0:
+            self.all_variant = variantinfo
+            self.all_gene = geneinfo
+
+        else:
+            self.all_variant = pd.concat([self.all_variant, variantinfo])
+
+            if clininfo['GeneSymbol'].iloc[0] not in self.found_genes:
+                self.all_gene = pd.concat([self.all_gene, geneinfo])
+                self.found_genes.append(geneinfo['GeneSymbol'].iloc[0])
 
     def run_FetchGuides(self):
-        genes = []
+
         for query in self.queries:
-            dh = DataHandler()
-            #clininfo = dh.get_ClinVartable(queries[3], qtype)
+            #dh = DataHandler(fg.datadir,fg.fasta_path)
+            #clininfo = dh.get_ClinVartable(queries[0], fg.qtype)
+            dh = DataHandler(self.datadir,self.fasta_path)
             clininfo = dh.get_ClinVartable(query, self.qtype)
 
             try: # If query found in database search guides
                 variant_pos = dh.vardf["PositionVCF"].iloc[0]
                 if self.BEmode != 'off':
-                    guides, BEguides = dh.get_Guides(self.search_params, self.BE_search_params)
                     #guides, BEguides = dh.get_Guides(fg.search_params, fg.BE_search_params)
+                    guides, BEguides = dh.get_Guides(self.search_params, self.BE_search_params)
+
                     if len(BEguides['gRNA']) > 0:
                         if len(self.all_BE.keys()) == 0:
                             for k, v in BEguides.items():
@@ -203,63 +253,40 @@ class Fetch_Guides:
 
                         for k, v in guides.items():
                             self.all_guides[k] += v
-                    print((guides['gRNA']), ' guides found for ', query)
 
-                    clininfo = clininfo[['HGVS_ID', 'GeneSymbol', 'Chr', 'Start', 'End', 'Coding Strand', 'AltAlleleVCF', 'RefAlleleVCF','AlleleID', 'Type', 'GeneID', 'HGNC_ID', 'ClinicalSign',
-                                'ClinSigSimple', 'nsv/esv (dbVar)', 'RCVaccession', 'PhenoList', 'OriginSimple', 'ChrAccession', 'VariationID', 'PositionVCF','OMIM']]
-
-
-                    if len(self.all_variant.index) == 0:
-                        self.all_variant= clininfo
-
-                    else:
-                        self.all_variant = pd.concat([self.all_variant, clininfo])
-
-
-                        if clininfo['GeneSymbol'].iloc[0] not in genes:
-                            geneinfo = clininfo[['GeneSymbol', 'Chr', 'Start', 'End', 'Coding Strand', 'Biological process',
-                                 'Disease involvement', 'GeneID', 'OMIM', 'IDs', 'Gene_Type', 'Molecular function',
-                                 'Ensembl', 'Gene synonym',
-                                 'Gene description', 'RNA tissue specific nTPM', 'RNA tissue distribution',
-                                 'RNA tissue cell type enrichment', 'RNA single cell type specific nTPM',
-                                 'RNA tissue specific nTPM.1']]
-                            self.all_gene = pd.concat([self.all_gene, clininfo])
-                            genes.append(geneinfo['GeneSymbol'].iloc[0])
+                    print(len((guides['gRNA'])), ' guides found for ', query)
+                    self.add_clininfo(clininfo)
                 else:
                     print(f"No guides found for the query {query}")
             except:
                 pass
-        return self.all_variant,self.all_gene, self.all_guides, self.all_BE
+        guidedf = self.write_guide_csv(self.all_guides,gtype='guides')
+        BEdf = self.write_guide_csv(self.all_BE, gtype='BE')
+        return self.all_variant,self.all_gene, guidedf, BEdf
 
 
 
-'''
-Test 
+
+#Test
 
 #Paths---------------------------
-input_file = "/groups/clinical/projects/editability/230822_AlexNuero/Nuero_Alex_EditabilityTemplate.csv"
-output_folder = "/groups/clinical/projects/editability/230822_AlexNuero/"
-data_base_dir = "/groups/clinical/projects/editability/tables/"
+input_file = "/groups/clinical/projects/editability/medit_queries/medit_test/test_in/hgvs_test_queries.csv"
+resultsfolder = "/groups/clinical/projects/editability/medit_queries/medit_test/test_out/"
+datadir = "/groups/clinical/projects/editability/tables/"
+fasta_path ="/groups/clinical/projects/clinical_shared_data/hg38/hg38.fa"
 
 #Input Extraction-------------------
 df = pd.read_csv(input_file)
 queries = list(df.iloc[:,0])
-qtype = 'HGVS'
-BEmode = 'off'
+qtype = 'hgvs'
+BEmode = 'default'
 editor = 'all'
 
 
-#val = Validator(data_base_dir)
-#val.check_updates()
-#TODO update input file validation once input file format and typeis finalized
-# for now skip
-#input_df = val.validate_input_file(input_file)
-
 # Get query items
-queries= [h for h in queries if '>' in str(h)]
-fg = Fetch_Guides([queries,qtype,editor,BEmode='all')
+fg = Fetch_Guides(queries,qtype,editor,BEmode,resultsfolder,datadir,fasta_path)
 all_clin_info, all_gene, all_guides, all_BE = fg.run_FetchGuides()
 
-'''
+
 
 
