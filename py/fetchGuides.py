@@ -282,7 +282,7 @@ qtype = 'hgvs'
 BEmode = 'default'
 editor = 'all'
 
-
+queries +=  ['NM_000152.5(GAA):c.271G>T']
 # Get query items
 fg = Fetch_Guides(queries,qtype,editor,BEmode,resultsfolder,datadir,fasta_path)
 all_clin_info, all_gene, all_guides, all_BE = fg.run_FetchGuides()

@@ -239,7 +239,7 @@ class DataHandler(Variant_DataHandler):
 
         return coding_type, exon_pos
 
-    def getBE(self,guides,conversion,win_size):
+    def getBE(self,guides,conversion,win_size,name):
         '''
         Finds codon level SNV and determines if the Base Editor Conversion can work
         *TO DO : Check HGVS term to find protein change and then bypass this 'manual' conversion
@@ -325,8 +325,8 @@ class DataHandler(Variant_DataHandler):
                 ### If conversion leads to Ref change or REf change keep
 
             if coding_type != 'exon' or mtype == 'Synonymous' or mtype == 'Silent' or mtype == 'Conservative':
-                BE_guides['HGVS_ID'] += [self.hgvs_id],
-                BE_guides['Name'] += guides['Name'][i],
+                BE_guides['HGVS_ID'] += self.hgvs_id,
+                BE_guides['Name'] += name,
                 BE_guides['Chr'] += guides['Chr'][i],
                 BE_guides['Start'] += guides['Start'][i],
                 BE_guides['End'] += guides['End'][i],
@@ -495,14 +495,13 @@ class DataHandler(Variant_DataHandler):
         # if BE mode is on
         if BEsearch_params != None:
 
-            ct = 1
+
             for k, params, in BEsearch_params.items():
-                name = ",".join(
-                    [n for n in params[ct][1:]])  # ('BE3', 'HF-BE3', 'BE4', 'BE4max')
+
                 scoring = None
                 pam, pamISfirst, guidelen, win_size = params[0][0], params[0][1], params[0][2], params[0][3]
-                bguides = self.get_guide_set(name,pam, pamISfirst, win_size, scoring, guidelen)
-                ct+=1
+                bguides = self.get_guide_set(k,pam, pamISfirst, win_size, scoring, guidelen)
+
                 # if guides are found sep neg and pos strand guides
                 if len(bguides['gRNA']) > 0:
 
@@ -529,6 +528,7 @@ class DataHandler(Variant_DataHandler):
 
                     #See if SNV can be BE edited
                     for p in range(1,len(params[1:])+1):
+                        beguides = {}
 
                         try:
                             conversion = params[p][0]  # 'CT'
@@ -537,11 +537,11 @@ class DataHandler(Variant_DataHandler):
 
                             if self.NC_alt_allele == conversion[0]:
                                 if len(pos_guides.keys()) > 0:
-                                    beguides = self.getBE(guides=pos_guides, conversion=conversion, win_size =win_size )
+                                    beguides = self.getBE(guides=pos_guides, conversion=conversion, win_size =win_size,name = name)
 
                             if self.NC_alt_allele == str(Seq(conversion[0]).complement()):
                                 if len(neg_guides.keys()) > 0:
-                                    beguides = self.getBE(neg_guides, conversion=conversion,win_size =win_size)
+                                    beguides = self.getBE(guides=neg_guides, conversion=conversion,win_size =win_size,name=name)
 
 
                             if len(beguides['gRNA']) > 0:
@@ -591,8 +591,8 @@ gRNA ['GGCGCAAACGAAGCGGCTGT', 'GCGCAAACGAAGCGGCTGTT', 'CGCAAACGAAGCGGCTGTTG', 'G
 Pam ['TGG', 'GGG', 'GGG', 'GGG', 'GGG', 'AGG']
 Score [6, 0, 7, 13, 7, 36]
 SNV Position [8, 7, 6, 5, 4, 4]
-HGVS_ID [['NM_000152.5(GAA):c.271G>T'], ['NM_000152.5(GAA):c.271G>T'], ['NM_000152.5(GAA):c.271G>T'], ['NM_000152.5(GAA):c.271G>T'], ['NM_000152.5(GAA):c.271G>T']]
-Name ['BE3,HF-BE3,BE4,BE4max,BE4-Gam_1780104842-', 'BE3,HF-BE3,BE4,BE4max,BE4-Gam_1780104841-', 'BE3,HF-BE3,BE4,BE4max,BE4-Gam_1780104840-', 'BE3,HF-BE3,BE4,BE4max,BE4-Gam_1780104839-', 'BE3,HF-BE3,BE4,BE4max,BE4-Gam_1780104838-']
+HGVS_ID ['NM_000152.5(GAA):c.271G>T', 'NM_000152.5(GAA):c.271G>T', 'NM_000152.5(GAA):c.271G>T', 'NM_000152.5(GAA):c.271G>T', 'NM_000152.5(GAA):c.271G>T']
+Name ['ABE7.9,ABE7.10,ABEmax', 'ABE7.9,ABE7.10,ABEmax', 'ABE7.9,ABE7.10,ABEmax', 'ABE7.9,ABE7.10,ABEmax', 'ABE7.9,ABE7.10,ABEmax']
 Chr ['17', '17', '17', '17', '17']
 Start ['80104842', '80104841', '80104840', '80104839', '80104838']
 End ['80104865', '80104864', '80104863', '80104862', '80104861']
