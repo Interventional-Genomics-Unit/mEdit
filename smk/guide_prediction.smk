@@ -18,19 +18,19 @@ rule all:
         # Pull information from clinVar
         expand("{output_directory}/{run}/clinvar_pull.report",
             output_directory=config["output_directory"],
-            run=config["run_name_suffix"])
+            root_dir=config["root_dir"])
 
-rule clinVar_pull:
-    # Pulls genomic context, based on the {window_size}, of a gene(s) associated with a
-    #   HGVS (or a list of) identifier(s).
+rule fetch_guides:
+    #
     input:
-        hgvs_list = config["hgvs_path"]
+        query_manifest = "{root_dir}/test_in/hgvs_test_queries.csv",
+        assembly_path = "{root_dir}/{assembly_id}"
     output:
-        database_report = "{output_directory}/{run}/clinvar_pull.report"
+        directory("{root_dir}/guides_report/")
     params:
         window_size = config["window_size"],
         entrez_login = config["entrez_login"]
     conda:
         "../envs/clinvar_pull.yaml"
     script:
-        "../py/clinVar_pull.py"
+        "../py/fetchGuides.py"

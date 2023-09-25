@@ -7,3 +7,6 @@ window_size: 1000
 # Parent output directory where files should be stored after processing
 output_directory: "jobs/prediction"
 
+assembly_id: ["hg19", "hg38", "hprc"]
+
+root_dir: "/groups/clinical/projects/editability/medit_queries/medit_test"
