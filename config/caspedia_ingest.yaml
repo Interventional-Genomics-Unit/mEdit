@@ -1,0 +1,11 @@
+# Database login instructions
+username: "danielbr"
+hostname: "localhost"
+database_name: "editability"
+port: 5432
+
+# ********* GLOBAL CONFIGURATION *********
+# Master table and Genomic context data table
+source_metadata_path: ['']
+# Wiki manifest containing URL for each and every wiki intake forms
+wiki_manifest_path: "background_data/wiki_manifest.csv"
