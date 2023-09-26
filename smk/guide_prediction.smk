@@ -16,9 +16,8 @@ import glob
 rule all:
     input:
         # Pull information from clinVar
-        expand("{output_directory}/{run}/clinvar_pull.report",
-            output_directory=config["output_directory"],
-            root_dir=config["root_dir"])
+        expand("{root_dir}/{assembly_id}/guides_report/",
+            assembly_id=config["assembly_id"],root_dir=config["root_dir"])
 
 rule fetch_guides:
     #
@@ -26,11 +25,10 @@ rule fetch_guides:
         query_manifest = "{root_dir}/test_in/hgvs_test_queries.csv",
         assembly_path = "{root_dir}/{assembly_id}"
     output:
-        directory("{root_dir}/guides_report/")
+        directory("{root_dir}/{assembly_id}/guides_report/")
     params:
-        window_size = config["window_size"],
-        entrez_login = config["entrez_login"]
+        support_tables = config[""]
     conda:
-        "../envs/clinvar_pull.yaml"
+        ""
     script:
         "../py/fetchGuides.py"

@@ -9,4 +9,6 @@ output_directory: "jobs/prediction"
 
 assembly_id: ["hg19", "hg38", "hprc"]
 
+support_tables: "/groups/clinical/projects/editability/tables/"
+
 root_dir: "/groups/clinical/projects/editability/medit_queries/medit_test"
