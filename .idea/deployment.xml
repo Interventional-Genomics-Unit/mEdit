@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="biotite (4)" remoteFilesAllowedToDisappearOnAutoupload="false" showNewOnSourceInSync="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="biotite (5)" remoteFilesAllowedToDisappearOnAutoupload="false" showNewOnSourceInSync="false">
     <serverData>
       <paths name="biotite">
         <serverdata>
@@ -20,6 +20,13 @@
         <serverdata>
           <mappings>
             <mapping deploy="/groups/doudna/projects/daniel_projects/editability" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="biotite (5)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="editability" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>
