@@ -1,0 +1,19 @@
+# Database login instructions
+username: "danielbr"
+hostname: "localhost"
+database_name: "editability"
+port: 5432
+
+schema: "caspedia"
+
+# ********* GLOBAL CONFIGURATION *********
+# Master table and Genomic context data table
+source_metadata_path: ['']
+# Wiki manifest containing URL for each and every wiki intake forms
+manifest_path: "metadata/caspedia_manifest.csv"
+#
+links_column: "URL"
+#
+unique_id_col: "Unique_ID"
+#
+passwd: "jD9$Fp#2m%40Ls5!Kz" # "jD9$Fp#2m@Ls5!Kz"

@@ -1,35 +1,36 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" serverName="editability biotite" remoteFilesAllowedToDisappearOnAutoupload="false" showNewOnSourceInSync="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="biotite (5)" remoteFilesAllowedToDisappearOnAutoupload="false" showNewOnSourceInSync="false">
     <serverData>
-      <paths name="Biotite">
+      <paths name="biotite">
         <serverdata>
           <mappings>
-            <mapping local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="editability/daniel_sandbox/editability" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>
-      <paths name="editability biotite">
+      <paths name="biotite (3)">
         <serverdata>
           <mappings>
-            <mapping deploy="projects/editability" local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/groups/doudna/projects/daniel_projects/editability" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>
-      <paths name="thudson@igi.biotite.berkeley.edu:22 password">
+      <paths name="biotite (4)">
         <serverdata>
           <mappings>
-            <mapping local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/groups/doudna/projects/daniel_projects/editability" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>
-      <paths name="thudson@igi.biotite.berkeley.edu:22 password (2)">
+      <paths name="biotite (5)">
         <serverdata>
           <mappings>
-            <mapping local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="editability" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>
     </serverData>
+    <option name="myAutoUpload" value="ALWAYS" />
   </component>
 </project>

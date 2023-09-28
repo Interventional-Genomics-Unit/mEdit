@@ -6,7 +6,7 @@ configfile: "config/hgvs_input.yaml"
 import glob
 
 # Cluster run template
-#nohup snakemake --snakefile guide_prediction.smk -j 1 --cluster "sbatch -t {cluster.time}
+# nohup snakemake --snakefile guide_prediction.smk -j 1 --cluster "sbatch -t {cluster.time}
 # -n {cluster.cores} -N {cluster.nodes}" --cluster-config config/cluster.yaml --use-conda &
 
 # Description:
@@ -16,21 +16,20 @@ import glob
 rule all:
     input:
         # Pull information from clinVar
-        expand("{output_directory}/{run}/clinvar_pull.report",
-            output_directory=config["output_directory"],
-            run=config["run_name_suffix"])
+        expand("{root_dir}/{assembly_id}/guides_report/",
+            assembly_id=config["assembly_id"],root_dir=config["root_dir"])
 
-rule clinVar_pull:
-    # Pulls genomic context, based on the {window_size}, of a gene(s) associated with a
-    #   HGVS (or a list of) identifier(s).
+rule fetch_guides:
+    #
     input:
-        hgvs_list = config["hgvs_path"]
+        query_manifest = "{root_dir}/test_in/hgvs_test_queries.csv",
+        assembly_path = lambda wildcards: glob.glob("{fasta_root_path}/{sequence_id}.fa.gz".format(
+            fasta_root_path=config["fasta_root_path"], sequence_id=config["sequence_id"]))
     output:
-        database_report = "{output_directory}/{run}/clinvar_pull.report"
+        directory("{root_dir}/{sequence_id}/guides_report/")
     params:
-        window_size = config["window_size"],
-        entrez_login = config["entrez_login"]
+        support_tables = config[""]
     conda:
-        "../envs/clinvar_pull.yaml"
+        ""
     script:
-        "../py/clinVar_pull.py"
+        "../py/fetchGuides.py"
