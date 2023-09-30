@@ -28,7 +28,7 @@ rule fetch_guides:
     output:
         directory("{root_dir}/{sequence_id}/guides_report/")
     params:
-        support_tables = config[""]
+        support_tables = config["support_tables"]
     conda:
         ""
     script:
