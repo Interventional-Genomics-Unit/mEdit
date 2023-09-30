@@ -4,6 +4,6 @@ __default__:
   time: '6:00:00'
   cores: 20
 
-aws_download:
+bgzip_compress:
   cores: 5
-  time: '4:00:00'
+  time: '5:00:00'
