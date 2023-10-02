@@ -2,17 +2,16 @@
 import glob
 
 configfile: "../config/guide_prediction.yaml"
-configfile: "../config/aws_download.yaml"
 
 # Cluster run template
-# nohup snakemake --snakefile compression_routine.smk -j 10 --cluster "sbatch -t {cluster.time} -n {cluster.cores}" --cluster-config ../config/cluster.yaml --use-conda --use-conda &
+# nohup snakemake --snakefile compression_routine.smk -j 10 --cluster "sbatch -t {cluster.time} -n {cluster.cores}" --cluster-config ../config/cluster.yaml --use-conda --latency-wait 120 &
 
 # noinspection SmkAvoidTabWhitespace
 rule all:
     input:
-        expand("{fasta_compressed_path}/{sequence_id}{filename_suffix}.fa",
+        expand("{fasta_compressed_path}/{sequence_id}.{filename_suffix}.fa",
             fasta_compressed_path=config["fasta_compressed_path"],sequence_id=config["sequence_id"],filename_suffix=config["filename_suffix"]),
-        expand("{fasta_compressed_path}/{sequence_id}{filename_suffix}.fa.gz",
+        expand("{fasta_compressed_path}/{sequence_id}.{filename_suffix}.fa.gz",
             fasta_compressed_path=config["fasta_compressed_path"],sequence_id=config["sequence_id"],filename_suffix=config["filename_suffix"])
 
 # rule aws_download:
@@ -32,30 +31,42 @@ rule all:
 
 rule pigz_decompress:
     input:
-        downloaded_file = lambda wildcards: glob.glob("{fasta_download_path}/{sequence_id}{filename_suffix}.fa.gz".format(
+        downloaded_file = lambda wildcards: glob.glob("{fasta_download_path}/{sequence_id}.{filename_suffix}.fa.gz".format(
             fasta_download_path=config["fasta_download_path"],sequence_id=wildcards.sequence_id,filename_suffix=wildcards.filename_suffix
         ))
     output:
-        decompressed = "{fasta_compressed_path}/{sequence_id}{filename_suffix}.fa"
+        decompressed = "{fasta_compressed_path}/{sequence_id}.{filename_suffix}.fa"
     params:
         download_path = config["fasta_download_path"]
     threads:
         config["threads"]
+    message:
+        """
+        Decompress:\n {input.downloaded_file}
+        To:\n {output.decompressed}
+        Available Wildcards: {wildcards}
+        """
     shell:
         """
         pigz -dvk -p {threads} {input.downloaded_file}
-        mv {params.download_path}/{wildcards.sequence_id}{wildcards.filename_suffix}.fa {wildcards.fasta_compressed_path}/{wildcards.sequence_id}{wildcards.filename_suffix}.fa
+        cp {params.download_path}/{wildcards.sequence_id}.{wildcards.filename_suffix}.fa {wildcards.fasta_compressed_path}/{wildcards.sequence_id}.{wildcards.filename_suffix}.fa
         sleep 1m
         """
     
 rule bgzip_compress:
     input:
-        decompressed = "{fasta_compressed_path}/{sequence_id}{filename_suffix}.fa"
+        decompressed = "{fasta_compressed_path}/{sequence_id}.{filename_suffix}.fa"
     output:
-        bgz_compressed = "{fasta_compressed_path}/{sequence_id}{filename_suffix}.fa.gz"
+        bgz_compressed = "{fasta_compressed_path}/{sequence_id}.{filename_suffix}.fa.gz"
     threads:
         config["threads"]
+    message:
+        """
+		Compress:\n {input.decompressed}
+		To:\n {output.bgz_compressed}
+		Available Wildcards: {wildcards}
+		"""
     shell:
         """
-        bgzip {input.decompressed}
+        bgzip -k {input.decompressed}
         """
