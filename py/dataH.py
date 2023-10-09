@@ -1,8 +1,8 @@
 import pandas as pd
-import regex as re
+import re
 import numpy as np
-from pyfaidx import Fasta
 from Bio.Seq import Seq
+from Bio import SeqIO
 from Bio import SeqUtils
 import math
 
@@ -23,13 +23,15 @@ def check_queries(queries):
         if re.search(rsuffix, q) :
             if re.search(rprefix,q):
                 prefixes.append(re.search(rprefix, q).groups()[0])
-                suffixes.append(re.search(rsuffix, q).captures()[0])
+                suffixes.append(re.search(rsuffix, q).group(0))
+                # suffixes.append(re.search(rsuffix, q).captures()[0])
                 new_queries.append(q)
     n = len(new_queries)
     print(f'{n} out of {len(queries)} validated')
     if n == 0:
         print('Query are not in the correct HGVS Format')
     return new_queries, prefixes, suffixes
+
 
 def get_chroms_from_RefID(processed_tables,queries):
     # find chrom from HGVS Lookup table
@@ -51,6 +53,7 @@ def get_chroms_from_RefID(processed_tables,queries):
         else:
             newchromsd[d[3]].append((d[1],d[2]))
     return newchromsd
+
 
 def get_seqinfo(queries,qtype, datadir):
 
@@ -79,14 +82,13 @@ def get_seqinfo(queries,qtype, datadir):
     # 'cdsEnd': 5227021.0, 'exonStart': '5225463,5226576,5226929,', 'MC': 'nonsense', 'Feature': 'exon'}
 
 
-
 class DataHandler():
     '''
     search fasta for guides given reqs
     pam, len, targe table window and optionally scores
     '''
 
-    def __init__(self,hgvs_id:str,data:dict,fasta_path):
+    def __init__(self, hgvs_id: str, data: dict, fasta_path):
         '''
         :param hgvs_id: ex: 'NM_000532.5(PCCB):c.1316A>G (p.Tyr439Cys)'
         :param data: ex: {'AlleleID': 227253, 'RefAlleleVCF': 'A', 'AltAlleleVCF': 'G', 'GeneID': 5096, 'GeneSymbol': 'PCCB', 'Chr': 3, 'Strand': '+',
@@ -129,8 +131,8 @@ class DataHandler():
                             'Pam': [],'Score':[],
                             'SNV Position': [], 'Variant_Molecular_Consequence':[]}
 
-        self.BEguides_found ={'HGVS_ID': [],'Guide_ID': [],
-                     'Editor': [],'Chr': [],
+        self.BEguides_found ={'HGVS_ID': [],
+                     'Base Editor': [],'Guide_ID': [],'Chr': [],
                      'Start': [],
                      'End': [],
                      'gRNA': [],
@@ -175,7 +177,6 @@ class DataHandler():
         self.scoring = scoring
         self.guidelen = guidelen
 
-
     def calcDoenchScores(self, seq):
         """
         Input is a 30mer: 4bp 5', 20bp guide, 3bp PAM, 3bp 5'
@@ -218,17 +219,16 @@ class DataHandler():
         return (ots)
     '''
 
-
     def get_AAconversion_type(self,codon1,codon2):
         '''
         codon1: codon of Alt allele to be changed by BE
         codon2: codon after changed by BE
         '''
-        aa_groups = [["G","A","V","L","I"],
-                     ["S","C","U","T","M"],
-                     ["F","Y","W"],
-                     ["H","K","R"],
-                     ["D","E","N","Q"]]
+        aa_groups = [["G","A","V","L","I","M","F","Y","W"],
+                     ["S","Q","T","N"],
+                     ["C","G","P"],
+                     ["D","E"],
+                     ["K","H","R","Q"]]
         codon1,codon2 = Seq(codon1),Seq(codon2)
         aa1, aa2 = codon1.translate(), codon2.translate()
         mtype = ""
@@ -278,7 +278,7 @@ class DataHandler():
         ref_allele = self.NM_ref_allele
         alt_allele = self.NM_alt_allele
 
-
+        n =1
         for i in range(len(guides)):
             editor, guide, pam, strand, snvpos, score, start, end = guides[i]
 
@@ -293,7 +293,8 @@ class DataHandler():
                 ref = ref_allele
                 codonpos = 'NA'
                 ctype = 'NA'
-                self.add_BEguides(name, guide, pam, strand, snvpos, score, start, end,codonpos,ref,alt,convert,ctype,bystander)
+                self.add_BEguides(name, guide, pam, strand, snvpos, score, start, end,codonpos,ref,alt,convert,ctype,bystander,n)
+                n += 1
 
             else:
                 ## In Exon
@@ -335,21 +336,23 @@ class DataHandler():
                 ref = f"{ref_codon}>{aa_ref}"
                 alt = f"{alt_codon}>{aa_alt}"
                 convert = f"{new_codon}>{aa_new}"
-                self.add_BEguides(name, guide, pam, strand, snvpos, score, start, end,ref,codonpos,alt,convert,ctype,bystander)
+                self.add_BEguides(name, guide, pam, strand, snvpos, score, start, end,ref,codonpos,alt,convert,ctype,bystander,n)
+                n += 1
 
 
     def extract_Seqs(self, SNV_pos):
-        genes = Fasta(self.fasta_path)
+        genes = SeqIO.index(self.fasta_path, "fasta")
         c = 'M' if self.chrom == 'MT' else self.chrom
         self.extracted_seq = str(genes[f"chr{c}"][SNV_pos- self.search_window:SNV_pos + self.search_window])
+        #self.extracted_seq = str(genes.seq["chr{}".format(c)][SNV_pos - self.search_window:SNV_pos + self.search_window])
         # replace with ref allele with variant
         self.extracted_seq = Seq(self.extracted_seq[0:self.search_window] + self.NC_alt_allele + self.extracted_seq[self.search_window + 1:]).upper()
         return self.extracted_seq
 
-    def add_guides(self,name,guide,pam_found,strand,snvpos,score,start,end):
+    def add_guides(self,name,guide,pam_found,strand,snvpos,score,start,end,n):
         self.guides_found['HGVS_ID'].append(self.hgvs_id),
         self.guides_found['Editor'].append(name)
-        self.guides_found['Guide_ID'].append(f'{name}_{self.chrom}{self.alleleid}{strand}')
+        self.guides_found['Guide_ID'].append(f'{name}_{self.chrom}.{self.alleleid}.{n}{strand}')
         self.guides_found['Chr'].append(self.chrom)
         self.guides_found['Score'].append(score)
         self.guides_found['Start'].append(start)
@@ -361,10 +364,10 @@ class DataHandler():
         self.guides_found['Variant_Molecular_Consequence'].append(self.mc)
 
 
-    def add_BEguides(self,name,guide,pam_found,strand,snvpos,score,start,end,codonpos,ref,alt,convert,ctype,bystander):
+    def add_BEguides(self,name,guide,pam_found,strand,snvpos,score,start,end,codonpos,ref,alt,convert,ctype,bystander,n):
         self.BEguides_found['HGVS_ID'].append(self.hgvs_id),
-        self.BEguides_found['Guide_ID'].append(f'{name}_{self.chrom}{self.alleleid}{strand}')
-        self.BEguides_found['Editor'].append(name)
+        self.BEguides_found['Guide_ID'].append(f'{name}_{self.chrom}.{self.alleleid}.{n}{strand}')
+        self.BEguides_found['Base Editor'].append(name)
         self.BEguides_found['Chr'].append(self.chrom)
         self.BEguides_found['Start'].append(start)
         self.BEguides_found['End'].append(end)
@@ -376,9 +379,9 @@ class DataHandler():
         self.BEguides_found['Reference (Codon>AA)'].append(ref)
         self.BEguides_found['Alternate (Codon>AA)'].append(alt)
         self.BEguides_found['BE Converted (Codon>AA)'].append(convert)
-        self.BEguides_found['Conversion Type'].append(convert)
-        self.BEguides_found['Bystander'].append(ctype)
-        self.BEguides_found['Variant_Molecular_Consequence'].append(bystander)
+        self.BEguides_found['Conversion Type'].append(ctype)
+        self.BEguides_found['Bystander'].append(bystander)
+        self.BEguides_found['Variant_Molecular_Consequence'].append(self.mc)
 
 
 
@@ -435,7 +438,7 @@ class DataHandler():
 
         if len(self.extracted_seq) == 0: #if a extracted sequence is not already set, set it
             self.extracted_seq = self.extract_Seqs(SNV_pos=self.SNV_chr_pos)
-
+        n = 1
         #Narrow based on guide params
         for strand in ["-","+"]:
 
@@ -451,7 +454,7 @@ class DataHandler():
                 if pamISfirst == False:# 3' PAM
                     target_start = i - guidelen
                     guide,snvpos,start,end = self.find_pamLast(sitelen,target_start,guidelen,strand,win_size,guide_temp)
-                    print(guide,snvpos,start,end)
+                    # print(guide,snvpos,start,end)
 
                     if guide != None:
                         pam_found = str(guide_temp[i:i + pamlen])
@@ -462,34 +465,26 @@ class DataHandler():
                         guides.append([name, guide, pam_found, strand, snvpos, score,start, end])
 
                         if BEmode == False:
-                            self.add_guides(name,guide,pam_found,strand,snvpos,score,start,end)
+                            self.add_guides(name,guide,pam_found,strand,snvpos,score,start,end,n)
+                            n += 1
 
                 else:
                     target_start = i + sitelen
                     guide, snvpos, start, end = self.find_pamFirst(i, sitelen, target_start, guidelen, strand, win_size,guide_temp)
 
                     if guide != None:
-                        pam = str(guide_temp[i:i + pamlen])
+                        pam_found = str(guide_temp[i:i + pamlen])
                         score = '-'
 
                         guides.append([name, guide, pam_found, strand, snvpos, score, start, end])
 
                         if BEmode == False:
-                            self.add_guides(name, guide, pam_found, strand, snvpos, score, start, end)
+                            self.add_guides(name, guide, pam_found, strand, snvpos, score, start, end,n)
+                            n += 1
 
         return guides
 
     def get_Guides(self, search_params, BEsearch_params = None):
-        '''
-        search_params = {'spCas9':('NGG', False,20,[4,8], 'Sp Cas9, SpCas9-HF1, eSpCas9 1.1'),
-                      'saCas9-20':('NNGRRT',False,20,[4,8],'Cas9 S. Aureus 21 base guide'),
-                      'CasX':('TTCN',True,20,[4,8],'Cas12e'),
-                      'Cpf1':('TTTV',True,23,[4,8],'TTT(A/C/G)-23bp - Cas12a (Cpf1)')
-                      }
-
-        BEsearch_params = {'spCas9-def': [('NGG', False, 20, [4, 8]),
-        ('CT', 'BE3', 'BE4', 'BE4max', 'BE4-Gam'), ('AG', 'ABE7.9', 'ABE7.10', 'ABEmax')]}
-        '''
 
         for name, params, in search_params.items():
             scoring = 'doench' if name == 'spCas9' else None
@@ -504,8 +499,6 @@ class DataHandler():
                 scoring = None
                 pam, pamISfirst, guidelen, win_size = params[0][0], params[0][1], params[0][2], params[0][3]
                 bguides = self.get_guide_set(k,pam, pamISfirst, win_size, scoring, guidelen,BEmode = True)
-
-                #bguides = [['spCas9', Seq('GTGGCCCTCCTTCAGCTGGC'), 'TGG', '-', 7, 2, 57737228, 57737251], ['spCas9', Seq('CTGAAGGAGGGCCACCCCTG'), 'TGG', '+', 7, 3, 57737236, 57737259]]
 
                 # if guides are found sep neg and pos strand guides
                 if len(bguides) > 0:

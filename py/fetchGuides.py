@@ -7,7 +7,7 @@ import pandas as pd
 # from Bio.Seq import Seq
 # from Bio import motifs
 # Project Modules
-from py.dataH import DataHandler
+from dataH import DataHandler, get_seqinfo
 
 ###############
 # Main Script with Fetch_Guides Class for running pipeline
@@ -48,7 +48,8 @@ class Fetch_Guides:
 
 		# input paths
 		self.datadir = datadir
-		self.processed_tables = f"{self.datadir}/processed_tables/"  # folder with cleaned clinvar/hpa tabs
+		self.processed_tables = f"{self.datadir}/processed_tables"  # folder with cleaned clinvar/hpa tabs
+		self.HGVSlookup_path = f"{self.processed_tables}/HGVSlookup.csv"
 		self.fasta_path = fasta_path
 
 		# output folder
@@ -65,17 +66,17 @@ class Fetch_Guides:
 						   'A3A-BE3', 'BE-PLUS', 'ABE7.9', 'ABE7.10', 'xABE,ABESa', 'VQR-ABE', 'VRER-ABE',
 						   'Sa(KKH)-ABE']
 
-		self.editor_pamlib = {'spCas9': ('NGG', False, 20, [4, 8], 'Sp Cas9, SpCas9-HF1, eSpCas9 1.1'),
-							  'saCas9': ('NNGRRT', False, 21, [4, 8], 'Cas9 S. Aureus 21 base guide'),
-							  'spG': ('NGN', False, 20, [4, 8], '20bp-NGN - SpG'),
-							  'SpRY-HighE': ('NRN', False, 20, [4, 8], 'High Efficiency Pam'),
-							  'LbCpf1': ('TTTA', True, 23, [4, 8], 'LbCpf1'),
-							  'scCas9': ('NNGT', False, 20, [4, 8],
-										 '20bp-NNGT - Cas9 S. canis - high efficiency PAM, recommended'),
-							  'stCas9': ('NNAGAA', False, 20, [4, 8], 'Cas9 S. Thermophilus'),
-							  'iSpyMacCas9': ('NAA', False, 20, [4, 8], ''),
-							  'CasX': ('TTCN', True, 20, [4, 8], 'Cas12e'),
-							  'Cpf1': ('TTTV', True, 23, [4, 8], 'TTT(A/C/G)-23bp - Cas12a (Cpf1)')
+		self.editor_pamlib = {'spCas9':('NGG', False,20,[10,24], 'Sp Cas9, SpCas9-HF1, eSpCas9 1.1'),
+                              'saCas9': ('NNGRRT', False, 21,[10,24], 'Cas9 S. Aureus 21 base guide'),
+                              'spG':('NGN',False,20,[10,24],'20bp-NGN - SpG'),
+                              'SpRY-HighE': ('NRN',False,20,[10,24],'High Efficiency Pam'),
+                              'scCas9':('NNGT',False,20,[10,24],'20bp-NNGT - Cas9 S. canis - high efficiency PAM, recommended'),
+                              'stCas9':('NNAGAA',False,20,[10,24],'Cas9 S. Thermophilus'),
+                              'iSpyMacCas9':('NAA',False,20,[10,24],''),
+                              'CasX':('TTCN',True,20,[0,7],'Cas12e'),
+                              'AsCas12a':('TTTV',True,23,[0,7],'TTT(A/C/G)-23bp - Cas12a (Cpf1)'),
+                              'LbCas12a': ('TTTV', True, 23,[0,7], 'LbCpf1'),
+                              'Cas12c1': ('TG', True, 23, [0, 7], 'C2c3'),
 							  }
 
 		## ------------Defaults and settings------------------##
@@ -131,13 +132,8 @@ class Fetch_Guides:
 
 			# select a single editor
 			if self.editor in self.editor_choices:
-				self.search_params = self.set_params({'name': self.editor,
-													  'pam': self.editor_pamlib[self.editor][0],
-													  'pamISfirt': self.editor_pamlib[self.editor][1],
-													  'win_size': self.editor_pamlib[self.editor][2],
-													  'guidelen': self.editor_pamlib[self.editor][3],
-													  'scoring': self.editor_pamlib[self.editor][4],
-													  'notes': self.editor_pamlib[self.editor][5]})
+				self.search_params = {self.editor: self.editor_pamlib[self.editor]}
+
 		return self.search_params
 
 	def set_params(self, kwargs):
@@ -199,74 +195,63 @@ class Fetch_Guides:
 		df.to_csv(out, index=False)
 		return df
 
-	def add_clininfo(self, clininfo):
-		variantinfo = clininfo[
-			['HGVS_ID', 'GeneSymbol', 'Chr', 'Start', 'End', 'Coding Strand', 'AltAlleleVCF', 'RefAlleleVCF',
-			 'AlleleID', 'Type', 'GeneID', 'HGNC_ID', 'ClinicalSign',
-			 'ClinSigSimple', 'nsv/esv (dbVar)', 'RCVaccession', 'PhenoList', 'OriginSimple', 'ChrAccession',
-			 'VariationID', 'PositionVCF', 'OMIM']]
-		geneinfo = clininfo[['GeneSymbol', 'Chr', 'Start', 'End', 'Coding Strand', 'Biological process',
-							 'Disease involvement', 'GeneID', 'OMIM', 'IDs', 'Gene_Type', 'Molecular function',
-							 'Ensembl', 'Gene synonym',
-							 'Gene description', 'RNA tissue specific nTPM', 'RNA tissue distribution',
-							 'RNA tissue cell type enrichment', 'RNA single cell type specific nTPM',
-							 'RNA tissue specific nTPM.1']]
-
-		if len(self.all_variant.index) == 0:
-			self.all_variant = variantinfo
-			self.all_gene = geneinfo
-
+	def add_clininfo(self):
+		clininfo = pd.DataFrame()
+		ids = set(self.all_guides['HGVS_ID'])
+		chroms = self.all_guides['Chr']
+		for ch in set(chroms):
+			tempdf = pd.read_csv(f"{self.processed_tables}{ch}_variant.txt")
+			tempdf = tempdf.loc[tempdf['HGVS_ID'].isin(list(ids))]
+			clininfo = pd.concat([clininfo, tempdf])
+		self.all_variant = clininfo[
+			['HGVS_ID', 'GeneSymbol', 'Chr', 'PositionVCF', 'Strand', 'RefAlleleVCF', 'AltAlleleVCF',
+			 'AlleleID', 'Type', 'GeneID', 'HGNC_ID', 'ClinicalSign', 'ClinSigSimple', 'LastEval',
+			 'RS#(dbSNP)', 'nsv/esv (dbVar)', 'RCVaccession', 'PhenoList', 'Origin', 'OriginSimple',
+			 'ChrAccession', 'Cytogenetic', 'ReviewStatus', 'NumberSubmitters', 'Guidelines', 'TestedInGTR',
+			 'SubmitterCategories', 'VariationID', 'OMIM', 'IDs']]
+		if 'Protein class' in clininfo.columns:
+			self.all_gene = clininfo[['GeneSymbol', 'Chr', 'Start', 'End', 'ChrID',
+			                          'TranscriptID', 'ProteinID', 'Ensembl_Gene', 'Protein class', 'Gene description',
+			                          'Biological process', 'Molecular function', 'Uniprot',
+			                          'Disease involvement', 'RNA tissue specificity', 'RNA tissue specific nTPM',
+			                          'RNA tissue distribution', 'RNA tissue cell type enrichment']]
 		else:
-			self.all_variant = pd.concat([self.all_variant, variantinfo])
+			self.all_gene = clininfo[['GeneSymbol', 'Chr', 'Start', 'End', 'ChrID',
+			                          'TranscriptID', 'ProteinID', 'Ensembl_Gene']]
+		datenow = date.today().strftime('%Y-%m-%d')
 
-			if clininfo['GeneSymbol'].iloc[0] not in self.found_genes:
-				self.all_gene = pd.concat([self.all_gene, geneinfo])
-				self.found_genes.append(geneinfo['GeneSymbol'].iloc[0])
+		self.all_gene.to_csv(f'{self.resultsfolder}/{datenow}_Gene_Report.csv',index = False)
+		self.all_variant.to_csv(f'{self.resultsfolder}/{datenow}_Variant_Report.csv',index = False)
 
 	def run_FetchGuides(self):
-
-		for query in self.queries:
-			# dh = DataHandler(fg.datadir,fg.fasta_path)
-			# clininfo = dh.get_ClinVartable(queries[0], fg.qtype)
-			dh = DataHandler(self.datadir, self.fasta_path)
-			clininfo = dh.get_ClinVartable(query, self.qtype)
-
-			try:  # If query found in database search guides
-				variant_pos = dh.vardf["PositionVCF"].iloc[0]
-				if self.BEmode != 'off':
-					# guides, BEguides = dh.get_Guides(fg.search_params, fg.BE_search_params)
-					guides, BEguides = dh.get_Guides(self.search_params, self.BE_search_params)
-
-					if len(BEguides['gRNA']) > 0:
-						if len(self.all_BE.keys()) == 0:
-							for k, v in BEguides.items():
-								self.all_BE[k] = v
-						else:
-
-							for k, v in BEguides.items():
-								self.all_BE[k] += v
-
+		# information needed for guide aquisition
+		variantseq_dict = get_seqinfo(self.queries, self.qtype, self.datadir)
+		for hgvs_id, data in variantseq_dict.items():
+			dh = DataHandler(hgvs_id, data, self.fasta_path)
+			if self.BEmode != 'off':
+				guides, BEguides = dh.get_Guides(self.search_params, self.BE_search_params)
+			else:
+				guides, BEguides = dh.get_Guides(self.search_params)
+			if len(BEguides['gRNA']) > 0:
+				if len(self.all_BE.keys()) == 0:
+					for k, v in BEguides.items():
+						self.all_BE[k] = v
 				else:
-					guides = dh.get_Guides(self.search_params)
-
-				if len(guides['gRNA']) > 0:
-					if len(self.all_guides.keys()) == 0:
-						for k, v in guides.items():
-							self.all_guides[k] = v
-
-					else:
-
-						for k, v in guides.items():
-							self.all_guides[k] += v
-
-					print(len((guides['gRNA'])), ' guides found for ', query)
-					self.add_clininfo(clininfo)
+					for k, v in BEguides.items():
+						self.all_BE[k] += v
+			if len(guides['gRNA']) > 0:
+				if len(self.all_guides.keys()) == 0:
+					for k, v in guides.items():
+						self.all_guides[k] = v
 				else:
-					print(f"No guides found for the query {query}")
-			except:
-				pass
+					for k, v in guides.items():
+						self.all_guides[k] += v
+				print(len((guides['gRNA'])), ' guides found for ', hgvs_id)
+			else:
+				print(f"No guides found for the query {hgvs_id}")
 		guidedf = self.write_guide_csv(self.all_guides, gtype='guides')
 		BEdf = self.write_guide_csv(self.all_BE, gtype='BE')
+		self.add_clininfo()
 		return self.all_variant, self.all_gene, guidedf, BEdf
 
 
@@ -292,7 +277,21 @@ def main():
 	BEmode = 'default'
 	editor = 'all'
 
-	queries += ['NM_000152.5(GAA):c.271G>T']
+	# queries += ['NM_000152.5(GAA):c.271G>T']
+
+	# Report processed input variables
+	print(f"""
+	Currently running fetchGuides.py
+	INPUT VARIABLES:
+		Queries:\n{queries}
+		Query Type: {qtype}
+		BEmode: {BEmode}
+		editor: {editor}
+	PATH TO REFERENCE:
+		-> {fasta_path}
+	SUPPORT DATA DIRECTORY:
+		-> {datadir}
+	""")
 	# Get query items
 	fg = Fetch_Guides(queries, qtype, editor, BEmode, resultsfolder, datadir, fasta_path)
 	all_clin_info, all_gene, all_guides, all_BE = fg.run_FetchGuides()
