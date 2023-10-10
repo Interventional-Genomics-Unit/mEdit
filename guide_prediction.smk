@@ -25,7 +25,7 @@ rule fetch_guides:
         assembly_path = lambda wildcards: glob.glob("{fasta_root_path}/{sequence_id}.fa.gz".format(
             fasta_root_path=config["fasta_root_path"], sequence_id=wildcards.sequence_id))
     output:
-        directory("{root_dir}/{sequence_id}/guides_report/")
+        directory("{root_dir}/{sequence_id}/guides_report")
     params:
         support_tables = config["support_tables"]
     conda:

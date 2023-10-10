@@ -35,7 +35,7 @@ def check_queries(queries):
 
 def get_chroms_from_RefID(processed_tables,queries):
     # find chrom from HGVS Lookup table
-    HGVSlookup_path = f"{processed_tables}HGVSlookup.csv"
+    HGVSlookup_path = f"{processed_tables}/HGVSlookup.csv"
     newchromsd = {}
 
     hgvs_tab = pd.read_csv(HGVSlookup_path)
@@ -57,13 +57,13 @@ def get_chroms_from_RefID(processed_tables,queries):
 
 def get_seqinfo(queries,qtype, datadir):
 
-    processed_tables = f"{datadir}/processed_tables/"
-    guidelookup_tables = f"{datadir}/processed_tables/guide_acquisition_tables/"
+    processed_tables = f"{datadir}/processed_tables"
+    guidelookup_tables = f"{datadir}/processed_tables/guide_acquisition_tables"
     chromsd = get_chroms_from_RefID(processed_tables,queries)
     hgvs_info = pd.DataFrame()
 
     for chrom, terms in chromsd.items():
-        tempdf = pd.read_csv(f'{guidelookup_tables}{chrom}_guide_variant.txt')
+        tempdf = pd.read_csv(f'{guidelookup_tables}/{chrom}_guide_variant.txt')
         hgvs = []
         for t in terms:
             prefix, suffix= t[0], t[1]
@@ -343,7 +343,7 @@ class DataHandler():
     def extract_Seqs(self, SNV_pos):
         genes = SeqIO.index(self.fasta_path, "fasta")
         c = 'M' if self.chrom == 'MT' else self.chrom
-        self.extracted_seq = str(genes[f"chr{c}"][SNV_pos- self.search_window:SNV_pos + self.search_window])
+        self.extracted_seq = str(genes[f"chr{c}"][SNV_pos- self.search_window:SNV_pos + self.search_window].seq)
         #self.extracted_seq = str(genes.seq["chr{}".format(c)][SNV_pos - self.search_window:SNV_pos + self.search_window])
         # replace with ref allele with variant
         self.extracted_seq = Seq(self.extracted_seq[0:self.search_window] + self.NC_alt_allele + self.extracted_seq[self.search_window + 1:]).upper()
@@ -441,7 +441,7 @@ class DataHandler():
         n = 1
         #Narrow based on guide params
         for strand in ["-","+"]:
-
+            print(f"ERRO BIZARRO: 'ValueError: Mixed RNA/DNA found' -> {self.extracted_seq}")
             search_seq = self.extracted_seq if strand == "+" else self.extracted_seq.reverse_complement()
             guide_temp = search_seq
             pam_index = SeqUtils.nt_search(str(search_seq), pam)[1:]

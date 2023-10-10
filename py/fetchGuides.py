@@ -1,6 +1,7 @@
 # Native Modules
 # import regex as re
 # import sys
+import os
 from datetime import date  # datetime, date
 # Installed Modules
 import pandas as pd
@@ -14,6 +15,13 @@ from dataH import DataHandler, get_seqinfo
 ###############
 
 # from py.validate import Validator
+
+
+def set_export(outdir):
+	# Create outdir if inexistent
+	if not os.path.exists(outdir):
+		os.makedirs(outdir)
+	return outdir
 
 
 class Fetch_Guides:
@@ -191,8 +199,8 @@ class Fetch_Guides:
 		df = pd.DataFrame(guides)
 		nameout = 'BaseEditors_found.csv' if gtype == 'BE' else 'Guides_found.csv'
 		datenow = date.today().strftime('%Y-%m-%d')
-		out = f'{self.resultsfolder}_{datenow}_{nameout}'
-		df.to_csv(out, index=False)
+		out = f'{datenow}_{nameout}.csv'
+		df.to_csv(f"{self.resultsfolder}/{out}", index=False)
 		return df
 
 	def add_clininfo(self):
@@ -200,7 +208,7 @@ class Fetch_Guides:
 		ids = set(self.all_guides['HGVS_ID'])
 		chroms = self.all_guides['Chr']
 		for ch in set(chroms):
-			tempdf = pd.read_csv(f"{self.processed_tables}{ch}_variant.txt")
+			tempdf = pd.read_csv(f"{self.processed_tables}/{ch}_variant.txt")
 			tempdf = tempdf.loc[tempdf['HGVS_ID'].isin(list(ids))]
 			clininfo = pd.concat([clininfo, tempdf])
 		self.all_variant = clininfo[
@@ -261,7 +269,7 @@ def main():
 	input_file = str(snakemake.input.query_manifest)
 	fasta_path = str(snakemake.input.assembly_path)
 	#   Outputs
-	resultsfolder = str(snakemake.output)
+	resultsfolder = set_export(str(snakemake.output))
 	#   Params
 	datadir = str(snakemake.params.support_tables)
 	# Paths---------------------------

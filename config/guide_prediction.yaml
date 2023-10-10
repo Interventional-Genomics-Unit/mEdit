@@ -8,12 +8,12 @@ threads: 20
 window_size: 1000
 
 # Parent output directory where files should be stored after processing
-output_directory: "jobs/prediction"
+output_directory: "/groups/doudna/projects/daniel_projects/editability/test_run"
 
 # Tables imported by fetchGuides.py for analysis
 support_tables: "/groups/clinical/projects/editability/tables"
 #
-variant_query_dir: "/groups/clinical/projects/editability/medit_queries/medit_test/test_in"
+variant_query_dir: "/groups/doudna/projects/daniel_projects/editability/jobs" # "/groups/clinical/projects/editability/medit_queries/medit_test/test_in"
 
 # Canonical storage folder for FASTA References
 fasta_root_path: "/groups/clinical/projects/clinical_shared_data/genomes/fasta"
