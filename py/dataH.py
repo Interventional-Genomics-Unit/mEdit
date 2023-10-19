@@ -42,7 +42,6 @@ class DataHandler():
         self.scoring = None #Ex. True/False
         self.guidelen = 20
 
-
         #outputs
         self.guides_found ={'QueryTerm':[],'Editor': [],'Guide_ID':[],'Coordinates': [],
                             'Strand': [],'gRNA': [],
@@ -50,9 +49,9 @@ class DataHandler():
                             'SNV Position': [], 'Ref>Alt':[],'Annotation':[]}
 
         self.BEguides_found ={'QueryTerm': [], 'Base Editor': [],'Guide_ID': [],'Coordinates': [],
-                     'gRNA': [],'Pam': [],'SNV Position': [],'Strand': [],
-                     'Reference (Codon>AA)': [],'Alternate (Codon>AA)': [], 'BE Converted (Codon>AA)': [],
-                     'Conversion Type': [], 'Bystander': [], 'Annotation': []}
+                              'gRNA': [],'Pam': [],'SNV Position': [],'Strand': [],
+                              'Reference (Codon>AA)': [],'Alternate (Codon>AA)': [], 'BE Converted (Codon>AA)': [],
+                              'Conversion Type': [], 'Bystander': [], 'Annotation': []}
 
         #tables and dictionaries
         self.doenchParams = [
@@ -272,8 +271,8 @@ class DataHandler():
             for i in pam_index:
                 if i in range(pam_min, pam_max + 1):
 
-                if pamISfirst == False:# 3' PAM
-                    target_start = i - guidelen
+                    if pamISfirst == False:# 3' PAM
+                        target_start = i - guidelen
                         guide = search_seq[i - guidelen:i]
                         pam_found = str(search_seq[i:i + pamlen])
                         if scoring == 'doench':
@@ -281,7 +280,7 @@ class DataHandler():
                         else:
                             score = '-'
 
-                else:
+                    else:
                         target_start = i + pamlen
                         guide= search_seq[target_start: i + sitelen]
                         pam_found = search_seq[i:target_start]
@@ -293,7 +292,7 @@ class DataHandler():
 
                     guides.append([name, guide, pam_found, search_strand, snvpos, score, start, end])
 
-                        if BEmode == False:
+                    if BEmode == False:
                         self.add_guides(name, guide, pam_found, search_strand, snvpos, score, start, end)
         return guides
 
@@ -314,8 +313,6 @@ class DataHandler():
                 pam, pamISfirst, guidelen, win_size = params[0][0], params[0][1], params[0][2], params[0][3]
                 bguides = self.get_guide_set(k,pam, pamISfirst, scoring,win_size, guidelen,BEmode = True)
 
-
-
                 # if guides are found sep neg and pos strand guides
                 if len(bguides) > 0:
                     pos_guides, neg_guides = [], []
@@ -329,7 +326,7 @@ class DataHandler():
                     for p in range(1,len(params[1:])+1):
                         conversion = params[p][0]  # 'CT'
                         name = ",".join(
-                            [n for n in params[p][1:]])  # ('BE1', 'BE2', 'BE3', 'HF-BE3', 'BE4', 'BE4max', 'BE4-Gam')
+                            [n for n in params[p][1:]])
 
                         if self.NC_alt_allele == conversion[0]:
                             if len(pos_guides) > 0:
@@ -370,12 +367,12 @@ for ch, data in snv_info.items():
     for d in data:
         query, strand, ref, alt, feature_annotation, extracted_seq, codons, coord = d
         dh = DataHandler(query, strand, ref, alt, feature_annotation, extracted_seq, codons, coord)
-    guides_found, BEguides_found = dh.get_Guides(search_params,BE_search_params)
-    for k,v in guides_found.items():
-        print(k,v)
+        guides_found, BEguides_found = dh.get_Guides(search_params,BE_search_params)
+        for k,v in guides_found.items():
+            print(k,v)
         if len(BEguides_found['QueryTerm']) > 0:
-    for k,v in BEguides_found.items():
-        print(k,v)
+            for k,v in BEguides_found.items():
+                print(k,v)
 
 
 '''

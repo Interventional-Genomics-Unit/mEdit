@@ -2,6 +2,7 @@
 #   Keeps Clinvar data up-to-date
 #   Checks User input and Terms
 ###############
+
 import pandas as pd
 from datetime import datetime, date
 import subprocess
@@ -9,37 +10,149 @@ import gzip
 import regex as re
 
 
-#datadir = "/groups/clinical/projects/editability/tables/"
-
 class Validator:
     '''
     Validates inputs and datbases
     '''
 
     clinvar_ftp = "https://ftp.ncbi.nlm.nih.gov/pub/clinvar/tab_delimited/variant_summary.txt.gz"
+    clinvar_vcf = ' https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/clinvar.vcf.gz'
+    clinvar_index = ' https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/clinvar.vcf.gz.tbi'
+    refseq = "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/ncbiRefSeq.txt.gz"
 
 
     def __init__(self, datadir):
 
         # database paths
-        self.raw_tables = f"{datadir}/raw_tables/"
-        self.clinvar_summary = f"{self.raw_tables}variant_summary.txt.gz"  # raw clinvar table
-        self.gencode_path = f"{self.raw_tables}gencode/GENEonly_cleaned_genecode_annotation.csv" #Genecode Table
+        self.raw_tables = f"{datadir}raw_tables/"
+        self.clinvar_summary = f"{self.raw_tables}clinvar/variant_summary.txt.gz"  # raw clinvar table
         self.HPApath = f"{self.raw_tables}HPA/proteinatlas.tsv"
+        self.gencode_path = f"{self.raw_tables}gencode/GENEonly_cleaned_genecode_annotation.csv"  # Genecode Table
 
-        self.processed_tables = f"{datadir}/processed_tables/"
+        self.processed_tables = f"{datadir}processed_tables/"
+        self.simple_tables = f"{self.processed_tables}guide_acquisition_tables/"
         self.HGVSlookup_path = f"{self.processed_tables}HGVSlookup.csv" #Chrom to refID key table
         self.lastUpdate_file = f"{self.processed_tables}clinvar_lastUpdate.txt"
 
-
-        #user input
-        self.input_df = pd.DataFrame()
-
         #variables
-        self.chroms =  ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12',
+        self.chroms = ['1', '2','3', '4', '5', '6', '7', '8', '9', '10', '11','12',
                          '13', '14', '15', '16', '17', '18', '19', '20', '21', '22','MT', 'Y', 'X']
         self.possible_queryTypes = ["coordinates","hgvs","phenotype"]
         self.possible_editors = ["all", "spCas9","baseeditor"]
+    def process_refseq(self):
+        '''
+        ftp : https://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/ncbiRefSeq.txt.gz
+
+        '''
+        mane = pd.read_csv(f'{self.processed_tables}MANE.GRch38.summary_cleaned.txt')
+        mane_ensid = list(mane['Ensembl_TranscriptID'])
+        mane_tid = list(mane['TranscriptID'])
+
+        labels = ['bin', 'id', 'chrom', 'strand', 'txStart', 'txEnd',
+                  'cdsStart', 'cdsEnd', 'exonCount', 'exonStarts', 'exonEnds',
+                  'score', 'name', 'cdsStartStat', 'cdsEndStat',
+                  'exonFrames']
+        out = gzip.open(f'{self.processed_tables}ncbiRefSeq.txt.gz', 'wt')
+        for line in gzip.open(f'{self.raw_tables}Refseq/ncbiRefSeq.txt.gz', 'rt'):
+            tokens = line.split('\t')
+            if tokens[2].replace('chr', "") in self.chroms:
+                try:
+                    i = mane_tid.index(tokens[1])
+                    tokens[0] = mane_ensid[i]
+                except:
+                    tokens[0] = '-'
+                out.write('\t'.join(tokens))
+        out.close()
+
+    def process_MANE(self):
+        '''
+        Mane has joins ENS and REFSEQ IDs
+        '''
+        mane = pd.read_csv(f'{self.raw_tables}clinvar/MANE.GRch38.v1.1.summary.txt.gz', sep="\t")
+
+        mane['#NCBI_GeneID'] = mane['#NCBI_GeneID'].str.replace('GeneID:',"")
+        mane = mane[mane['MANE_status'] == 'MANE Select']
+        mane = mane.rename(columns = {'#NCBI_GeneID': 'GeneID','symbol':'GeneSymbol','RefSeq_nuc':'TranscriptID',
+                             'RefSeq_prot':'ProteinID','chr_start':'Start',
+                             'chr_end':'End','chr_strand':'Strand','GRCh38_chr':'ChrID','Ensembl_nuc':'Ensembl_TranscriptID'})
+
+        mane = mane.drop(columns = 'MANE_status')
+        mane = mane.loc[mane.ChrID.str.startswith('NC_')]
+        mane.to_csv(f'{self.processed_tables}MANE.GRch38.summary_cleaned.txt.gz',index = False, compression='gzip')
+    def process_clinvarVCF(self):
+        '''
+        clinvarvcf has molecular consequences
+        '''
+        mc = pd.read_csv('/groups/clinical/projects/editability/tables/raw_tables/clinvar/clinvar.vcf'
+                         , comment='#', sep='\t', names=['Chr', 'PositionVCF', '?', 'REF', 'ALT', 'x', 'x1','attributes'])
+        mc['chrHGVS_ID'] = mc['attributes'].str.extract(r'CLNHGVS=([^;]*)', expand=False)
+        mc['MC'] = mc['attributes'].str.extract(r'MC=([^;]*)', expand=False)
+        mc['AlleleID'] = mc['attributes'].str.extract(r'ALLELEID=([^;]*)', expand=False)
+        con = []
+        mc.loc[mc['MC'].isna(),'MC'] = '-'
+        for x in mc['MC']:
+            if '|' in x:
+                x = ','.join([y for y in x.split('|') if 'SO' not in y])
+            con.append(x)
+        mc['MC'] = con
+
+        mc = mc.drop(columns=['x1', 'x', 'attributes'])
+        mc.to_csv(f'{self.processed_tables}clinvarvcf2txt.txt', index=False)
+    def add_molecular_consequences(self):
+        '''
+        add molecular consequences
+        '''
+        for ch in self.chroms:
+            df = pd.read_csv(f"{self.processed_tables}variant_tables/{ch}_variant.txt")
+            mc = pd.read_csv(f'{self.processed_tables}clinvarvcf2txt.txt')
+            mc['Chr'] = mc['Chr'].astype('str')
+            mc = mc[mc['Chr'] == ch]
+            mc = mc[['MC', 'AlleleID']]
+            mc['AlleleID'] = mc['AlleleID'].astype('int64')
+            joined = df.join(mc.set_index('AlleleID'), on='AlleleID')
+            joined.to_csv(f'{self.processed_tables}variant_tables/{ch}_variant.txt', index=False)
+
+
+    def extract_tid_from_hgvs(self,vdf):
+        rprefix = r"((N(M|G|C|R)_[\d.]*)|(m))"
+        rsuffix = r"(:(c|m|g|n)\.\S*)"
+        hgs = list(vdf['HGVS_ID'])
+        simple_ids = []
+        tids = []
+        for h in hgs:
+            if re.search(rsuffix,h) and re.search(rprefix,h):
+                tid = re.search(rprefix,h).groups()[0]
+                suf = tid + re.search(rsuffix,h).groups()[0]
+                tids.append(tid)
+                simple_ids.append(suf)
+            elif h.startswith('m'):
+                tid = 'm'
+                suf = h
+                tids.append(tid)
+                simple_ids.append(suf)
+
+            else:
+                print(h)
+                tids.append('-')
+                simple_ids.append('-')
+
+        vdf.insert(3, 'HGVS_Simple', simple_ids)
+        vdf.insert(4,'TranscriptID',tids)
+        return vdf
+
+    def add_MANE(self):
+        mane = pd.read_csv(f'{self.processed_tables}MANE.GRch38.summary_cleaned.txt.gz')
+        mane = mane[['Start', 'End', 'Strand', 'TranscriptID', 'ProteinID', 'Ensembl_TranscriptID', 'Ensembl_Gene']]
+
+        for ch in self.chroms:
+            vdf = pd.read_csv(f"{self.processed_tables}variant_tables/{ch}_variant.txt")
+            mane['Ensembl_Gene'] = [x.split('.')[0] if type(x) == str else x for x in mane['Ensembl_Gene']]
+            joined = vdf.join(mane.set_index('TranscriptID'), on = 'TranscriptID')
+
+            joined.to_csv(f"{self.processed_tables}variant_tables/{ch}_variant.txt", index=False)
+        #colreorder = [2,4,16,29,30,31,25,26,0,1,3,5,6,7,8,9,10,11,12,13,14,15,17,18,19,20,21,22,23,24,27,28,32,33,34]
+        #joined = joined.iloc[:,colreorder]
+
 
     def extractOMIM(self,vdf):
         '''
@@ -67,37 +180,6 @@ class Validator:
         vdf = vdf.drop(columns=['PhenoIDS', 'OtherIDs'])
         return vdf
 
-    def add_Gencode(self,vdf,ch):
-
-        gdf = pd.read_csv(self.gencode_path)
-        gdf["GeneSymbol"] = gdf['Gene_Name']
-        gdf = gdf[gdf['Chr'] == str(ch)]
-        gdf['End'] = gdf['End'].astype('int64')
-        gdf['Start'] = gdf['Start'].astype('int64')
-        gdf = gdf.drop_duplicates(subset = 'GeneSymbol')
-        vdf['GeneSymbol'] = vdf['GeneSymbol'].str.replace("[;]?LOC\d*[;]?", "", regex = True) #remove non-specific secondary names
-        not_matching_gencode = list(set(vdf.GeneSymbol).difference(set(gdf.GeneSymbol)))
-        matched = vdf.loc[~vdf["GeneSymbol"].isin(not_matching_gencode)]
-        joined_df = matched.join(gdf.set_index('GeneSymbol'), on='GeneSymbol').reset_index(drop = True)
-
-        remainder = vdf.loc[vdf["GeneSymbol"].isin(not_matching_gencode)].reset_index(drop = True)
-
-        new_rows = []
-        for i in remainder.index:
-            posvcf = remainder["PositionVCF"].iloc[i]
-            row = gdf[gdf['Start'].lt(posvcf) & gdf['End'].gt(posvcf)]
-
-            if len(row['Gene_Name']) == 0:
-                new_rows.append(list(remainder.iloc[i]) +[ch,int(),int(),"","","",""])
-
-            if len(row['Gene_Name']) > 0:
-                for x in range(len(row.index)):
-                    if 'ENS' not in row.iloc[x,4]:
-                        new_rows.append(list(remainder.iloc[i]) + list(row.iloc[x,0:7]))
-
-        joined_df = pd.concat([joined_df, pd.DataFrame(new_rows, columns = joined_df.columns)])
-        joined_df = joined_df.iloc[:,[2,4,19,20,21,22,16,0,1,3,5,6,7,8,9,10,11,12,13,14,15,17,18,23,24,25]]
-        return joined_df
 
     def clean_clinvar(self):
         '''
@@ -106,10 +188,10 @@ class Validator:
         Keeps only data from hg38 assembly
         '''
         ## Dropped cols
-        # "LastEvaluated", "RS(dbSNP)", "Origin", 'Assembly','Chromosome','Start', 'Stop',
-        # 'ReferenceAllele', 'AlternateAllele', "Cytogenetic", "ReviewStatus",
+        # "LastEvaluated", "RS(dbSNP)", "Origin", 'Chromosome',
+        # , "Cytogenetic", "ReviewStatus",
         # "NumberSubmitters", "Gudelines", "TestedInGTR", "SubmitterCategories"
-        to_drop = [8, 9, 14, 16, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 29]
+        to_drop = ['RefAllele', 'AltAllele','Assembly', 'Start', 'Stop']
         in_file = gzip.open(self.clinvar_summary, "rt")
         contents = in_file.readlines()
 
@@ -120,35 +202,48 @@ class Validator:
                    "Cytogenetic", "ReviewStatus", "NumberSubmitters", "Guidelines", "TestedInGTR", "OtherIDs",
                    "SubmitterCategories", "VariationID", "PositionVCF", "RefAlleleVCF", "AltAlleleVCF"]
 
-        cols = [allcols[i] for i in range(34) if i not in to_drop]
-        print('total_variants',len(contents))
-
+        cols = [allcols.index(c) for c in allcols if c not in to_drop]
         for ch in self.chroms:
-            out_fname = f"{val.processed_tables}{ch}_variant.txt"
+            print(ch)
+            out_fname = f"{self.processed_tables}/variant_tables/{ch}_variant.txt"
             lines = []
             for line in contents:
                 line = line.split("\t")
                 if line[18] == str(ch):
                     if line[16] != "GRCh37": # Remove hg19 data
                         line[-1] = line[-1].replace("\n", "")
-                        if len(line[-1]) < 2 and line[-1] != 'na': # remove Alt allele that are less than 2bp
-                            if len(line[-2]) < 2 and line[-2] != 'na':  # remove Alt allele that are less than 2bp
-                                line = [line[i] for i in range(34) if i not in to_drop]
-                                lines.append(line)
+                        if 'single nucleotide variant' in line:
+                            line = [line[i] for i in cols]
+                            lines.append(line)
 
-
-            vdf = pd.DataFrame(lines, columns = cols)
+            vdf = pd.DataFrame(lines, columns = [allcols[i] for i in cols])
             vdf['HGNC_ID'] = vdf['HGNC_ID'].apply(lambda x: x.replace("HGNC:",""))
-            vdf['PositionVCF'] = vdf['PositionVCF'].astype('int').sort_values()
+            vdf['PositionVCF'] = vdf['PositionVCF'].astype('int')
             vdf = vdf[vdf['PositionVCF']>1]
 
-            #Find and extract OMIM ID
+            #keep only pathogenic
+            vdf = vdf[vdf['ClinSigSimple'] == '1']##variants remaining = 12426
+            vdf = vdf.sort_values('GeneSymbol')
+
+            #Extract GeneID and GeneSymbol from HGVSID, In places that are missing
+            blankgenes = vdf.loc[vdf['GeneID'] == '-1']
+            hgvs = blankgenes['HGVS_ID']
+            genenames = hgvs.str.extract(r"\((\w*\d*)\):").sort_values(0)
+            temp = vdf.loc[~vdf['HGVS_ID'].isin(blankgenes)].drop_duplicates(subset='GeneSymbol')
+            genenames = genenames.join(temp[['GeneID','GeneSymbol']].set_index('GeneSymbol'),on = 0)
+            vdf.loc[vdf['HGVS_ID'].isin(hgvs),'GeneSymbol'] = genenames[0]
+            vdf.loc[vdf['HGVS_ID'].isin(hgvs),'GeneID'] = genenames['GeneID']
+            vdf.loc[vdf.GeneID.isna(),'GeneID'] = -1
+            vdf['GeneID'] = vdf['GeneID'].astype('int64')
+            vdf = vdf.reset_index(drop=True)
+
+            # Find and extract OMIM ID
+            vdf = self.extract_tid_from_hgvs(vdf)
             vdf = self.extractOMIM(vdf)
+            vdf.to_csv(out_fname,index=False)
 
-            #annotate gene info with genecode
-            vdf = self.add_Gencode(vdf,ch)
-
-            vdf.to_csv(out_fname,index=None)
+        self.add_MANE()
+        self.add_molecular_consequences()
 
 
     def intervalMatch(self,df1,df2):
@@ -170,74 +265,39 @@ class Validator:
                 temp1[i] = f"matched{ends.index(new_p2[0])}"
         return temp1,temp2
 
-
-    def appendHPA(self):
+    def make_gene_tables(self):
         '''
-        attached HPA gene expression info to clinvar info by using gene names first and then by chromosome locations
+        attached HPA gene expression info to clinvar info by ensembl id
         '''
 
-        hpa_og = pd.read_csv(self.HPApath, delimiter='\t')
+        hpa = pd.read_csv(self.HPApath, delimiter='\t')
 
-        cols = ['Gene', 'Gene synonym', 'Ensembl', 'Gene description',
-       'Chromosome', 'Position', 'Biological process', 'Molecular function',
-       'Disease involvement', 'RNA tissue specific nTPM',
-       'RNA tissue distribution', 'RNA tissue cell type enrichment',
-       'RNA single cell type specific nTPM', 'RNA tissue specific nTPM']
-        hpa_og = hpa_og[cols]
+        cols = ['Ensembl', 'Chromosome', 'Gene description', 'Protein class', 'Biological process',
+                'Molecular function', 'Uniprot',
+                'Disease involvement', 'RNA tissue specificity', 'RNA tissue specific nTPM',
+                'RNA tissue distribution', 'RNA tissue cell type enrichment',
+                'RNA single cell type specific nTPM', 'RNA tissue specific nTPM']
+        hpa = hpa[cols]
 
-        for ch in self.chroms:
-
-            #import cleaned clinvar
-            vdf = pd.read_csv(f"{self.processed_tables}{ch}_variant.txt")
-            hpa = hpa_og[hpa_og["Chromosome"] == str(ch)]
-            vdf.Gene_ID = [str(x).split(".")[0] for x in vdf.Gene_ID]
-            vdf = vdf.rename(columns = {'Gene_ID': 'Ensembl',"strand": "Coding Strand"})
-
-            #Try to match on ensembl ID first
-            ensembl_diff= list(set(vdf.Ensembl).difference(set(hpa.Ensembl)))
-            not_e_match = vdf.loc[vdf['Ensembl'].isin(ensembl_diff)]
-            e_match = vdf.loc[~vdf['Ensembl'].isin(ensembl_diff)]
-            joined_df = e_match.join(hpa.set_index('Ensembl'),on='Ensembl')
-
-            #for the remainder of unmatched find genes by coords
-            #This is too slow to run for the entire dataset
-            temp1,temp2 = self.intervalMatch(df1=not_e_match, df2=hpa) #creates dummy matching indexes
-            not_e_match['matched'] = temp1
-            hpa['matched'] = temp2
-            joined_df2 = not_e_match.join(hpa.set_index('matched').drop(columns = 'Ensembl'), on='matched')
-            df = pd.concat([joined_df, joined_df2.drop(columns=['matched'])], ignore_index=True).reset_index(drop = True)
-            df['GeneSymbol'] = df['GeneSymbol'].str.replace(";|:|\\|", ",", regex=True)
-            df['Gene_Name'] = df['Gene_Name'].str.replace(";|:|\\|", ",", regex=True)
-            df['Gene synonym'] = df['Gene synonym'].str.replace(";|:|\\|", ",", regex=True)
-            df['Gene'] = df['Gene'].str.replace(";|:|\\|", ",", regex=True)
-            gene_syns = []
-            for i in df.index:
-                names = f"{df['GeneSymbol'].iloc[i]},{str(df['Gene_Name'].iloc[i])},{str(df['Gene synonym'].iloc[i])}" \
-                        f",{str(df['Gene'].iloc[i])}"
-                names = set(names.replace("nan,","").strip().split(","))
-                gene_syns.append(";".join(i for i in names))
-            df['Gene synonym'] = gene_syns
-            df = df.drop(columns =['Gene_Name','Gene'])
-
-            df.to_csv(f'{self.processed_tables}{ch}_variant.txt', index=False)
-        return df
+        mane = pd.read_csv(f'{self.processed_tables}MANE.GRch38.summary_cleaned.txt.gz')
+        mane = mane[['TranscriptID','Start', 'End', 'Strand',  'ProteinID', 'Ensembl_TranscriptID', 'Ensembl_Gene']]
+        mane['Ensembl_Gene'] = [x.split('.')[0] if type(x) == str else x for x in mane['Ensembl_Gene']]
+        joined_df = hpa.join(mane.set_index('Ensembl_Gene'), on='Ensembl_Gene')
+        joined_df.to_csv(f'{self.processed_tables}gene_tables.csv.gz', index=False,compression='gzip')
 
 
 
     def make_HGVStable(self):
         '''
-        Create CSV file of unduplicated HGVS prefix(coding ref name) and Chromsome
+        Create CSV file of unduplicated HGVS prefix(coding ref name) and Chromosome
         '''
         names, chrs = [], []
         for ch in self.chroms:
-            clin = pd.read_csv(f"{self.processed_tables}{ch}_variant.txt")
-            names += list(clin['HGVS_ID'])
-            chrs += [ch for i in range(len(clin['HGVS_ID']))]
+            clin = pd.read_csv(f"{self.processed_tables}variant_tables/{ch}_variant.txt")
+            names += list(set(clin['TranscriptID']))
+            chrs += [ch for i in range(len(set(clin['TranscriptID'])))]
 
-        df = pd.DataFrame({"HGVS": names, "Chr": chrs})
-        new_HGVS = [x.split(".")[0] for x in df['HGVS']]
-        df = pd.DataFrame({"HGVS": new_HGVS, "Chr": chrs}).drop_duplicates()
-        df = df.loc[df["HGVS"].str.startswith("NM")]
+        df = pd.DataFrame({"TranscriptID": names, "Chr": chrs}).drop_duplicates()
         out_file = f"{self.processed_tables}HGVSlookup.csv"
         df.to_csv(out_file, index=None)
 
@@ -252,8 +312,35 @@ class Validator:
                            capture_output=True)
         print(p)
 
+        cmd = f"wget {self.refseq} -O {self.raw_tables}Refseq/ncbiRefSeq.txt.gz"
+        p = subprocess.run(cmd, shell=True,
+                           capture_output=True)
+        print(p)
+
+        cmd = f"wget https://ftp.ncbi.nlm.nih.gov/refseq/MANE/MANE_human/current/MANE.GRCh38.v1.1.summary.txt.gz -O " \
+              f"{self.raw_tables}clinvar/MANE.GRch38.v1.1.summary.txt.gz"
+        p = subprocess.run(cmd, shell=True,
+                           capture_output=True)
+        print(p)
+
+        cmd = f"wget {self.clinvar_vcf} -O {self.raw_tables}clinvar/clinvar.vcf.gz"
+        p = subprocess.run(cmd, shell=True,
+                           capture_output=True)
+        print(p)
+        cmd = f"wget {self.clinvar_index} -O {self.raw_tables}clinvar/clinvar.vcf.gz.tbi"
+        p = subprocess.run(cmd, shell=True,
+                           capture_output=True)
+
+        cmd = f"bcftools view -f type!=snp {self.clinvar_vcf} -o {self.raw_tables}clinvar/clinvar.vcf -O v"
+        p = subprocess.run(cmd, shell=True,
+                           capture_output=True)
+
         print("Cleaning and Splitting Clinvar.....")
         self.clean_clinvar()
+        print("Adding Ensembl Identifiers....")
+        self.add_MANE()
+        print("Adding Molecular Consequences....")
+        self.add_molecular_consequences()
         print("Appending HPA data.....")
         self.appendHPA()
         print("Writing new HGVS Lookup table.....")
@@ -294,47 +381,17 @@ class Validator:
         for term in self.input_df['Editor'].unique():
             if term not in self.possible_editors:
                 raise ValueError(f"Editor type must be either {self.possible_editors}")
-
-
         return self.input_df
 
 
+'''
+datadir = "/groups/clinical/projects/editability/tables/"
+val = Validator(datadir)
+val.clean_clinvar()
+val.add_MC(
 
-def create_mutome():
-    val = Validator(datadir)
-    tot = 0
-    path = 0
-    orgs = 0
-    for ch in val.chroms:
-        # import cleaned clinvar
-        vdf = pd.read_csv(f"{val.processed_tables}{ch}_variant.txt")
-        tot += len(vdf['ClinicalSign'])
-        temp = vdf[vdf['ClinicalSign'].str.contains('Pathogenic',na=False)]
-        path+=len(temp['ClinicalSign'])
-        temp = temp[temp['RNA tissue cell type enrichment'].str.contains('Brain|Liver|Lung',na = False,regex = True)]
-        orgs += len(temp['ClinicalSign'])
-        if ch == val.chroms[0]:
-            mutome = pd.DataFrame(temp)
-        else:
-            mutome = pd.concat([mutome,temp])
+val.make_guidetabs()
 
-mutome.to_csv('/home/thudson/edit_test_out/mutome.csv',index = False)
-
-mutome = pd.read_csv('/home/thudson/edit_test_out/mutome.csv')
-genes=pd.read_csv("/home/thudson/edit_test_out/PanelApp IEM Panels - Likely IEM.csv")
-genes = list(genes['Gene'])
-IEM = mutome.loc[mutome['GeneSymbol'].isin(genes)]
-
-IEM.to_csv('/home/thudson/edit_test_out/IEM.csv',index = False)
-variants = ['ACADM','ACADVL','ACAT1','ASS1','BCKDHA','BCKDHB','BTD','CPS1','GCDH','HLCS','IVD','PCCA','PCCB']
-
-variants = ['NM_000016.6(ACADM):c.727C>T (p.Arg243Ter),'
-            'NM_000016.6(ACADM):c.1085G>A (p.Gly362Glu)',
-            'NM_000016.6(ACADM):c.985A>C (p.Lys329Gln)',
-            'NM_000016.6(ACADM):c.216+2T>G',
-            'NM_000016.6(ACADM):c.157C>T (p.Arg53Cys)',
-'NM_002225.5(IVD):c.1175G>A (p.Arg392His)',
-            'NM_000159.4(GCDH):c.1244-2A>C',
-'NM_183050.4(BCKDHB):c.331C>T (p.Arg111Ter)']
-IEM = IEM.loc[IEM['GeneSymbol'].isin(variants)]
-
+for ch in val.chroms:
+    vdf = pd.read_csv(f"{val.processed_tables}{ch}_variant.txt")
+'''

@@ -35,22 +35,21 @@ class Fetch_Guides:
                  annote_path:str,
 				 **kwargs):
 		"""
-			:param queries: list of query terms, either in hgvs format - 'NM_000518.5:c.114G>A' or coords 'chr11:5226778C>T' (COORDS ALLELES MUST BE PLUS STRAND!!)
-			:param qtype: 'hgvs' or 'coord'
-			  ---> if 'hgvs', providing the coordinates in the kwargs with 'hgvscoord' can reduce processing time
-			  ---> hgvs assumes the query is already in clinvar and will generate a variant report with the gene report, if 'coord' then just gene report is created
-			:param editor: 'all', 'custom', selected list or str() of the editor choices
-			--> custom must contain kwargs, see below
-			:param BEmode: 'off','default','all', or select BE editor for base editor choices below
-			:param genome: genome used
-			:param datadir: folder where tables and pre-computed data live
-			:param fasta_path: *Unsure using chromsome seperate files right now but unsure if this will be permenant
-			:param kwargs: 'hgvscoord' , 'Jobname','clin_report','gene_report'
+		:param queries: list of query terms, either in hgvs format - 'NM_000518.5:c.114G>A' or coords 'chr11:5226778C>T' (COORDS ALLELES MUST BE PLUS STRAND!!)
+		:param qtype: 'hgvs' or 'coord'
+		  ---> if 'hgvs', providing the coordinates in the kwargs with 'hgvscoord' can reduce processing time
+		  ---> hgvs assumes the query is already in clinvar and will generate a variant report with the gene report, if 'coord' then just gene report is created
+		:param editor: 'all', 'custom', selected list or str() of the editor choices
+		--> custom must contain kwargs, see below
+		:param BEmode: 'off','default','all', or select BE editor for base editor choices below
+		:param genome: genome used
+		:param datadir: folder where tables and pre-computed data live
+		:param fasta_path: *Unsure using chromsome seperate files right now but unsure if this will be permenant
+		:param kwargs: 'hgvscoord' , 'Jobname','clin_report','gene_report'
 
-			** if 'custom' selcted as editor in kwargs must include pam, pamISFirst, window_size (optional:name)
-
+		** if 'custom' selcted as editor in kwargs must include pam, pamISFirst, window_size (optional:name)
         """
-	##-----------------User Inputs--------------------##
+		##-----------------User Inputs--------------------##
 		if qtype == 'hgvs':
 			self.queries = self.validate_hgvs(queries)
 		if qtype == 'coord':
@@ -133,9 +132,9 @@ class Fetch_Guides:
 		self.win_size = win_size
 
 	def configure_search_params(self):
-        '''
-        set parameteres for the selected editor or editors(not BE editors)
-        '''
+		'''
+		set parameteres for the selected editor or editors(not BE editors)
+		'''
 		# search for all guides
 		if 'all' == self.editor:
 			self.search_params = self.editor_pamlib
@@ -250,8 +249,8 @@ class Fetch_Guides:
 		datenow = date.today().strftime('%Y-%m-%d')
 		self.all_gene.to_csv(f'{self.resultsfolder}/{datenow}_Gene_Report.csv',index = False)
 
-        if self.qtype == 'hgvs':
-		self.all_variant.to_csv(f'{self.resultsfolder}/{datenow}_Variant_Report.csv',index = False)
+		if self.qtype == 'hgvs':
+			self.all_variant.to_csv(f'{self.resultsfolder}/{datenow}_Variant_Report.csv',index = False)
 
 
 
@@ -281,7 +280,7 @@ class Fetch_Guides:
 
 		if field != 'interval':
 			not_found = True
-			for line in gzip.open(self.refseq_path, 'rt'):
+			for line in gzip.open(self.annote_path, 'rt'):
 				tokens = line.split('\t')
 				entry = dict(zip(labels, tokens))
 				if term in entry[field]:
@@ -303,7 +302,7 @@ class Fetch_Guides:
 			start, end = term.split(":")[1].split('-')
 			pos = int((int(start) + int(end)) / 2)
 
-			for line in gzip.open(self.refseq_path, 'rt'):
+			for line in gzip.open(self.annote_path, 'rt'):
 				tokens = line.split('\t')
 				entry = dict(zip(labels, tokens))
 				if ch == entry['chrom']:
@@ -557,37 +556,39 @@ class Fetch_Guides:
 				query, tid, eid, strand, ref, alt, feature_annotation, extracted_seq, codons, coord = d
 				dh = DataHandler(query, strand, ref, alt, feature_annotation, extracted_seq, codons, coord)
 
-			if self.BEmode != 'off':
-				guides, BEguides = dh.get_Guides(self.search_params, self.BE_search_params)
-			else:
-				guides, BEguides = dh.get_Guides(self.search_params)
-
-			if len(BEguides['gRNA']) > 0:
-				if len(self.all_BE.keys()) == 0:
-					for k, v in BEguides.items():
-						self.all_BE[k] = v
+				if self.BEmode != 'off':
+					guides, BEguides = dh.get_Guides(self.search_params, self.BE_search_params)
 				else:
-					for k, v in BEguides.items():
-						self.all_BE[k] += v
+					guides, BEguides = dh.get_Guides(self.search_params)
+
+				if len(BEguides['gRNA']) > 0:
+					if len(self.all_BE.keys()) == 0:
+						for k, v in BEguides.items():
+							self.all_BE[k] = v
+					else:
+						for k, v in BEguides.items():
+							self.all_BE[k] += v
 
 
-			if len(guides['gRNA']) > 0:
-				if len(self.all_guides.keys()) == 0:
-					for k, v in guides.items():
-						self.all_guides[k] = v
-				else:
-					for k, v in guides.items():
-						self.all_guides[k] += v
+				if len(guides['gRNA']) > 0:
+					if len(self.all_guides.keys()) == 0:
+						for k, v in guides.items():
+							self.all_guides[k] = v
+					else:
+						for k, v in guides.items():
+							self.all_guides[k] += v
 
 					print(len((guides['gRNA'])), ' guides found for ', query)
-			else:
+				else:
 					print(f"No guides found for the query {query}")
+
 		guidedf, BEdf = None,None
 		if len(self.all_guides.keys()) != 0:
-		guidedf = self.write_guide_csv(self.all_guides, gtype='guides')
+			guidedf = self.write_guide_csv(self.all_guides, gtype='guides')
 		if len(self.all_BE.keys()) != 0:
-		BEdf = self.write_guide_csv(self.all_BE, gtype='BE')
-		self.add_clininfo()
+			BEdf = self.write_guide_csv(self.all_BE, gtype='BE')
+			self.add_clininfo()
+
 		return self.all_variant, self.all_gene, guidedf, BEdf
 
 
@@ -604,8 +605,12 @@ def main():
 	# resultsfolder = "/groups/clinical/projects/editability/medit_queries/medit_test/test_out/"
 	# datadir = "/groups/clinical/projects/editability/tables/"
 	# fasta_path = "/groups/clinical/projects/clinical_shared_data/hg38/hg38.fa.gz"
+	# annote_path =  "/groups/clinical/projects/editability/tables//processed_tables/ncbiRefSeq.txt.gz"
 
 	#HGVS TEST
+	datadir = "/groups/clinical/projects/editability/tables/"
+	fasta_path = "/groups/clinical/projects/clinical_shared_data/hg38/hg38.fa.gz"
+	annote_path =  "/groups/clinical/projects/editability/tables//processed_tables/ncbiRefSeq.txt.gz"
 	queries = ['NM_000532.5(PCCB):c.1316A>G (p.Tyr439Cys)', 'NM_000518.5(HBB):c.114G>A', 'NM_000517.6(HBA2):c.99G>A', 'NM_005886.3(KATNB1):c.1A>G']
 	qtype = 'hgvs'
 	BEmode = 'default'
@@ -628,7 +633,7 @@ def main():
 		-> {datadir}
 	""")
 	# Get query items
-	fg = Fetch_Guides(queries, qtype, editor, BEmode, resultsfolder, datadir, fasta_path)
+	fg = Fetch_Guides(queries, qtype, editor, BEmode, resultsfolder, datadir, fasta_path,annote_path)
 	all_clin_info, all_gene, all_guides, all_BE = fg.run_FetchGuides()
 
 
