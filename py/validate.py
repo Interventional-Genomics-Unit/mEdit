@@ -98,6 +98,7 @@ class Validator:
 
         mc = mc.drop(columns=['x1', 'x', 'attributes'])
         mc.to_csv(f'{self.processed_tables}clinvarvcf2txt.txt', index=False)
+
     def add_molecular_consequences(self):
         '''
         add molecular consequences

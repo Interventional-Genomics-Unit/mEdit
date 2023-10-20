@@ -3,11 +3,9 @@ from Bio import SeqUtils
 import math
 
 
-
 class DataHandler():
     '''
-    search for guides given hgvs or coords
-    pam, len, targe table window and optionally scores
+    search for guides given a genomic sequence and SNV info
     '''
 
     def __init__(self,query,strand,ref,alt,feature_annotation, extracted_seq, rf, coord):
@@ -19,7 +17,7 @@ class DataHandler():
         :param feature_annotation: ex: 'exon'
         :param extracted_seq: 'CCCACAGGGCCCTCACCTGCAGATTGTGATTGTGGCCGCACAGGTAGGCAGTGACCCCGT'
         :param rf : ex: '2'
-         :param coord : ex: 'chr19:136327650'
+        :param coord : ex: 'chr19:136327650'
         '''
         #search data
         self.NC_ref_allele = str(ref).upper()
@@ -110,20 +108,6 @@ class DataHandler():
         score = int(100 * (1.0 / (1.0 + math.exp(-score))))
 
         return score
-    '''
-    def cas_offinder(input, output):
-        cmdArgs2 = ['cas-offinder', input, 'C', output]
-        print(cmdArgs2)
-        call(cmdArgs2)
-        # output.flush()
-        columns = ['crRNA', 'Chromosome', 'Position', 'Off-targets', 'Strand', 'No of Mismatches']
-        ots = pd.read_csv(output, sep="\t", header=None, names=columns)
-        # ots
-        ots['Chromosome'] = ots['Chromosome'].str.split().str[0]
-
-        ots = ots.sort_values(by='No of Mismatches')
-        return (ots)
-    '''
 
     def find_codon(self,snv_rel_pos):
         codon = self.extracted_seq[int(snv_rel_pos - self.rf): int((snv_rel_pos - self.rf) + 3)]

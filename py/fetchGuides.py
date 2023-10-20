@@ -87,27 +87,32 @@ class Fetch_Guides:
 
 		##---------------libraries and keys--------------------##
 		# [editor]: pam, pamISfirst, win_size, guidelen, scoring, notes/altnames
-		self.editor_choices = ['spCas9', 'saCas9', 'spG', 'SpRY-HighE', 'LbCpf1',
-							   'scCas9', 'stCas9', 'iSpyMacCas9', 'CasX', 'Cpf1']
+		self.editor_choices = ['spCas9', 'saCas9', 'spG', 'SpRY-HighE','scCas9',
+							   'stCas9', 'iSpyMacCas9', 'CasX', 'AsCas12a','LbCas12a','Cas12c1']
 
-		self.BE_choices = ['BE3', 'HF-BE3', 'BE4', 'BE4max', 'BE4-Gam', 'YE1-BE3', 'EE-BE3', 'YE2-BE3',
-						   'YEE-BE3','VQR-BE3','VRER-BE3','SaBE3','SaBE4','SaBE4-Gam','Sa(KKH)-BE3','xBE3','eA3A-BE3',
-						   'A3A-BE3','BE-PLUS','ABE7.9','ABE7.10','xABE,ABESa','VQR-ABE','VRER-ABE','Sa(KKH)-ABE']
+		self.BE_choices = ['BE1','BE3','BE2','HF-BE3', 'BE4', 'BE4max', 'BE4-Gam', 'YE1-BE3', 'EE-BE3', 'YE2-BE3',
+						   'YEE-BE3','VQR-BE3','VRER-BE3','SaBE3','SaBE4','SaBE4-Gam','Sa(KKH)-BE3','xBE3', 'Target-AID',
+						   'ABE7.9','ABE7.10','xABE,ABESa','VQR-ABE','VRER-ABE','ABEsa','Sa(KKH)-ABE']
 
 
 		# name : (pam, 5'or3'pam, protospace length, approximated site of DSB site, notes )
 		# HDR most effcient within 1-7 bases outside of the DSB, so keeping this will remain standard with non-BE
-		self.editor_pamlib = {'spCas9': ('NGG', False, 20, -2, 'Sp Cas9, SpCas9-HF1, eSpCas9 1.1'),
-					  'saCas9': ('NNGRRT', False,21, -2, 'Cas9 S. Aureus 21 base guide'),
-					  'spG': ('NGN', False, 20, -2, '20bp-NGN - SpG'),
-					  'SpRY-HighE': ('NRN', False,20, -2, 'High Efficiency Pam'),
-						'scCas9':('NNGT',False,20,-2,'20bp-NNGT - Cas9 S. canis - high efficiency PAM, recommended'),
-					  'stCas9': ('NNAGAA', False,20, -2, 'Cas9 S. Thermophilus'),
-					  'iSpyMacCas9': ('NAA', False,20, -2, ''),
-					  'CasX': ('TTCN', True, 20, 18, 'Cas12e'),
-					  'AsCas12a': ('TTTV', True, 23, 22, 'TTT(A/C/G)-23bp - Cas12a (Cpf1)'),
-					  'LbCas12a': ('TTTV', True, 23, 22, 'LbCpf1'),
-					  'Cas12c1': ('TG', True, 23, 22, 'C2c3'),
+		self.editor_pamlib = {'spCas9': ('NGG', False, 20, -2, 'requirments work for SpCas9-HF1, eSpCas9 1.1'),
+							  'fnCas9': ('NGG', False, 21, -2, 'highly specifc yet large enzyme'),
+							  'saCas9': ('NNGRRT', False,21, -2, 'Cas9 S. Aureus 21 base guide'),
+							  'Nme2Cas9c': ('NNNNCC', False,23, -2, ''),
+							  'spG': ('NGN', False, 20, -2, '20bp-NGN - SpG'),
+							  'SpRY-HighE': ('NRN', False,20, -2, 'High Efficiency Pam'),
+							  'scCas9':('NNGT',False,20,-2,'20bp-NNGT - Cas9 S. canis - high efficiency PAM, recommended'),
+					  		  'stCas9': ('NNAGAA', False,20, -2, 'Cas9 S. Thermophilus'),
+							  'iSpyMacCas9': ('NAA', False,20, -2, ''),
+							  'CasX': ('TTCN', True, 20, 18, 'plmCas12e,dltCas12e'),
+							  'AsCas12a': ('TTTV', True, 23, 22, 'TTT(A/C/G)-23bp - Cas12a (Cpf1)'),
+							  'LbCas12a': ('TTTV', True, 23, 22, 'LbCpf1'),
+							  'Cas12d': ('TA', True, 18, 17, 'CasY'),
+							  'Cas12c1': ('TG', True, 23, 22, 'C2c3'),
+							  'AacCas12b': ('TTN', True, 20, 18, ''),
+							  'UnCas12c2': ('TN', True, 20, 18, 'only binds, does not cut')
 							  }
 
 
@@ -137,7 +142,11 @@ class Fetch_Guides:
 		'''
 		# search for all guides
 		if 'all' == self.editor:
-			self.search_params = self.editor_pamlib
+			self.search_params = {'spCas9': ('NGG', False, 20, -2, 'SpCas9, SpCas9-HF1, eSpCas9 1.1'),
+								  'saCas9': ('NNGRRT', False, 21, -2, 'Cas9 S. Aureus 21 base guide'),
+								  'CasX': ('TTCN', True, 20, 18, 'plmCas12e,dltCas12e'),
+								  'Cas12a': ('TTTV', True, 23, 22, 'LbCas12,AsCas12a')}
+
 
 		# search for selected subset
 		if type(self.editor) is list:
@@ -191,24 +200,38 @@ class Fetch_Guides:
 		# sets base editor search params, each key is a list of 2 or more; refernce seq search params,
 		# then any set that follows starts with the conversion (ex. 'AG' is A --> G) and then the base editors that have the same params
 
-		BE_lib = {'spCas9-def': [('NGG', False, 20,[4,8]),('CT','BE3', 'BE4', 'BE4max', 'BE4-Gam'),('AG','ABE7.9','ABE7.10','ABEmax')],
-				  'spCas9-YE': [('NGG', False, 20, [5, 6]), ('CT', 'YE1-BE3', 'EE-BE3', 'YE2-BE3', 'YEE-BE3')],
+		BE_lib = {'spCas9-def': [('NGG', False, 20,[4,8]),('CT','BE'),('AG','ABE')],
+				  'spCas9-BE14': [('NGG', False, 20, [4, 8]), ('CT', 'BE1|BE3|BE4|HF-BE')],
+				  'spCas9-ABE7.9': [('NGG', False, 20, [4, 9]),('AG', 'ABE7.9')],
+				  'spCas9-ABE7.10': [('NGG', False, 20, [4, 7]), ('AG', 'ABE7.10')],
+				  'spCas9-max': [('NGG', False, 20, [4, 8]), ('CT', 'BE4max'),('AG', 'ABEmax')],
+				  'Target-AID': [('NGG', False, 20, [2, 8]), ('CT', 'Target-AID')],
+				  'spCas9-YE1': [('NGG', False, 20, [4, 7]), ('CT','YE1-BE3')],
+				  'spCas9-YE': [('NGG', False, 20, [5, 6]), ('CT', 'EE-BE3|YE2-BE3|YEE-BE3')],
 				  'spCas9-VQR': [('NGA', False, 20, [4, 8]), ('CT', 'VQR-BE3'), ('AG', 'VQR-ABE')],
 				  'spCas9-VRER': [('NGCG', False, 20, [4, 8]), ('CT', 'VRER-BE3'), ('AG', 'VRER-ABE')],
-					   'saCas9-KKH': [('NNGRRT', False, 20, [3, 12]),('CT','SaBE3','SaBE4','SaBE4-Gam,Sa(KKH)-BE3'),('AG','ABESa','Sa(KKH)-ABE')]}
+				  'saCas9-BE': [('NNGRRT', False, 21, [3, 12]),('CT','SaBE3','SaBE4')],
+				  'saCas9-KKh-BE': [('NNNRRT', False, 21, [3, 12]), ('CT', 'Sa(KKH)-BE3')],
+				  'saCas9-KKH-ABE': [('NNGRRT', False, 21, [8, 18]),('AG','ABESa','Sa(KKH)-ABE')]}
 
 		if self.BEmode == 'default':
 			self.BE_search_params = {'spCas9-def': BE_lib['spCas9-def']}
 
-		if self.BEmode == 'all':
+		elif self.BEmode == 'all':
 			self.BE_search_params = BE_lib
 
-		if self.BEmode in self.BE_choices:
-			for k, v in BE_lib.values():
-				if self.BEmode in v[1]:
-					self.BE_search_params = [BE_lib[k]('CT', self.BEmode)('AT')]
-				if self.BEmode in v[2]:
-					self.BE_search_params = [BE_lib[k]('CT')('AT', self.BEmode)]
+		else:
+			if self.BEmode not in self.BE_choices:
+				print('That is not a valid Base Editor')
+				print(f'please choose from {self.BE_choices}')
+			else:
+				for k, v in BE_lib.values():
+					if self.BEmode in v[1][-1]:
+						self.BE_search_params = {self.BEmode: BE_lib[k][0:2]}
+
+					if len(v) == 3:
+						if self.BEmode in v[2][-1]:
+							self.BE_search_params = {self.BEmode: BE_lib[k][0] + BE_lib[k][2]}
 
 		return self.BE_search_params
 
@@ -488,7 +511,8 @@ class Fetch_Guides:
 				snv_info[ch].append([self.queries[x], int(snvpos),alt,ref])
 
 		self.snv_info = snv_info
-		print("Gathering Variant Genomic Annotation Info.......")
+
+		print("Gathering Variant Genomic Info.......")
 
 		for ch,data in snv_info.items(): # find transcript info
 			fasta = SeqIO.read(gzip.open(self.fasta_path.replace('.fa.gz', f'_chr{str(ch)}.fa.gz'), 'rt'), 'fasta') #<-----How I'm search genome info
@@ -609,11 +633,12 @@ def main():
 
 	#HGVS TEST
 	datadir = "/groups/clinical/projects/editability/tables/"
+	resultsfolder = "/groups/clinical/projects/editability/medit_queries/medit_test/test_out/"
 	fasta_path = "/groups/clinical/projects/clinical_shared_data/hg38/hg38.fa.gz"
 	annote_path =  "/groups/clinical/projects/editability/tables//processed_tables/ncbiRefSeq.txt.gz"
 	queries = ['NM_000532.5(PCCB):c.1316A>G (p.Tyr439Cys)', 'NM_000518.5(HBB):c.114G>A', 'NM_000517.6(HBA2):c.99G>A', 'NM_005886.3(KATNB1):c.1A>G']
 	qtype = 'hgvs'
-	BEmode = 'default'
+	BEmode = 'off'
 	editor = 'all'
 
 	# queries = ['chr3:136327650A>G','chr11:5226778C>T','chr16:173128G>A','chr16:57737244A>G']
