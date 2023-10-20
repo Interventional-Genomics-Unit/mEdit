@@ -44,7 +44,7 @@ class Validator:
         ftp : https://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/ncbiRefSeq.txt.gz
 
         '''
-        mane = pd.read_csv(f'{self.processed_tables}MANE.GRch38.summary_cleaned.txt')
+        mane = pd.read_csv(f'{self.processed_tables}MANE.GRch38.summary_cleaned.txt.gz')
         mane_ensid = list(mane['Ensembl_TranscriptID'])
         mane_tid = list(mane['TranscriptID'])
 
@@ -52,16 +52,16 @@ class Validator:
                   'cdsStart', 'cdsEnd', 'exonCount', 'exonStarts', 'exonEnds',
                   'score', 'name', 'cdsStartStat', 'cdsEndStat',
                   'exonFrames']
-        out = gzip.open(f'{self.processed_tables}ncbiRefSeq.txt.gz', 'wt')
-        for line in gzip.open(f'{self.raw_tables}Refseq/ncbiRefSeq.txt.gz', 'rt'):
+        out = gzip.open(f'{processed_tables}ncbiRefSeq.txt.gz', 'wt')
+        for line in gzip.open(f'{raw_tables}Refseq/ncbiRefSeq.txt.gz', 'rt'):
             tokens = line.split('\t')
-            if tokens[2].replace('chr', "") in self.chroms:
+            if tokens[2].replace('chr', "") in chroms:
                 try:
                     i = mane_tid.index(tokens[1])
                     tokens[0] = mane_ensid[i]
                 except:
                     tokens[0] = '-'
-                out.write('\t'.join(tokens))
+                out.write('\t'.join(tokens[0:8] + tokens[9:11] + [tokens[12]] + [tokens[-1]]))
         out.close()
 
     def process_MANE(self):

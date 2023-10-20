@@ -290,16 +290,14 @@ class Fetch_Guides:
 		'''
 		Using ncbiRefSeq.txt to find cds features by either interval, gene name or transcript ID
 		example input:
-		term, field = 'NM_000532.5'', 'tid'
+		term, field = 'NM_000532.5', 'tid'
 		term, field = 'ENST00000251654.9', 'eid'
 		term, field = 'PCCB','name'
 		term,field =  'chr3:136250339-136330169','interval'
 		'''
 
 		labels = ['eid', 'tid', 'chrom', 'strand', 'txStart', 'txEnd',
-				  'cdsStart', 'cdsEnd', 'exonCount', 'exonStarts', 'exonEnds',
-				  'score', 'name', 'cdsStartStat', 'cdsEndStat',
-				  'exonFrames']
+				  'cdsStart', 'cdsEnd', 'exonStarts', 'exonEnds','name','exonFrames']
 
 		if field != 'interval':
 			not_found = True
