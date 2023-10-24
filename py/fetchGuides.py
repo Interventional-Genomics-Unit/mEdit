@@ -1,19 +1,24 @@
 # Native Modules
+import gzip
 import time
 import regex as re
 import os
-from datetime import date
+from datetime import date  # datetime, date
+# Installed Modules
 import pandas as pd
-import gzip
-from Bio.Seq import Seq
 from Bio import SeqIO
+from Bio.Seq import Seq
 
+# from Bio.Seq import Seq
+# from Bio import motifs
 # Project Modules
 from dataH import DataHandler
+
 
 ###############
 # Main Script with Fetch_Guides Class for running pipeline
 ###############
+
 
 def set_export(outdir):
 	# Create outdir if inexistent
@@ -25,20 +30,21 @@ def set_export(outdir):
 class Fetch_Guides:
 
 	def __init__(self,
-				 queries: list,
-				 qtype: str,
-                 editor: str|list,
-                 BEmode: str|list,
-				 resultsfolder: str,
-                 datadir:str,
-                 fasta_path:str,
-                 annote_path:str,
-				 **kwargs):
+	             queries: list,
+	             qtype: str,
+	             editor: str | list,
+	             BEmode: str | list,
+	             resultsfolder: str,
+	             datadir: str,
+	             fasta_path: str,
+	             annote_path: str,
+	             **kwargs):
 		"""
 		:param queries: list of query terms, either in hgvs format - 'NM_000518.5:c.114G>A' or coords 'chr11:5226778C>T' (COORDS ALLELES MUST BE PLUS STRAND!!)
 		:param qtype: 'hgvs' or 'coord'
-		  ---> if 'hgvs', providing the coordinates in the kwargs with 'hgvscoord' can reduce processing time
-		  ---> hgvs assumes the query is already in clinvar and will generate a variant report with the gene report, if 'coord' then just gene report is created
+		  --> if 'hgvs', providing the coordinates in the kwargs with 'hgvscoord' can reduce processing time
+		  --> hgvs assumes the query is already in clinvar and will generate a variant report with the gene report,
+		  --> if 'coord' then just gene report is created
 		:param editor: 'all', 'custom', selected list or str() of the editor choices
 		--> custom must contain kwargs, see below
 		:param BEmode: 'off','default','all', or select BE editor for base editor choices below
@@ -48,8 +54,15 @@ class Fetch_Guides:
 		:param kwargs: 'hgvscoord' , 'Jobname','clin_report','gene_report'
 
 		** if 'custom' selcted as editor in kwargs must include pam, pamISFirst, window_size (optional:name)
-        """
+		"""
 		##-----------------User Inputs--------------------##
+		self.notes = None
+		self.name = None
+		self.pam = None
+		self.pamISfirst = None
+		self.scoring = None
+		self.win_size = None
+		self.guidelen = None
 		if qtype == 'hgvs':
 			self.queries = self.validate_hgvs(queries)
 		if qtype == 'coord':
@@ -64,71 +77,73 @@ class Fetch_Guides:
 		self.kwargs = kwargs
 
 		if 'hgvscoord' in kwargs.keys():
-			self.hgvscoord = self.validate_coord(kwargs['hgvscoord'])  #'chr11:5226778C>T'
+			self.hgvscoord = self.validate_coord(kwargs['hgvscoord'])  # 'chr11:5226778C>T'
 		if 'gene_report' in kwargs.keys():
 			self.gene_report = kwargs['gene_report']
 		if 'clin_report' in kwargs.keys():
-			self.clin_report= kwargs['clin_report']
+			self.clin_report = kwargs['clin_report']
 		if 'job_name' in kwargs.keys():
 			self.job_name = kwargs['job_name']
 
-
-		#input paths/folders
-		self.processed_tables = f"{datadir}/processed_tables/"  # folder with cleaned clinvar/hpa tabs
-		self.HGVSlookup_path = f"{self.processed_tables}HGVSlookup.csv"
+		# input paths/folders
+		self.processed_tables = f"{datadir}/processed_tables"  # folder with cleaned clinvar/hpa tabs
+		self.HGVSlookup_path = f"{self.processed_tables}/HGVSlookup.csv"
 		self.fasta_path = fasta_path
 		self.annote_path = annote_path
 
-		#output paths/folder
+		# output paths/folder
 		self.resultsfolder = resultsfolder
 
-		#other variables
-		self.snv_info = {} # {chrom: (id,snv_pos,ref,alt)}
+		# other variables
+		self.snv_info = {}  # {chrom: (id,snv_pos,ref,alt)}
 
 		##---------------libraries and keys--------------------##
 		# [editor]: pam, pamISfirst, win_size, guidelen, scoring, notes/altnames
-		self.editor_choices = ['spCas9', 'saCas9', 'spG', 'SpRY-HighE','scCas9',
-							   'stCas9', 'iSpyMacCas9', 'CasX', 'AsCas12a','LbCas12a','Cas12c1']
+		self.editor_choices = ['spCas9', 'saCas9', 'spG', 'SpRY-HighE', 'scCas9',
+		                       'stCas9', 'iSpyMacCas9', 'CasX', 'AsCas12a', 'LbCas12a', 'Cas12c1']
 
-		self.BE_choices = ['BE1','BE3','BE2','HF-BE3', 'BE4', 'BE4max', 'BE4-Gam', 'YE1-BE3', 'EE-BE3', 'YE2-BE3',
-						   'YEE-BE3','VQR-BE3','VRER-BE3','SaBE3','SaBE4','SaBE4-Gam','Sa(KKH)-BE3','xBE3', 'Target-AID',
-						   'ABE7.9','ABE7.10','xABE,ABESa','VQR-ABE','VRER-ABE','ABEsa','Sa(KKH)-ABE']
-
+		self.BE_choices = ['BE1', 'BE3', 'BE2', 'HF-BE3', 'BE4', 'BE4max', 'BE4-Gam', 'YE1-BE3', 'EE-BE3', 'YE2-BE3',
+		                   'YEE-BE3', 'VQR-BE3', 'VRER-BE3', 'SaBE3', 'SaBE4', 'SaBE4-Gam', 'Sa(KKH)-BE3', 'xBE3',
+		                   'Target-AID',
+		                   'ABE7.9', 'ABE7.10', 'xABE,ABESa', 'VQR-ABE', 'VRER-ABE', 'ABEsa', 'Sa(KKH)-ABE']
 
 		# name : (pam, 5'or3'pam, protospace length, approximated site of DSB site, notes )
 		# HDR most effcient within 1-7 bases outside of the DSB, so keeping this will remain standard with non-BE
 		self.editor_pamlib = {'spCas9': ('NGG', False, 20, -2, 'requirments work for SpCas9-HF1, eSpCas9 1.1'),
-							  'fnCas9': ('NGG', False, 21, -2, 'highly specifc yet large enzyme'),
-							  'saCas9': ('NNGRRT', False,21, -2, 'Cas9 S. Aureus 21 base guide'),
-							  'Nme2Cas9c': ('NNNNCC', False,23, -2, ''),
-							  'spG': ('NGN', False, 20, -2, '20bp-NGN - SpG'),
-							  'SpRY-HighE': ('NRN', False,20, -2, 'High Efficiency Pam'),
-							  'scCas9':('NNGT',False,20,-2,'20bp-NNGT - Cas9 S. canis - high efficiency PAM, recommended'),
-					  		  'stCas9': ('NNAGAA', False,20, -2, 'Cas9 S. Thermophilus'),
-							  'iSpyMacCas9': ('NAA', False,20, -2, ''),
-							  'CasX': ('TTCN', True, 20, 18, 'plmCas12e,dltCas12e'),
-							  'AsCas12a': ('TTTV', True, 23, 22, 'TTT(A/C/G)-23bp - Cas12a (Cpf1)'),
-							  'LbCas12a': ('TTTV', True, 23, 22, 'LbCpf1'),
-							  'Cas12d': ('TA', True, 18, 17, 'CasY'),
-							  'Cas12c1': ('TG', True, 23, 22, 'C2c3'),
-							  'AacCas12b': ('TTN', True, 20, 18, ''),
-							  'UnCas12c2': ('TN', True, 20, 18, 'only binds, does not cut')
-							  }
-
+		                      'fnCas9': ('NGG', False, 21, -2, 'highly specifc yet large enzyme'),
+		                      'saCas9': ('NNGRRT', False, 21, -2, 'Cas9 S. Aureus 21 base guide'),
+		                      'Nme2Cas9c': ('NNNNCC', False, 23, -2, ''),
+		                      'spG': ('NGN', False, 20, -2, '20bp-NGN - SpG'),
+		                      'SpRY-HighE': ('NRN', False, 20, -2, 'High Efficiency Pam'),
+		                      'scCas9': (
+			                      'NNGT', False, 20, -2,
+			                      '20bp-NNGT - Cas9 S. canis - high efficiency PAM, recommended'),
+		                      'stCas9': ('NNAGAA', False, 20, -2, 'Cas9 S. Thermophilus'),
+		                      'iSpyMacCas9': ('NAA', False, 20, -2, ''),
+		                      'CasX': ('TTCN', True, 20, 18, 'plmCas12e,dltCas12e'),
+		                      'AsCas12a': ('TTTV', True, 23, 22, 'TTT(A/C/G)-23bp - Cas12a (Cpf1)'),
+		                      'LbCas12a': ('TTTV', True, 23, 22, 'LbCpf1'),
+		                      'Cas12d': ('TA', True, 18, 17, 'CasY'),
+		                      'Cas12c1': ('TG', True, 23, 22, 'C2c3'),
+		                      'AacCas12b': ('TTN', True, 20, 18, ''),
+		                      'UnCas12c2': ('TN', True, 20, 18, 'only binds, does not cut')
+		                      }
 
 		## ------------Defaults and settings------------------##
 		##configure editor options
 		self.search_params = self.configure_search_params()
 
-		#configure BE options
+		# configure BE options
 		if self.BEmode != 'off':
 			self.BE_search_params = self.set_BE_params()
 
-		#---------------Ouputs--------------------------##
+		# ---------------Ouputs--------------------------##
 		self.all_variant = pd.DataFrame()
 		self.all_gene = pd.DataFrame()
 		self.all_guides = {}
 		self.all_BE = {}
+
+	# self.found_genes = []
 
 	def set_guidelen(self, guidelen):
 		self.guidelen = guidelen
@@ -137,16 +152,15 @@ class Fetch_Guides:
 		self.win_size = win_size
 
 	def configure_search_params(self):
-		'''
-		set parameteres for the selected editor or editors(not BE editors)
-		'''
+		"""
+		set paramteres for the selected editor or editors(not BE editors)
+		"""
 		# search for all guides
 		if 'all' == self.editor:
 			self.search_params = {'spCas9': ('NGG', False, 20, -2, 'SpCas9, SpCas9-HF1, eSpCas9 1.1'),
-								  'saCas9': ('NNGRRT', False, 21, -2, 'Cas9 S. Aureus 21 base guide'),
-								  'CasX': ('TTCN', True, 20, 18, 'plmCas12e,dltCas12e'),
-								  'Cas12a': ('TTTV', True, 23, 22, 'LbCas12,AsCas12a')}
-
+			                      'saCas9': ('NNGRRT', False, 21, -2, 'Cas9 S. Aureus 21 base guide'),
+			                      'CasX': ('TTCN', True, 20, 18, 'plmCas12e,dltCas12e'),
+			                      'Cas12a': ('TTTV', True, 23, 22, 'LbCas12,AsCas12a')}
 
 		# search for selected subset
 		if type(self.editor) is list:
@@ -177,7 +191,6 @@ class Fetch_Guides:
 
 	def set_params(self, kwargs):
 		# opts = ['pam', 'pamISfirst', 'guidelen','win_size', 'name','scoring']
-
 		if 'pam' in kwargs.keys():
 			self.pam = kwargs['pam']
 		if 'pamISfirst' in kwargs.keys():
@@ -195,24 +208,23 @@ class Fetch_Guides:
 
 		return params
 
-
 	def set_BE_params(self):
 		# sets base editor search params, each key is a list of 2 or more; refernce seq search params,
 		# then any set that follows starts with the conversion (ex. 'AG' is A --> G) and then the base editors that have the same params
 
-		BE_lib = {'spCas9-def': [('NGG', False, 20,[4,8]),('CT','BE'),('AG','ABE')],
-				  'spCas9-BE14': [('NGG', False, 20, [4, 8]), ('CT', 'BE1|BE3|BE4|HF-BE')],
-				  'spCas9-ABE7.9': [('NGG', False, 20, [4, 9]),('AG', 'ABE7.9')],
-				  'spCas9-ABE7.10': [('NGG', False, 20, [4, 7]), ('AG', 'ABE7.10')],
-				  'spCas9-max': [('NGG', False, 20, [4, 8]), ('CT', 'BE4max'),('AG', 'ABEmax')],
-				  'Target-AID': [('NGG', False, 20, [2, 8]), ('CT', 'Target-AID')],
-				  'spCas9-YE1': [('NGG', False, 20, [4, 7]), ('CT','YE1-BE3')],
-				  'spCas9-YE': [('NGG', False, 20, [5, 6]), ('CT', 'EE-BE3|YE2-BE3|YEE-BE3')],
-				  'spCas9-VQR': [('NGA', False, 20, [4, 8]), ('CT', 'VQR-BE3'), ('AG', 'VQR-ABE')],
-				  'spCas9-VRER': [('NGCG', False, 20, [4, 8]), ('CT', 'VRER-BE3'), ('AG', 'VRER-ABE')],
-				  'saCas9-BE': [('NNGRRT', False, 21, [3, 12]),('CT','SaBE3','SaBE4')],
-				  'saCas9-KKh-BE': [('NNNRRT', False, 21, [3, 12]), ('CT', 'Sa(KKH)-BE3')],
-				  'saCas9-KKH-ABE': [('NNGRRT', False, 21, [8, 18]),('AG','ABESa','Sa(KKH)-ABE')]}
+		BE_lib = {'spCas9-def': [('NGG', False, 20, [4, 8]), ('CT', 'BE'), ('AG', 'ABE')],
+		          'spCas9-BE14': [('NGG', False, 20, [4, 8]), ('CT', 'BE1|BE3|BE4|HF-BE')],
+		          'spCas9-ABE7.9': [('NGG', False, 20, [4, 9]), ('AG', 'ABE7.9')],
+		          'spCas9-ABE7.10': [('NGG', False, 20, [4, 7]), ('AG', 'ABE7.10')],
+		          'spCas9-max': [('NGG', False, 20, [4, 8]), ('CT', 'BE4max'), ('AG', 'ABEmax')],
+		          'Target-AID': [('NGG', False, 20, [2, 8]), ('CT', 'Target-AID')],
+		          'spCas9-YE1': [('NGG', False, 20, [4, 7]), ('CT', 'YE1-BE3')],
+		          'spCas9-YE': [('NGG', False, 20, [5, 6]), ('CT', 'EE-BE3|YE2-BE3|YEE-BE3')],
+		          'spCas9-VQR': [('NGA', False, 20, [4, 8]), ('CT', 'VQR-BE3'), ('AG', 'VQR-ABE')],
+		          'spCas9-VRER': [('NGCG', False, 20, [4, 8]), ('CT', 'VRER-BE3'), ('AG', 'VRER-ABE')],
+		          'saCas9-BE': [('NNGRRT', False, 21, [3, 12]), ('CT', 'SaBE3', 'SaBE4')],
+		          'saCas9-KKh-BE': [('NNNRRT', False, 21, [3, 12]), ('CT', 'Sa(KKH)-BE3')],
+		          'saCas9-KKH-ABE': [('NNGRRT', False, 21, [8, 18]), ('AG', 'ABESa', 'Sa(KKH)-ABE')]}
 
 		if self.BEmode == 'default':
 			self.BE_search_params = {'spCas9-def': BE_lib['spCas9-def']}
@@ -236,48 +248,49 @@ class Fetch_Guides:
 		return self.BE_search_params
 
 	def write_guide_csv(self, guides, gtype):
-
 		df = pd.DataFrame(guides)
 		if 'Doench Score' in df.columns:
-			temp = df[df['Editor'] == 'spCas9'].sort_values(by = 'Doench Score', ascending=False)
-			df = pd.concat([temp,df[df['Editor'] != 'spCas9']]).reset_index(drop=True)
-		df['Guide_ID'] = [y + str(x) for x,y in zip(list(df.index), list(df['Guide_ID']))]
+			temp = df[df['Editor'] == 'spCas9'].sort_values(by='Doench Score', ascending=False)
+			df = pd.concat([temp, df[df['Editor'] != 'spCas9']]).reset_index(drop=True)
+		df['Guide_ID'] = [y + str(x) for x, y in zip(list(df.index), list(df['Guide_ID']))]
 		nameout = 'BaseEditors_found.csv' if gtype == 'BE' else 'Guides_found.csv'
-
 		datenow = date.today().strftime('%Y-%m-%d')
-		if self.job_name != None:
-			out = f'{self.resultsfolder}{self.job_name}_{datenow}_{nameout}'
+		if self.job_name is not None:
+			out = f'{self.resultsfolder}/{self.job_name}_{datenow}_{nameout}'
 		else:
 
-			out = f'{self.resultsfolder}{datenow}_{nameout}'
-		df.to_csv(out,index = False)
+			out = f'{self.resultsfolder}/{datenow}_{nameout}'
+		df.to_csv(out, index=False)
 		return df
 
 	def add_clininfo(self):
 		all_tids = []
-
 		for ch, data in self.snv_info.items():
 			all_tids += [d[1] for d in data]
 
 			if self.qtype == 'hgvs':
 				tempvar = pd.read_csv(f"{self.processed_tables}/variant_tables/{ch}_variant.txt")
 				tempvar = tempvar.loc[tempvar['HGVS_Simple'].isin(list(self.queries))]
-				self.all_variant= pd.concat([self.all_variant,tempvar])
+				self.all_variant = pd.concat([self.all_variant, tempvar])
 
 		tempgene = pd.read_csv(f"{self.processed_tables}/gene_tables/gene_tables.csv.gz")
 		self.all_gene = tempgene.loc[tempgene['TranscriptID'].isin(list(all_tids))]
 
-
-
 		datenow = date.today().strftime('%Y-%m-%d')
-		self.all_gene.to_csv(f'{self.resultsfolder}/{datenow}_Gene_Report.csv',index = False)
+
+		gene_out = f"{self.resultsfolder}/{datenow}_Gene_Report.csv"
+		print(f"\n READY TO PRINT GENE OUT TO: {gene_out}\n ")
+
+		print(f"All tIDS:\n {all_tids}\n Tempgene Tids column:\n {tempgene['TranscriptID']}\n")
+		self.all_gene.to_csv(gene_out, index=False)
 
 		if self.qtype == 'hgvs':
-			self.all_variant.to_csv(f'{self.resultsfolder}/{datenow}_Variant_Report.csv',index = False)
+			variant_out = f"{self.resultsfolder}/{datenow}_Variant_Report.csv"
+			print(f"\nREADY TO PRINT VARIANT OUT TO: {variant_out}\n")
+			self.all_variant.to_csv(variant_out, index=False)
 
-
-
-	def extract_seqs(self,searchseq, pos, alt, window=30):
+	@staticmethod
+	def extract_seqs(searchseq, pos, alt, window=30):
 		"""
 		extracts the sequence +/-30bp surrounding a SNV then swaps ref for alt allele
 		"""
@@ -285,8 +298,7 @@ class Fetch_Guides:
 		extracted_seq = Seq(extracted_seq[0:window] + alt + extracted_seq[window + 1:]).upper()
 		return extracted_seq
 
-
-	def get_refseq_entry(self,term, field):
+	def get_refseq_entry(self, term, field):
 		'''
 		Using ncbiRefSeq.txt to find cds features by either interval, gene name or transcript ID
 		example input:
@@ -296,8 +308,9 @@ class Fetch_Guides:
 		term,field =  'chr3:136250339-136330169','interval'
 		'''
 
+		global entry
 		labels = ['eid', 'tid', 'chrom', 'strand', 'txStart', 'txEnd',
-				  'cdsStart', 'cdsEnd', 'exonStarts', 'exonEnds','name','exonFrames']
+		          'cdsStart', 'cdsEnd', 'exonStarts', 'exonEnds', 'name', 'exonFrames']
 
 		if field != 'interval':
 			not_found = True
@@ -336,8 +349,8 @@ class Fetch_Guides:
 
 		return entry
 
-
-	def find_codons(self,dist_from_cds_start, strand):
+	@staticmethod
+	def find_codons(dist_from_cds_start, strand):
 		'''
 		Finds reading frame of SNV in extracted sequence
 		'''
@@ -346,8 +359,8 @@ class Fetch_Guides:
 			rf = rf * -1
 		return rf
 
-
-	def get_cds_info(self,tx_seq, entry):
+	@staticmethod
+	def get_cds_info(tx_seq, entry):
 		'''
 		uses entry info to find cds (without utr's)
 		'''
@@ -381,8 +394,7 @@ class Fetch_Guides:
 		# translation = cds.translate()
 		return [exons, tx_seq, cds]
 
-
-	def find_transcript_info(self,term, fasta):
+	def find_transcript_info(self, term, fasta):
 		'''
 		Using a Refseq Transcript_ID, Ensembl Transcript_ID or coordinates find transcript annotations and transcript sequence
 		from either a genome fasta path or given genome sequence
@@ -396,18 +408,18 @@ class Fetch_Guides:
 		field = 'eid' if term.startswith('E') else 'tid' if term.startswith('N') else 'interval'
 
 		entry = self.get_refseq_entry(term=term, field=field)
-		if entry != None:
+		if entry is not None:
 			tx_seq = fasta_seq.seq[int(entry['txStart']):int(entry['txEnd'])]
 			tid_info = self.get_cds_info(tx_seq, entry)
 		else:
 			tid_info = None
 		return entry, tid_info
 
-
-	def find_snvseq_info(self,snvpos, alt, tid_info, entry, window=30):
+	def find_snvseq_info(self, snvpos, alt, tid_info, entry, window=30):
 		# returns - sequence,feature,translation(if needed)
 		# feature: non-coding, utr5,ut3,intron,exon, start_codon, stop_codon
 		# snvpos, alt = 11576257, 'T'
+		global dist_from_cds_start
 		seq, feature, rf = None, None, None
 
 		exons, tx_seq, cds = tid_info
@@ -433,10 +445,8 @@ class Fetch_Guides:
 
 				# find if exon or intron
 				else:
-
 					exon_n = 0
 					for x in exons:
-
 						# if in exon find reading frame
 						if t_snvpos in range(x[0], x[1] + 1):
 							# stop and start codon
@@ -480,58 +490,67 @@ class Fetch_Guides:
 		return seq, feature, rf
 
 	def fetch_query_info(self):
-		#Gets Transcript info
+		# Gets Transcript info
+		global term
 		snv_info = {}
 
 		# If quering by HGVSID with no other info then need to get chromsome/location/alt/ref
-		if self.qtype == 'hgvs' and self.hgvscoord == None:
+		if self.qtype == 'hgvs' and self.hgvscoord is None:
 			print("Looking up HGVS in Clinvar.......")
 
 			hgvs_tab = pd.read_csv(self.HGVSlookup_path)
 			q_prefixes = [x.split(':')[0] for x in self.queries]
-			chroms = set(hgvs_tab.loc[hgvs_tab['TranscriptID'].isin(q_prefixes),'Chr'])
+			chroms = set(hgvs_tab.loc[hgvs_tab['TranscriptID'].isin(q_prefixes), 'Chr'])
 
 			for ch in chroms:
-				df = pd.read_csv(f"{self.processed_tables}variant_tables/{ch}_variant.txt")
+				df = pd.read_csv(f"{self.processed_tables}/variant_tables/{ch}_variant.txt")
 				gadf = df.loc[df['HGVS_Simple'].isin(self.queries)]
-				snv_info[ch] = gadf[['HGVS_Simple', 'PositionVCF', 'RefAlleleVCF', 'AltAlleleVCF']].to_dict('tight')['data']
+				snv_info[ch] = gadf[['HGVS_Simple', 'PositionVCF', 'RefAlleleVCF', 'AltAlleleVCF']].to_dict('tight')[
+					'data']
 
-		#Else All information is given to find transcript info
+		# Else All information is given to find transcript info
 		else:
 			coords = self.queries if self.qtype == 'coord' else self.hgvscoord
 
 			coord_fmt = r'chr[0-9MTXY]*:(\d*)([ATCG]{1})\>([ATCG]{1})'
+
+			print(f"\n BUG INSPECTION \n Coords: {coords}\n Queries: {self.queries}\n")
+			print(f"PREMISSAS:\n Qtype: {self.qtype}\n Hgvs Coord: {self.hgvscoord}")
 			for x in range(len(self.queries)):
-				ch = coords[x].split(':')[0].replace('chr','')
+				print(f" Current Query: {x}\n")
+				ch = coords[x].split(':')[0].replace('chr', '')
 				if ch not in snv_info.keys():
 					snv_info[ch] = []
 				snvpos, alt, ref = list(re.search(coord_fmt, coords[x]).groups())
-				snv_info[ch].append([self.queries[x], int(snvpos),alt,ref])
+				snv_info[ch].append([self.queries[x], int(snvpos), alt, ref])
 
 		self.snv_info = snv_info
 
 		print("Gathering Variant Genomic Info.......")
 
-		for ch,data in snv_info.items(): # find transcript info
-			fasta = SeqIO.read(gzip.open(self.fasta_path.replace('.fa.gz', f'_chr{str(ch)}.fa.gz'), 'rt'), 'fasta') #<-----How I'm search genome info
-			new_data= []
+		for ch, data in snv_info.items():  # find transcript info
+			fasta = SeqIO.read(gzip.open(self.fasta_path.replace('.fa.gz', f'_chr{str(ch)}.fa.gz'), 'rt'),
+			                   'fasta')  # <-----How I'm search genome info
+			new_data = []
 
 			for d in data:
-				query,snvpos, ref, alt = d
-				if self.qtype == 'hgvs': #pull refseqID from HGVS and search transcript by this
+				query, snvpos, ref, alt = d
+				if self.qtype == 'hgvs':  # pull refseqID from HGVS and search transcript by this
 					term = query.split(':')[0]
-				if self.qtype == 'coord': #else use coordsinates to search trancript
+				if self.qtype == 'coord':  # else use coordsinates to search trancript
 					term = f"chr{str(ch)}:{str(snvpos)}-{str(snvpos)}"
 				entry, tid_info = self.find_transcript_info(term=term, fasta=fasta)
 				extracted_seq, feature_annotation, codons = self.find_snvseq_info(snvpos, alt, tid_info, entry, window=30)
 				strand = entry['strand']
-				new_data.append([query, entry['tid'],entry['eid'], strand, ref, alt, feature_annotation, extracted_seq, codons, f"chr{str(ch)}:{str(snvpos)}"])
+				new_data.append(
+					[query, entry['tid'], entry['eid'], strand, ref, alt, feature_annotation, extracted_seq, codons,
+					 f"chr{str(ch)}:{str(snvpos)}"])
 			snv_info[ch] = new_data
 
 		self.snv_info = snv_info
 
-
-	def validate_hgvs(self,queries):
+	@staticmethod
+	def validate_hgvs(queries):
 		'''
 		standardizes input hgvs and checks formating
 		'''
@@ -549,11 +568,12 @@ class Fetch_Guides:
 			print('Query are not in the correct HGVS Format')
 		return validated_queries
 
-	def validate_coord(self, queries):
+	@staticmethod
+	def validate_coord(queries):
 		'''
 		standardizes input coordinate and checks formatting
 		'''
-		#q = 'chr11:5226778C>T'
+		# q = 'chr11:5226778C>T'
 		coord_fmt = r'(chr[0-9]*:\d*(A|T|C|G)>(A|T|C|G))'
 		validated_queries = []
 		for q in set(queries):
@@ -568,7 +588,7 @@ class Fetch_Guides:
 		return validated_queries
 
 	def run_FetchGuides(self):
-
+		global dh, query
 		self.fetch_query_info()
 		print('Finding Guides.....')
 		for ch, data in self.snv_info.items():
@@ -578,40 +598,42 @@ class Fetch_Guides:
 				query, tid, eid, strand, ref, alt, feature_annotation, extracted_seq, codons, coord = d
 				dh = DataHandler(query, strand, ref, alt, feature_annotation, extracted_seq, codons, coord)
 
-				if self.BEmode != 'off':
-					guides, BEguides = dh.get_Guides(self.search_params, self.BE_search_params)
+			if self.BEmode != 'off':
+				guides, BEguides = dh.get_Guides(self.search_params, self.BE_search_params)
+			else:
+				guides, BEguides = dh.get_Guides(self.search_params)
+			print(f"This is how BEguides looks like: {BEguides}")
+			if len(BEguides['gRNA']) > 0:
+				if len(self.all_BE.keys()) == 0:
+					for k, v in BEguides.items():
+						self.all_BE[k] = v
 				else:
-					guides, BEguides = dh.get_Guides(self.search_params)
-
-				if len(BEguides['gRNA']) > 0:
-					if len(self.all_BE.keys()) == 0:
-						for k, v in BEguides.items():
-							self.all_BE[k] = v
-					else:
-						for k, v in BEguides.items():
-							self.all_BE[k] += v
-
-
-				if len(guides['gRNA']) > 0:
-					if len(self.all_guides.keys()) == 0:
-						for k, v in guides.items():
-							self.all_guides[k] = v
-					else:
-						for k, v in guides.items():
-							self.all_guides[k] += v
+					for k, v in BEguides.items():
+						self.all_BE[k] += v
+			if len(guides['gRNA']) > 0:
+				if len(self.all_guides.keys()) == 0:
+					for k, v in guides.items():
+						self.all_guides[k] = v
+				else:
+					for k, v in guides.items():
+						self.all_guides[k] += v
 
 					print(len((guides['gRNA'])), ' guides found for ', query)
-				else:
+			else:
 					print(f"No guides found for the query {query}")
 
-		guidedf, BEdf = None,None
+		guidedf, BEdf = None, None
+		print(f"\n WILL WE GET INTO CLININFO? CURRENTLY all_BE = {len(self.all_BE.keys())} --> needs to be != 0")
 		if len(self.all_guides.keys()) != 0:
 			guidedf = self.write_guide_csv(self.all_guides, gtype='guides')
+			self.add_clininfo()
 		if len(self.all_BE.keys()) != 0:
 			BEdf = self.write_guide_csv(self.all_BE, gtype='BE')
-			self.add_clininfo()
-
-		return self.all_variant, self.all_gene, guidedf, BEdf
+			print("\nGETTING INTO add_clininfo\n")
+		return {'all_variant': self.all_variant,
+		        'all_gene': self.all_gene,
+		        'guide_table': guidedf,
+		        'BE_table': BEdf}
 
 
 def main():
@@ -619,28 +641,26 @@ def main():
 	#   Inputs
 	input_file = str(snakemake.input.query_manifest)
 	fasta_path = str(snakemake.input.assembly_path)
+	annote_path = str(snakemake.input.annote_path)
 	#   Outputs
 	resultsfolder = set_export(str(snakemake.output))
 	#   Params
 	datadir = str(snakemake.params.support_tables)
 	# Paths---------------------------
-	# resultsfolder = "/groups/clinical/projects/editability/medit_queries/medit_test/test_out/"
+	# input_file = "/groups/clinical/projects/editability/medit_queries/medit_test/test_in/hgvs_test_queries.csv"
 	# datadir = "/groups/clinical/projects/editability/tables/"
+	# resultsfolder = "/groups/clinical/projects/editability/medit_queries/medit_test/test_out/"
 	# fasta_path = "/groups/clinical/projects/clinical_shared_data/hg38/hg38.fa.gz"
 	# annote_path =  "/groups/clinical/projects/editability/tables//processed_tables/ncbiRefSeq.txt.gz"
 
-	#HGVS TEST
-	datadir = "/groups/clinical/projects/editability/tables/"
-	resultsfolder = "/groups/clinical/projects/editability/medit_queries/medit_test/test_out/"
-	fasta_path = "/groups/clinical/projects/clinical_shared_data/hg38/hg38.fa.gz"
-	annote_path =  "/groups/clinical/projects/editability/tables//processed_tables/ncbiRefSeq.txt.gz"
-	queries = ['NM_000532.5(PCCB):c.1316A>G (p.Tyr439Cys)', 'NM_000518.5(HBB):c.114G>A', 'NM_000517.6(HBA2):c.99G>A', 'NM_005886.3(KATNB1):c.1A>G']
+	# Input Extraction-------------------
+	df = pd.read_csv(input_file)
+	queries = list(df.iloc[:, 0])
 	qtype = 'hgvs'
 	BEmode = 'off'
 	editor = 'all'
 
-	# queries = ['chr3:136327650A>G','chr11:5226778C>T','chr16:173128G>A','chr16:57737244A>G']
-	# qtype = 'coord'
+	# queries += ['NM_000152.5(GAA):c.271G>T']
 
 	# Report processed input variables
 	print(f"""
@@ -654,10 +674,16 @@ def main():
 		-> {fasta_path}
 	SUPPORT DATA DIRECTORY:
 		-> {datadir}
+	OUTPUTS TO:
+		--> {resultsfolder}
 	""")
 	# Get query items
-	fg = Fetch_Guides(queries, qtype, editor, BEmode, resultsfolder, datadir, fasta_path,annote_path)
-	all_clin_info, all_gene, all_guides, all_BE = fg.run_FetchGuides()
+	fg = Fetch_Guides(queries, qtype, editor, BEmode, resultsfolder, datadir, fasta_path, annote_path)
+	exports = fg.run_FetchGuides()
+
+	# for item_name in exports:
+	# 	filepath = f"{resultsfolder}/{item_name}.csv"
+	# 	exports[item_name].to_csv(filepath)
 
 
 if __name__ == "__main__":

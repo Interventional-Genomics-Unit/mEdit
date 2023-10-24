@@ -20,7 +20,6 @@ class Validator:
     clinvar_index = ' https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/clinvar.vcf.gz.tbi'
     refseq = "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/ncbiRefSeq.txt.gz"
 
-
     def __init__(self, datadir):
 
         # database paths
@@ -29,8 +28,7 @@ class Validator:
         self.HPApath = f"{self.raw_tables}HPA/proteinatlas.tsv"
         self.gencode_path = f"{self.raw_tables}gencode/GENEonly_cleaned_genecode_annotation.csv"  # Genecode Table
 
-        self.processed_tables = f"{datadir}processed_tables/"
-        self.simple_tables = f"{self.processed_tables}guide_acquisition_tables/"
+        self.processed_tables = f"{datadir}/processed_tables/"
         self.HGVSlookup_path = f"{self.processed_tables}HGVSlookup.csv" #Chrom to refID key table
         self.lastUpdate_file = f"{self.processed_tables}clinvar_lastUpdate.txt"
 
@@ -40,10 +38,9 @@ class Validator:
         self.possible_queryTypes = ["coordinates","hgvs","phenotype"]
         self.possible_editors = ["all", "spCas9","baseeditor"]
     def process_refseq(self):
-        '''
+        """
         ftp : https://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/ncbiRefSeq.txt.gz
-
-        '''
+        """
         mane = pd.read_csv(f'{self.processed_tables}MANE.GRch38.summary_cleaned.txt.gz')
         mane_ensid = list(mane['Ensembl_TranscriptID'])
         mane_tid = list(mane['TranscriptID'])
@@ -52,10 +49,10 @@ class Validator:
                   'cdsStart', 'cdsEnd', 'exonCount', 'exonStarts', 'exonEnds',
                   'score', 'name', 'cdsStartStat', 'cdsEndStat',
                   'exonFrames']
-        out = gzip.open(f'{processed_tables}ncbiRefSeq.txt.gz', 'wt')
-        for line in gzip.open(f'{raw_tables}Refseq/ncbiRefSeq.txt.gz', 'rt'):
+        out = gzip.open(f'{self.processed_tables}ncbiRefSeq.txt.gz', 'wt')
+        for line in gzip.open(f'{self.raw_tables}Refseq/ncbiRefSeq.txt.gz', 'rt'):
             tokens = line.split('\t')
-            if tokens[2].replace('chr', "") in chroms:
+            if tokens[2].replace('chr', "") in self.chroms:
                 try:
                     i = mane_tid.index(tokens[1])
                     tokens[0] = mane_ensid[i]
@@ -181,7 +178,6 @@ class Validator:
         vdf = vdf.drop(columns=['PhenoIDS', 'OtherIDs'])
         return vdf
 
-
     def clean_clinvar(self):
         '''
         splits clinvar into files by chromosomes,
@@ -286,8 +282,6 @@ class Validator:
         joined_df = hpa.join(mane.set_index('Ensembl_Gene'), on='Ensembl_Gene')
         joined_df.to_csv(f'{self.processed_tables}gene_tables.csv.gz', index=False,compression='gzip')
 
-
-
     def make_HGVStable(self):
         '''
         Create CSV file of unduplicated HGVS prefix(coding ref name) and Chromosome
@@ -301,8 +295,6 @@ class Validator:
         df = pd.DataFrame({"TranscriptID": names, "Chr": chrs}).drop_duplicates()
         out_file = f"{self.processed_tables}HGVSlookup.csv"
         df.to_csv(out_file, index=None)
-
-
 
     def updateTables(self):
         # TODO: add user inquiry to whether they want to init update
@@ -347,52 +339,50 @@ class Validator:
         print("Writing new HGVS Lookup table.....")
         self.make_HGVStable()
 
-
         with open(self.lastUpdate_file, "w") as f:
             today = date.today()
             f.write(str(today))
         f.close()
 
-
-    def check_updates(self):
-        '''
-        Determines if an update is needed based on checking the date of txt file
-        '''
-
-        f = open(self.lastUpdate_file, "r").readlines()
-        lastdate = datetime.strptime(f[0], '%Y-%m-%d').date()
-        if (date.today() - lastdate).days > 31:
-            self.updateTables()
-        else:
-            print('You are using the latest clinvar data')
-            print(f"Last updated {lastdate}")
-
-    def validate_input_file(self, input_file):
-        cols = ["Query", "Type","Editor"]
-        try:
-            self.input_df = pd.read_csv(input_file,usecols= cols)
-        except:
-            raise FileNotFoundError(f"There was was a problem reading {input_file}. \n"
-                                    f"Be sure this is a csv file with the column headers {cols}")
-
-        for term in self.input_df['Type'].unique():
-            if term not in self.possible_queryTypes:
-                raise ValueError(f"Query type must be either {self.possible_queryTypes}")
-
-        for term in self.input_df['Editor'].unique():
-            if term not in self.possible_editors:
-                raise ValueError(f"Editor type must be either {self.possible_editors}")
-        return self.input_df
-
-
-'''
-datadir = "/groups/clinical/projects/editability/tables/"
-val = Validator(datadir)
-val.clean_clinvar()
-val.add_MC(
-
-val.make_guidetabs()
-
-for ch in val.chroms:
-    vdf = pd.read_csv(f"{val.processed_tables}{ch}_variant.txt")
-'''
+#     def check_updates(self):
+#         """
+#         Determines if an update is needed based on checking the date of txt file
+#         '''
+#
+#         f = open(self.lastUpdate_file, "r").readlines()
+#         lastdate = datetime.strptime(f[0], '%Y-%m-%d').date()
+#         if (date.today() - lastdate).days > 31:
+#             self.updateTables()
+#         else:
+#             print('You are using the latest clinvar data')
+#             print(f"Last updated {lastdate}")
+#
+#     def validate_input_file(self, input_file):
+#         cols = ["Query", "Type","Editor"]
+#         try:
+#             self.input_df = pd.read_csv(input_file,usecols= cols)
+#         except:
+#             raise FileNotFoundError(f"There was was a problem reading {input_file}. \n"
+#                                     f"Be sure this is a csv file with the column headers {cols}")
+#
+#         for term in self.input_df['Type'].unique():
+#             if term not in self.possible_queryTypes:
+#                 raise ValueError(f"Query type must be either {self.possible_queryTypes}")
+#
+#         for term in self.input_df['Editor'].unique():
+#             if term not in self.possible_editors:
+#                 raise ValueError(f"Editor type must be either {self.possible_editors}")
+#         return self.input_df
+#
+#
+# '''
+# datadir = "/groups/clinical/projects/editability/tables/"
+# val = Validator(datadir)
+# val.clean_clinvar()
+# val.add_MC(
+#
+# val.make_guidetabs()
+#
+# for ch in val.chroms:
+#     vdf = pd.read_csv(f"{val.processed_tables}{ch}_variant.txt")
+# '''

@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="mEdit on biotite" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="edit_py3" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="mEdit on biotite" project-jdk-type="Python SDK" />
 </project>
