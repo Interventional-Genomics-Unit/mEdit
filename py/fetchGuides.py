@@ -3,14 +3,12 @@ import gzip
 import time
 import regex as re
 import os
-from datetime import date  # datetime, date
+from datetime import date
 # Installed Modules
 import pandas as pd
-from Bio import SeqIO
+from Bio import SeqIO, SeqUtils
 from Bio.Seq import Seq
 
-# from Bio.Seq import Seq
-# from Bio import motifs
 # Project Modules
 from dataH import DataHandler
 
@@ -107,7 +105,7 @@ class Fetch_Guides:
 		                   'Target-AID',
 		                   'ABE7.9', 'ABE7.10', 'xABE,ABESa', 'VQR-ABE', 'VRER-ABE', 'ABEsa', 'Sa(KKH)-ABE']
 
-		# name : (pam, 5'or3'pam, protospace length, approximated site of DSB site, notes )
+		# name : (pam, 5'or3'pam, gide length, approximated site of DSB site, notes )
 		# HDR most effcient within 1-7 bases outside of the DSB, so keeping this will remain standard with non-BE
 		self.editor_pamlib = {'spCas9': ('NGG', False, 20, -2, 'requirments work for SpCas9-HF1, eSpCas9 1.1'),
 		                      'fnCas9': ('NGG', False, 21, -2, 'highly specifc yet large enzyme'),
@@ -143,7 +141,6 @@ class Fetch_Guides:
 		self.all_guides = {}
 		self.all_BE = {}
 
-	# self.found_genes = []
 
 	def set_guidelen(self, guidelen):
 		self.guidelen = guidelen
@@ -186,7 +183,7 @@ class Fetch_Guides:
 			# select a single editor
 			if self.editor in self.editor_choices:
 				self.search_params = {self.editor: self.editor_pamlib[self.editor]}
-
+		self.write_search_params()
 		return self.search_params
 
 	def set_params(self, kwargs):
@@ -246,6 +243,19 @@ class Fetch_Guides:
 							self.BE_search_params = {self.BEmode: BE_lib[k][0] + BE_lib[k][2]}
 
 		return self.BE_search_params
+	def write_search_params(self):
+		labels = ['editor', 'pam', '5prime_pam','guide_length', 'DSB site', 'notes']
+		if self.job_name is not None:
+			out = f'{self.resultsfolder}/{self.job_name}_search_params.txt'
+		else:
+			out = f'{self.resultsfolder}/search_params.txt'
+		with open(out, 'wt') as file:
+			file.write(("\t").join(labels))
+			file.write("\n")
+			for k,values in self.search_params.items():
+				file.write(f"{k}\t")
+				file.write(("\t").join([str(v) for v in values]))
+				file.write("\n")
 
 	def write_guide_csv(self, guides, gtype):
 		df = pd.DataFrame(guides)
@@ -258,7 +268,6 @@ class Fetch_Guides:
 		if self.job_name is not None:
 			out = f'{self.resultsfolder}/{self.job_name}_{datenow}_{nameout}'
 		else:
-
 			out = f'{self.resultsfolder}/{datenow}_{nameout}'
 		df.to_csv(out, index=False)
 		return df
@@ -408,7 +417,7 @@ class Fetch_Guides:
 		field = 'eid' if term.startswith('E') else 'tid' if term.startswith('N') else 'interval'
 
 		entry = self.get_refseq_entry(term=term, field=field)
-		if entry is not None:
+		if entry != None:
 			tx_seq = fasta_seq.seq[int(entry['txStart']):int(entry['txEnd'])]
 			tid_info = self.get_cds_info(tx_seq, entry)
 		else:
@@ -451,7 +460,6 @@ class Fetch_Guides:
 						if t_snvpos in range(x[0], x[1] + 1):
 							# stop and start codon
 							feature = 'exon'
-							seq_window = (t_snvpos - window, t_snvpos + window)
 							dist = sum([e[1] - e[0] for e in exons[0:exon_n]])
 							if strand == '+':
 								dist_from_cds_start = dist + (t_snvpos - x[0])
@@ -460,9 +468,9 @@ class Fetch_Guides:
 								dist = len(cds) - dist
 								dist_from_cds_start = dist - (x[1] - t_snvpos)
 
-							if dist_from_cds_start < 3:
+							if dist < 3:
 								feature = 'start_codon'
-							if len(cds) - dist_from_cds_start < 3:
+							if len(cds) - dist < 3:
 								feature = 'stop_codon'
 
 							rf = self.find_codons(dist_from_cds_start, strand)
@@ -470,17 +478,19 @@ class Fetch_Guides:
 						exon_n += 1
 			else:
 				# in transcript but not in cds
-				if seq[window - 6:window + 5].find('TTTATT') > 0 or seq[window - 6:window + 5].find('AATAAA') > 0:
+				seq = str(seq)
+
+				if SeqUtils.nt_search(seq[window - 6:window + 5],'TTTATT') > 1 or SeqUtils.nt_search(seq[window - 6:window + 5],'AATAAA') > 1:
 					feature = 'polya'
-				elif seq[window - 6:window + 5].find('TATAAA') > 0 or seq[window - 6:window + 5].find('ATATTT') > 0:
+				elif SeqUtils.nt_search(seq[window - 6:window + 5],'TATAAA') > 1 or SeqUtils.nt_search(seq[window - 6:window + 5],'ATATTT') > 1:
 					feature = 'promoter'
-				elif re.search('GG(A|T|C|G)CAATCT', str(seq[window - 7:])):
-					if re.search('GG(A|T|C|G)CAATCT', str(seq[window - 7:window + 6])):
+				elif SeqUtils.nt_search(seq[window - 7:],'GGNCAATCT') > 1:
+					if SeqUtils.nt_search(seq[window - 7:window+6],'GGNCAATCT') > 1:
 						feature = 'promoter'
 					else:
 						feature = 'TSS'
-				elif re.search('AGATTG(A|T|C|G)CC', str(seq[:window + 6])):
-					if re.search('AGATTG(A|T|C|G)CC', str(seq[window - 7:window + 6])):
+				elif SeqUtils.nt_search(seq[window + 6:],'AGATTGNCC' ) > 1:
+					if SeqUtils.nt_search(seq[window - 7: window + 6],'AGATTGNCC') > 1:
 						feature = 'promoter'
 					else:
 						feature = 'TSS'
@@ -505,8 +515,7 @@ class Fetch_Guides:
 			for ch in chroms:
 				df = pd.read_csv(f"{self.processed_tables}/variant_tables/{ch}_variant.txt")
 				gadf = df.loc[df['HGVS_Simple'].isin(self.queries)]
-				snv_info[ch] = gadf[['HGVS_Simple', 'PositionVCF', 'RefAlleleVCF', 'AltAlleleVCF']].to_dict('tight')[
-					'data']
+				snv_info[ch] = gadf[['HGVS_Simple', 'PositionVCF', 'RefAlleleVCF', 'AltAlleleVCF']].to_dict('tight')['data']
 
 		# Else All information is given to find transcript info
 		else:
@@ -624,9 +633,11 @@ class Fetch_Guides:
 
 		guidedf, BEdf = None, None
 		print(f"\n WILL WE GET INTO CLININFO? CURRENTLY all_BE = {len(self.all_BE.keys())} --> needs to be != 0")
+
 		if len(self.all_guides.keys()) != 0:
 			guidedf = self.write_guide_csv(self.all_guides, gtype='guides')
 			self.add_clininfo()
+
 		if len(self.all_BE.keys()) != 0:
 			BEdf = self.write_guide_csv(self.all_BE, gtype='BE')
 			print("\nGETTING INTO add_clininfo\n")

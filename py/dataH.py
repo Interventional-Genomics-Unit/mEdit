@@ -180,10 +180,8 @@ class DataHandler:
                 alt_codon = self.find_codon(snv_rel_pos)
 
                 # Alternative codon
-                if coding_strand != guide_strand:
-                    alt_codon = Seq(alt_codon).reverse_complement()
                 print("\n===============\nThe method 'translate' might need an input that is currently not provided\n===========\n")
-                aa_alt = alt_codon.translate()
+                aa_alt = Seq(alt_codon).translate()
 
                 # Reference codon
                 ref_codon = Seq("".join(alt_codon[x] if x != abs(self.rf) else self.NM_ref_allele for x in [0,1,2]))
@@ -373,6 +371,5 @@ for ch, data in snv_info.items():
         print(k,v)
     for k,v in BEguides_found.items():
         print(k,v)
-
 
 '''
