@@ -6,3 +6,5 @@ fasta_compressed_path: "/groups/clinical/projects/clinical_shared_data/hprc/bgzi
 #sequence_id: ["HG02572.maternal", "HG03453.maternal", "NA18906.paternal"]
 
 filename_suffix: ".f1_assembly_v2_genbank"
+
+download_prefix: ["HG00438"]
