@@ -12,7 +12,6 @@ run_name: "private_103023_v0"
 # Must be the same as specified for the run_name
 processing_mode: 'private'
 
-
 # === I/O PATHS ===
 # Canonical storage folder for FASTA References
 fasta_root_path: "/groups/clinical/projects/clinical_shared_data/genomes/fasta"
