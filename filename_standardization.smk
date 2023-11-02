@@ -1,7 +1,7 @@
 # **** Variables ****
 import glob
 
-configfile: "../config/guide_prediction.yaml"
+configfile: "../config/guide_prediction_default_template.yaml"
 
 # Cluster run template
 # nohup snakemake --snakefile filename_standardization.smk -j 10 --cluster "sbatch -t {cluster.time} -n {cluster.cores}" --cluster-config ../config/cluster.yaml --use-conda --latency-wait 120 &

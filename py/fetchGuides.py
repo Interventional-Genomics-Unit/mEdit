@@ -8,6 +8,7 @@ from datetime import date
 import pandas as pd
 from Bio import SeqIO, SeqUtils
 from Bio.Seq import Seq
+import pickle
 
 # Project Modules
 from dataH import DataHandler
@@ -183,7 +184,7 @@ class Fetch_Guides:
 			# select a single editor
 			if self.editor in self.editor_choices:
 				self.search_params = {self.editor: self.editor_pamlib[self.editor]}
-		self.write_search_params()
+		self.write_gsearch_params()
 		return self.search_params
 
 	def set_params(self, kwargs):
@@ -243,19 +244,24 @@ class Fetch_Guides:
 							self.BE_search_params = {self.BEmode: BE_lib[k][0] + BE_lib[k][2]}
 
 		return self.BE_search_params
-	def write_search_params(self):
-		labels = ['editor', 'pam', '5prime_pam','guide_length', 'DSB site', 'notes']
-		if self.job_name is not None:
-			out = f'{self.resultsfolder}/{self.job_name}_search_params.txt'
-		else:
-			out = f'{self.resultsfolder}/search_params.txt'
-		with open(out, 'wt') as file:
-			file.write(("\t").join(labels))
-			file.write("\n")
-			for k,values in self.search_params.items():
-				file.write(f"{k}\t")
-				file.write(("\t").join([str(v) for v in values]))
-				file.write("\n")
+	def write_gsearch_params(self):
+		#writes pickle of selected guide search params for later use in process_genome
+		#'editor', 'pam', '5prime_pam','guide_length', 'DSB site', 'notes'
+		out = f'{self.resultsfolder}/guide_search_params'
+		gfile = open(out, 'ab')
+		pickle.dump(self.search_params, gfile)
+		gfile.close()
+
+	def write_snv_site_info(self):
+		'''
+		#writes pickle of SNV site info for later use in process genome
+		#query, tid, eid, strand, ref, alt, feature_annotation, extracted_seq, codons, coord
+		'''
+		out = f'{self.resultsfolder}/snv_site_info'
+		sfile = open(out, 'ab')
+		pickle.dump(self.snv_info, sfile)
+		sfile.close()
+
 
 	def write_guide_csv(self, guides, gtype):
 		df = pd.DataFrame(guides)
@@ -393,7 +399,7 @@ class Fetch_Guides:
 				break
 
 		# Determine the stop and start of UTR
-		exons[0] = (int(entry['cdsStart']) - int(exon_starts[0]), exons[0][1])
+		exons[0] = (int(entry['cdsStart']) - int(exon_starts[0]) + exons[0][0], exons[0][1])
 		exons[-1] = (exons[-1][0], exons[-1][1] - (int(exon_ends[-1]) - int(entry['cdsEnd'])))
 
 		cds = Seq(''.join([str(tx_seq)[a:b] for a, b in exons]))
@@ -409,7 +415,7 @@ class Fetch_Guides:
 		from either a genome fasta path or given genome sequence
 		'''
 		# id= 'NM_000532.5' or 'ENST00000251654.9'
-		# fasta = f"/groups/clinical/projects/clinical_shared_data/hg38/hg38_chr3.fa.gz"
+		# fasta = f"/groups/clinical/projects/clinical_shared_data/hg38/hg38_chr16.fa.gz"
 		if type(fasta) == str:
 			fasta_seq = SeqIO.read(gzip.open(fasta, 'rt'), 'fasta')
 		else:
@@ -468,9 +474,10 @@ class Fetch_Guides:
 								dist = len(cds) - dist
 								dist_from_cds_start = dist - (x[1] - t_snvpos)
 
-							if dist < 3:
+							if dist_from_cds_start < 3:
 								feature = 'start_codon'
-							if len(cds) - dist < 3:
+
+							if dist_from_cds_start > len(cds) - 3:
 								feature = 'stop_codon'
 
 							rf = self.find_codons(dist_from_cds_start, strand)
@@ -480,17 +487,17 @@ class Fetch_Guides:
 				# in transcript but not in cds
 				seq = str(seq)
 
-				if SeqUtils.nt_search(seq[window - 6:window + 5],'TTTATT') > 1 or SeqUtils.nt_search(seq[window - 6:window + 5],'AATAAA') > 1:
+				if len(SeqUtils.nt_search(seq[window - 6:window + 5],'TTTATT')) > 1 or len(SeqUtils.nt_search(seq[window - 6:window + 5],'AATAAA')) > 1:
 					feature = 'polya'
-				elif SeqUtils.nt_search(seq[window - 6:window + 5],'TATAAA') > 1 or SeqUtils.nt_search(seq[window - 6:window + 5],'ATATTT') > 1:
+				elif len(SeqUtils.nt_search(seq[window - 6:window + 5],'TATAAA')) > 1 or len(SeqUtils.nt_search(seq[window - 6:window + 5],'ATATTT')) > 1:
 					feature = 'promoter'
-				elif SeqUtils.nt_search(seq[window - 7:],'GGNCAATCT') > 1:
-					if SeqUtils.nt_search(seq[window - 7:window+6],'GGNCAATCT') > 1:
+				elif len(SeqUtils.nt_search(seq[window - 7:],'GGNCAATCT')) > 1:
+					if len(SeqUtils.nt_search(seq[window - 7:window+6],'GGNCAATCT')) > 1:
 						feature = 'promoter'
 					else:
 						feature = 'TSS'
-				elif SeqUtils.nt_search(seq[window + 6:],'AGATTGNCC' ) > 1:
-					if SeqUtils.nt_search(seq[window - 7: window + 6],'AGATTGNCC') > 1:
+				elif len(SeqUtils.nt_search(seq[window + 6:],'AGATTGNCC' )) > 1:
+					if len(SeqUtils.nt_search(seq[window - 7: window + 6],'AGATTGNCC')) > 1:
 						feature = 'promoter'
 					else:
 						feature = 'TSS'
@@ -538,8 +545,7 @@ class Fetch_Guides:
 		print("Gathering Variant Genomic Info.......")
 
 		for ch, data in snv_info.items():  # find transcript info
-			fasta = SeqIO.read(gzip.open(self.fasta_path.replace('.fa.gz', f'_chr{str(ch)}.fa.gz'), 'rt'),
-			                   'fasta')  # <-----How I'm search genome info
+			fasta = SeqIO.read(gzip.open(self.fasta_path.replace('.fa.gz', f'_chr{str(ch)}.fa.gz'), 'rt'),'fasta')
 			new_data = []
 
 			for d in data:
@@ -549,14 +555,25 @@ class Fetch_Guides:
 				if self.qtype == 'coord':  # else use coordsinates to search trancript
 					term = f"chr{str(ch)}:{str(snvpos)}-{str(snvpos)}"
 				entry, tid_info = self.find_transcript_info(term=term, fasta=fasta)
-				extracted_seq, feature_annotation, codons = self.find_snvseq_info(snvpos, alt, tid_info, entry, window=30)
-				strand = entry['strand']
+				if entry != None:
+					extracted_seq, feature_annotation, codons = self.find_snvseq_info(snvpos, alt, tid_info, entry, window=30)
+					strand = entry['strand']
+					tid,eid = entry['tid'], entry['eid']
+				else:
+					feature_annotation = 'undetermined/non-coding'
+					codons = 'None'
+					strand = '+'
+					extracted_seq = self.extract_seqs(fasta.seq, snvpos, alt, window=30)
+					tid, eid = term, '-'
 				new_data.append(
-					[query, entry['tid'], entry['eid'], strand, ref, alt, feature_annotation, extracted_seq, codons,
+					[query, tid, eid, strand, ref, alt, feature_annotation, extracted_seq, codons,
 					 f"chr{str(ch)}:{str(snvpos)}"])
+
+				print('Query term & annoation:', query, feature_annotation)
 			snv_info[ch] = new_data
 
 		self.snv_info = snv_info
+		self.write_snv_site_info()
 
 	@staticmethod
 	def validate_hgvs(queries):
@@ -611,7 +628,7 @@ class Fetch_Guides:
 				guides, BEguides = dh.get_Guides(self.search_params, self.BE_search_params)
 			else:
 				guides, BEguides = dh.get_Guides(self.search_params)
-			print(f"This is how BEguides looks like: {BEguides}")
+
 			if len(BEguides['gRNA']) > 0:
 				if len(self.all_BE.keys()) == 0:
 					for k, v in BEguides.items():
