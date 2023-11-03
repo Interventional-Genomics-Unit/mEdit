@@ -1,5 +1,7 @@
 # **** Variables ****
 configfile: "config/guide_prediction_default_template.yaml"
+configfile: "config/preprocessing_configuration.yaml"
+
 # configfile: "config/aws_download.yaml"
 
 # **** Imports ****
