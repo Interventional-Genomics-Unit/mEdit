@@ -5,6 +5,7 @@ import pickle
 
 from dataH import DataHandler
 
+
 #################################
 # searches for changes in guides found in hg38 based on variants in a user submitted VCF
 #################################
