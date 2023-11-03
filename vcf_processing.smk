@@ -1,5 +1,5 @@
 # **** Variables ****
-# configfile: "config/guide_prediction.yaml"
+# configfile: "config/guide_prediction_default_template.yaml"
 configfile: "config/guide_prediction_private_template.yaml"
 # configfile: "config/aws_download.yaml"
 

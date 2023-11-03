@@ -13,7 +13,7 @@ from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 
 # Load config file
-# with open("config/guide_prediction.yaml", "r") as f:
+# with open("config/guide_prediction_default_template.yaml", "r") as f:
 # 	config = yaml.load(f, Loader=yaml.FullLoader)
 
 

@@ -1,5 +1,5 @@
 # **** Variables ****
-configfile: "config/guide_prediction.yaml"
+configfile: "config/guide_prediction_default_template.yaml"
 # configfile: "config/aws_download.yaml"
 
 # **** Imports ****
@@ -14,18 +14,19 @@ import glob
 rule all:
 	input:
 		# Pull information from clinVar
-		expand("{root_dir}/guide_prediction/{sequence_id}/guides_report/",
-			sequence_id=config["sequence_id"],root_dir=config["output_directory"]),
+		expand("{root_dir}/{mode}/jobs/{job_name}/guide_prediction/{sequence_id}/guides_report/",
+			root_dir=config["output_directory"], mode=config["processing_mode"],
+			job_name=config["run_name"], sequence_id=config["sequence_id"])
+
 
 rule fetch_guides:
-	#
 	input:
 		query_manifest=lambda wildcards: glob.glob("{variant_query_dir}/hgvs_test_queries.csv".format(
 			variant_query_dir=config["variant_query_dir"])),
 		assembly_path=lambda wildcards: glob.glob("{fasta_root_path}/{sequence_id}.fa.gz".format(
 			fasta_root_path=config["fasta_root_path"],sequence_id=wildcards.sequence_id))
 	output:
-		directory("{root_dir}/guide_prediction/{sequence_id}/guides_report")
+		directory("{root_dir}/{mode}/jobs/{job_name}/guide_prediction/{sequence_id}/guides_report")
 	params:
 		support_tables=config["support_tables"]
 	conda:
