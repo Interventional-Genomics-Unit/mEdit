@@ -1,0 +1,26 @@
+# === TABLE PREPROCESSING PATHS ===
+# This is the main path for raw and processed tables
+support_tables: "/groups/clinical/projects/editability/tables"
+
+# == PROCESSED TABLES ==
+# Main path for processed tables
+processed_tables: "/groups/clinical/projects/editability/tables/processed_tables"
+# Processed filepaths
+simple_tables: "/groups/clinical/projects/editability/tables/processed_tables/guide_acquisition_tables"
+hgvs_lookup: "/groups/clinical/projects/editability/tables/processed_tables/HGVSlookup.csv"
+clinvar_update: "/groups/clinical/projects/editability/tables/processed_tables/clinvar_lastUpdate.txt"
+
+# == RAW TABLES ==
+# Main path for raw tables
+raw_tables: "/groups/clinical/projects/editability/tables/raw_tables"
+# Raw filepaths
+clinvar_summary: "/groups/clinical/projects/editability/tables/raw_tables/clinvar/variant_summary.txt.gz"
+hpa: "/groups/clinical/projects/editability/tables/raw_tables/HPA/proteinatlas.tsv"
+gencode: "/groups/clinical/projects/editability/tables/raw_tables/gencode/GENEonly_cleaned_genecode_annotation.csv"
+
+
+# === FTP Paths ===
+clinvar_ftp: "https://ftp.ncbi.nlm.nih.gov/pub/clinvar/tab_delimited/variant_summary.txt.gz"
+clinvar_vcf: "https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/clinvar.vcf.gz"
+clinvar_index: "https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/clinvar.vcf.gz.tbi"
+refseq: "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/ncbiRefSeq.txt.gz"

@@ -1,16 +1,21 @@
-import pandas as pd
+# Native modules
 from datetime import datetime, date
 import subprocess
 import gzip
 import regex as re
+# Installed Modules
+import pandas as pd
+import yaml
 
+# print(f"Loading configuration file {config_path}")
+# 	with open(config_path, "r") as f:
+# 		config = yaml.load(f, Loader=yaml.FullLoader)
 
 '''
 clinvar_ftp = "https://ftp.ncbi.nlm.nih.gov/pub/clinvar/tab_delimited/variant_summary.txt.gz"
 clinvar_vcf = ' https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/clinvar.vcf.gz'
 clinvar_index = ' https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/clinvar.vcf.gz.tbi'
 refseq = "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/ncbiRefSeq.txt.gz"
-
 '''
 datadir = "/groups/clinical/projects/editability/tables/"
 
@@ -302,17 +307,17 @@ def updateTables(clinvar_ftp,clinvar_summary):
                        capture_output=True)
     print(p)
 
-    cmd = f"wget {clinvar_vcf} -O {raw_tables}clinvar/clinvar.vcf.gz"
-    p = subprocess.run(cmd, shell=True,
-                       capture_output=True)
-    print(p)
-    cmd = f"wget {clinvar_index} -O {raw_tables}clinvar/clinvar.vcf.gz.tbi"
-    p = subprocess.run(cmd, shell=True,
-                       capture_output=True)
-
-    cmd = f"bcftools view -f type!=snp {clinvar_vcf} -o {raw_tables}clinvar/clinvar.vcf -O v"
-    p = subprocess.run(cmd, shell=True,
-                       capture_output=True)
+    # cmd = f"wget {clinvar_vcf} -O {raw_tables}clinvar/clinvar.vcf.gz"
+    # p = subprocess.run(cmd, shell=True,
+    #                    capture_output=True)
+    # print(p)
+    # cmd = f"wget {clinvar_index} -O {raw_tables}clinvar/clinvar.vcf.gz.tbi"
+    # p = subprocess.run(cmd, shell=True,
+    #                    capture_output=True)
+    #
+    # cmd = f"bcftools view -f type!=snp {clinvar_vcf} -o {raw_tables}clinvar/clinvar.vcf -O v"
+    # p = subprocess.run(cmd, shell=True,
+    #                    capture_output=True)
 
     print("Cleaning and Splitting Clinvar.....")
     clean_clinvar(clinvar_summary, chroms)
