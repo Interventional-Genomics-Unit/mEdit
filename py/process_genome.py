@@ -5,7 +5,6 @@ import pickle
 
 from dataH import DataHandler
 
-
 #################################
 # searches for changes in guides found in hg38 based on variants in a user submitted VCF
 #################################
@@ -13,21 +12,10 @@ from dataH import DataHandler
 ## assumption that the VCF imported. Has the Alternate gene specified
 ## A deletion greater than 5
 
-resultsfolder = "/groups/clinical/projects/editability/medit_queries/medit_test/test_out/"
-vcf_fname = "/groups/clinical/projects/editability/tables/raw_tables/VCFs/HG02257.filtered.vcf.gz"
-
-paths = os.listdir(resultsfolder)
-hg38guide_results =[x for x in paths if x.endswith('Guides_found.csv')]
-if len(hg38guide_results) > 1:
-    print('warning: there but only be one file ends in Guides_Found.csv in results folder')
-else:
-    hg38guide_results = resultsfolder + hg38guide_results[0]
-searchp_path = [resultsfolder + x for x in paths if x.endswith('guide_search_params')][0]
-sitep_path = [resultsfolder + x for x in paths if x.endswith('snv_site_info')][0]
-altgenome_name = 'HG02257'
-refgenome_name = 'HG38'
-
 def extract_vcf_record(snv_coord,vcf_fname,window = 30):
+    '''
+    seraches for an alternate genome variant in the +/-60bp of snv query position
+    '''
     #snv_coord = 'chr11:5226788'
     #extracted_seq = 'ATCCCCAAAGGACTCAAAGAACCTCTGGGTTCAAGGGTAGACCACCAGCAGCCTAAGGGT'
     ch, pos = snv_coord.split(':')
@@ -40,10 +28,14 @@ def extract_vcf_record(snv_coord,vcf_fname,window = 30):
     return records_found
 
 def extract_variant_info(record,hg38extracted_seq,hg38coord):
+    '''
+    for a given alt record found determine the ALT information
+    and create a new extracted sequence incorporating the ALT allele
+    '''
     vt = record.var_type
     x = record.samples[0]
     alt_alleles = record.ALT
-    print(record.ALT,record.REF)
+    #print(record.ALT,record.REF)
     zyg = 'heterozygous' if x.is_het else 'homozygous'
     if len(alt_alleles) == 2:
         zyg = zyg + '-biallelic'
@@ -54,13 +46,13 @@ def extract_variant_info(record,hg38extracted_seq,hg38coord):
     hg38_start = int(hg38coord.split(':')[1]) - int(len(hg38extracted_seq)/2)
     vstart, vend = record.start, record.end #reference range
     rel_pos = ((vstart -hg38_start)+ 1,(vend-hg38_start)+1)
-    print(rel_pos)
-    print(vstart,vend)
-    print(alt.type)
+    #print(rel_pos)
+    #print(vstart,vend)
+    #print(alt.type)
     if len(record.REF) == len(alt): ## substitution
         vt = vt + '-sub'
         new_seq = hg38extracted_seq[0:rel_pos[0]] + alt.sequence + hg38extracted_seq[rel_pos[1]:]
-        print(new_seq)
+        #print(new_seq)
 
     elif len(record.REF) > len(alt): # deletion
         vt = vt + '-del'
@@ -71,7 +63,7 @@ def extract_variant_info(record,hg38extracted_seq,hg38coord):
         vt = vt + '-ins'
         new_seq = hg38extracted_seq[0:rel_pos[0]] + alt.sequence + hg38extracted_seq[rel_pos[1]:]
         new_seq = new_seq[0:len(hg38extracted_seq)-1]
-        print(new_seq)
+        #print(new_seq)
 
     else:
         new_seq = 'undetermined'
@@ -80,13 +72,7 @@ def extract_variant_info(record,hg38extracted_seq,hg38coord):
 
 
 
-def find_overlapping_variants(vcf_fname,sitep_path,searchp_path,altgenome_name):
-
-    #get hg38_snv_info (60bp extracted sequence, translation info, hg38_coordinates etc.
-    hg38_snvinfo = pickle.load(open(sitep_path,'rb'))
-
-    #get guide search parameters
-    search_params = pickle.load(open(searchp_path,'rb'))
+def find_overlapping_variants(vcf_fname,altgenome_name,hg38_snvinfo,search_params):
 
     new_guides = {}
     v_info = [[],[],[],[],[],[],[]]
@@ -121,18 +107,18 @@ def find_overlapping_variants(vcf_fname,sitep_path,searchp_path,altgenome_name):
                         v_info[6].append('placeholder')
                     else:
                         v_info[6].append('undetermined')
-                            #print(ref, alt, zyg, vtype)
-                            #print(d)
+
     labels = ['QueryTerm',f'{altgenome_name}_Variant_Type','REF|ALT','Examined_ALT','Var_Position', f'{altgenome_name}_Zygosity',f'{altgenome_name}_guide_impact']
     variants_found = dict(zip(labels,v_info))
 
     return variants_found, new_guides
 
 
-def write_results(hg38guide_results,vcf_fname,sitep_path,
-                  searchp_path,altgenome_name,refgenome_name):
-
-    variants_found, new_guides_dict = find_overlapping_variants(vcf_fname,sitep_path,searchp_path,altgenome_name)
+def write_results(hg38guide_results,variants_found,new_guides_dict,altgenome_name,refgenome_name,resultsfolder):
+    '''
+    compares guides found in new genome and ref genome.
+    Drops unchanged guides and labels guides impacted by ALT
+    '''
 
     if len(variants_found['QueryTerm']) > 1:
         hg38_gdf = pd.read_csv(hg38guide_results)
@@ -143,35 +129,37 @@ def write_results(hg38guide_results,vcf_fname,sitep_path,
         old_guides = hg38_gdf.join(var_df, how = 'outer' ,on = 'QueryTerm').reset_index(drop=True)
 
         new_info = new_guides.to_dict('tight')['data']
-        print('n new guides', len(new_info))
-        print('n old guides', len(old_guides['QueryTerm']))
+        print('            ')
+        print('Guide Impacts')
         new_rows = []
         for idx, row in old_guides.iterrows():
             cnt = 1
             query, ed, coord, grna, pam = row['QueryTerm'],row['Editor'],row['Coordinates'],row['gRNA'],row['Pam']
-            print( query, ed, coord, grna, pam,row['REF|ALT'])
+            print('--------------------------------------')
+            print('QUERY Editor QUERY_POS REF|ALT')
+            print(query, ed, coord, row['REF|ALT'])
             if row[f'{altgenome_name}_guide_impact'] == 'undetermined':  # guide never determined (ALT is deletion)
                 new_rows.append(list(row[0:8]) + ['-','-','-','undetermined'] + list(row[9:14]))
-                print('undetermined')
+                print('impact;undetermined')
                 cnt -= 1
             else:
                 for n in new_info:
                     if ed == n[1]:
                         if [query,pam,grna] == [n[0],n[5],n[4]]:  # unchanged
-                            print('unchanged', pam, '->', n[5], grna, '->', n[4])
+                            print('impact;unchanged', pam, '->', n[5], grna, '->', n[4])
                             new_info.remove(n)
                             cnt -= 1
                             break
                         elif [query,pam] == [n[0],n[5]]:  # same pam which means change is in grna
                             new_rows.append(list(row[0:8]) + [n[4], n[5], n[6], 'grna_changed_conserved'] + list(row[9:14]))
-                            print('grna_changed_conserved', pam, '->', n[5], grna, '->', n[4])
+                            print('impact;grna_changed_conserved', pam, '->', n[5], grna, '->', n[4])
                             new_info.remove(n)
                             cnt -= 1
                             break
                         elif[query,grna] == [n[0],n[4]]:
                             new_rows.append(
                                 list(row[0:8]) + [n[4], n[5], n[6], 'pam_changed_conserved'] + list(row[9:14]))
-                            print('pam_changed_conserved', pam, '->', n[5], grna, '->', n[4])
+                            print('impact;pam_changed_conserved', pam, '->', n[5], grna, '->', n[4])
                             new_info.remove(n)
                             cnt -= 1
                             break
@@ -179,7 +167,7 @@ def write_results(hg38guide_results,vcf_fname,sitep_path,
                             pass
                 if cnt < 0:  # old guides remaining and not matched == no longer exsist
                     new_rows.append(list(row[0:8]) + ['removed', 'removed', 'removed', 'pam_changed_removed'] + list(row[9:14]))
-                    print('pam_changed_removed', pam, '->', '-', grna, '->', '-')
+                    print('impact;pam_changed_removed', pam, '->', '-', grna, '->', '-')
 
         if len(new_info) > 0:  # new guides remaining and not matched == new guides are made
             id_cnt = 1
@@ -187,7 +175,7 @@ def write_results(hg38guide_results,vcf_fname,sitep_path,
                 x = [n[0],n[1],f'{n[1]}_NEW{id_cnt}',n[2],n[3],'-', '-', '-','-',
                                  n[4], n[5], n[6]] + list(var_df.loc[n[0]])
                 new_rows.append(x[:-1])
-                print('pam_changed_added', '-', '->', n[5], '-', '->', n[4])
+                print('impact;pam_changed_added', '-', '->', n[5], '-', '->', n[4])
                 id_cnt += 1
         cols = ['QueryTerm', 'Editor', 'Guide_ID', 'Coordinates', 'Strand', f'{refgenome_name}_gRNA',
        f'{refgenome_name}_Pam', f'{refgenome_name}_Doench Score',f'{refgenome_name}_gRNA',
@@ -197,20 +185,46 @@ def write_results(hg38guide_results,vcf_fname,sitep_path,
         df.to_csv(f'{resultsfolder}/{altgenome_name}_guide_differences.csv',index = False)
 
 
+def fetch_ALT_guides(vcf_fname,resultsfolder,altgenome_name,refgenome_name = 'HG38'):
+
+    #Extract results from hg38
+    paths = os.listdir(resultsfolder)
+    hg38guide_results = [x for x in paths if x.endswith('Guides_found.csv')] #Get hg38 found guides
+
+    #Daniel - is this the best way to do this? or can you do this in a snakemake thing???? <------------DANIEL
+    if len(hg38guide_results) > 1:
+        print('warning: there but only be one file ends in Guides_Found.csv in results folder')
+    else:
+        hg38guide_results = resultsfolder + hg38guide_results[0]
+
+    searchp_path = [resultsfolder + x for x in paths if x.endswith('guide_search_params')][0] #Get guide search params used
+    search_params = pickle.load(open(searchp_path, 'rb'))
+
+    # get hg38_snv_info (60bp extracted sequence, translation info, hg38_coordinates etc.
+    sitep_path = [resultsfolder + x for x in paths if x.endswith('snv_site_info')][0]
+    hg38_snvinfo = pickle.load(open(sitep_path, 'rb'))
+
+    variants_found, new_guides_dict = find_overlapping_variants(vcf_fname, altgenome_name,hg38_snvinfo, search_params)
+
+    if len(variants_found['QueryTerm']) > 0:
+        write_results(hg38guide_results, variants_found, new_guides_dict, altgenome_name, refgenome_name,resultsfolder)
+    else:
+        print(f'no overlapping variants detected in {altgenome_name}')
+
+
+
+
+
+
 
 '''
-df = pd.read_csv("/groups/clinical/projects/editability/tables/processed_tables/variant_tables/16_variant.txt")
-for x in df['HGVS_ID']:
-    if x.startswith('NC'):
-        print(x)
-records_found = []
-for p in list(df.PositionVCF):
-    snv_coord = 'chr16:' + str(p)
-    record = extract_vcf_record(snv_coord,vcf_fname,window = 30)
-    if len(record) > 0:
-        records_found.append(record)
-        print(df['HGVS_ID'].loc[df['PositionVCF']==p])
+## Test 
 
+resultsfolder = "/groups/clinical/projects/editability/medit_queries/medit_test/test_out/"
+vcf_fname = "/groups/clinical/projects/editability/tables/raw_tables/VCFs/HG02257.filtered.vcf.gz"
 
+altgenome_name = 'HG02257'
+refgenome_name = 'HG38'
 
+fetch_ALT_guides(vcf_fname,resultsfolder,altgenome_name,refgenome_name = 'HG38')
 '''
