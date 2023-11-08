@@ -13,6 +13,7 @@ run_name: "private_103023_v0"
 processing_mode: 'private'
 
 # === I/O PATHS ===
+# == DIRECTORIES ==
 # Canonical storage folder for FASTA References
 fasta_root_path: "/groups/clinical/projects/clinical_shared_data/genomes/fasta"
 # Parent output directory where files should be stored after processing
@@ -20,6 +21,17 @@ output_directory: "/groups/clinical/projects/medit_analysis"
 
 # Directory that holds the query HGVSs
 variant_query_dir: "/groups/doudna/projects/daniel_projects/editability/jobs/query" # "/groups/clinical/projects/editability/medit_queries/medit_test/test_in"
+
+# == FILENAMES ==
+# Outputs
+gene_report: "Gene_Report.csv"
+variant_report: "Variant_Report.csv"
+be_report: "BaseEditors_found.csv"
+guides_report: "Guides_found.csv"
+
+# Intermediate files
+guide_search_params: "guide_search_params.pkl"
+snv_site_info: "snv_site_info.pkl"
 
 # Path where downloaded references are temporarily stored
 #fasta_download_path: "/groups/clinical/projects/clinical_shared_data/hprc/aws2"
