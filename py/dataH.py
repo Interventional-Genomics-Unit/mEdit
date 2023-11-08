@@ -1,6 +1,7 @@
 from Bio.Seq import Seq
 from Bio import SeqUtils
 import math
+from Bio.SeqUtils import seq3
 
 
 class DataHandler:
@@ -110,9 +111,13 @@ class DataHandler:
         return score
 
     def find_codon(self, snv_rel_pos):
-        codon = self.extracted_seq[int(snv_rel_pos - self.rf): int((snv_rel_pos - self.rf) + 3)]
-        if self.strand == '-':
-            codon = Seq(codon).complement()
+        if self.strand == '+':
+            codon = self.extracted_seq[int(snv_rel_pos - self.rf): int((snv_rel_pos - self.rf) + 3)]
+        else:
+            adj_rf = 2 - self.rf
+            codon = self.extracted_seq[int(snv_rel_pos - adj_rf): int(snv_rel_pos - adj_rf)+3]
+            codon = Seq(codon).reverse_complement()
+        print(snv_rel_pos, self.rf, codon, self.strand)
         return codon
 
     @staticmethod
@@ -158,7 +163,8 @@ class DataHandler:
             # Converted case
             convert = str(conversion[1])
             bystander = target_bases.count(conversion[0]) - 1
-
+            print(guide)
+            print(bystander, target_bases, conversion, win_size)
             if self.annotation != 'exon':
                 ctype = 'NA'
                 self.add_BEguides(name,
@@ -180,7 +186,6 @@ class DataHandler:
                 alt_codon = self.find_codon(snv_rel_pos)
 
                 # Alternative codon
-                print("\n===============\nThe method 'translate' might need an input that is currently not provided\n===========\n")
                 aa_alt = Seq(alt_codon).translate()
 
                 # Reference codon
@@ -197,6 +202,9 @@ class DataHandler:
 
                 ### If conversion leads to Ref change or REf change keep
                 ctype = mtype
+                aa_new = seq3(aa_new, custom_map={"*": "***"})
+                aa_alt = seq3(aa_alt, custom_map={"*": "***"})
+                aa_ref = seq3(aa_ref, custom_map={"*": "***"})
                 ref = f"{ref_codon}>{aa_ref}"
                 alt = f"{alt_codon}>{aa_alt}"
                 convert = f"{new_codon}>{aa_new}"
@@ -259,7 +267,7 @@ class DataHandler:
         snv_rel_pos = int(len(self.extracted_seq)/2)
 
         if BEmode:
-            win_size = [win_size[0] - guidelen,win_size[1] -guidelen]
+            win_size = [win_size[0] - guidelen -1,win_size[1] -guidelen-1]
 
         pam_min, pam_max = int((snv_rel_pos - win_size[1]))- 1, int((snv_rel_pos - win_size[0])) - 1
 
@@ -345,15 +353,15 @@ fasta_path ="/groups/clinical/projects/clinical_shared_data/hg38/hg38.fa.gz"
 
 search_params= {'spCas9': ('NGG', False, 20, -2, 'Sp Cas9, SpCas9-HF1, eSpCas9 1.1'),
                 'saCas9': ('NNGRRT', False,21, -2, 'Cas9 S. Aureus 21 base guide'),
-                'spG': ('NGN', False, 20, -2, '20bp-NGN - SpG'),
-                'SpRY-HighE': ('NRN', False,20, -2, 'High Efficiency Pam'),
-                'scCas9':('NNGT',False,20,-2,'20bp-NNGT - Cas9 S. canis - high efficiency PAM, recommended'),
-                'stCas9': ('NNAGAA', False,20, -2, 'Cas9 S. Thermophilus'),
-                'iSpyMacCas9': ('NAA', False,20, -2, ''),
+                #'spG': ('NGN', False, 20, -2, '20bp-NGN - SpG'),
+                #'SpRY-HighE': ('NRN', False,20, -2, 'High Efficiency Pam'),
+                #'scCas9':('NNGT',False,20,-2,'20bp-NNGT - Cas9 S. canis - high efficiency PAM, recommended'),
+                #'stCas9': ('NNAGAA', False,20, -2, 'Cas9 S. Thermophilus'),
+                #'iSpyMacCas9': ('NAA', False,20, -2, ''),
                 'CasX': ('TTCN', True, 20, 18, 'Cas12e'),
                 'AsCas12a': ('TTTV', True, 23, 22, 'TTT(A/C/G)-23bp - Cas12a (Cpf1)'),
                 'LbCas12a': ('TTTV', True, 23, 22, 'LbCpf1'),
-                'Cas12c1': ('TG', True, 23, 22, 'C2c3')}
+                #'Cas12c1': ('TG', True, 23, 22, 'C2c3')}
 
 BE_search_params = {'spCas9-def': [('NGG', False, 20, [4, 8]), ('CT', 'BE3', 'BE4', 'BE4max', 'BE4-Gam'), ('AG', 'ABE7.9', 'ABE7.10', 'ABEmax')]}
 
@@ -364,12 +372,14 @@ snv_info = {'11': [['NM_000518.5:c.114G>A', '-', 'C', 'T', 'exon', Seq('ATCCCCAA
 
 for ch, data in snv_info.items():
     for d in data:
-        query, strand, ref, alt, feature_annotation, extracted_seq, codons, coord = d
+        query, tid, eid, strand, ref, alt, feature_annotation, extracted_seq, codons, coord = d
+        print(f'----------{query}--------------')
         dh = DataHandler(query, strand, ref, alt, feature_annotation, extracted_seq, codons, coord)
     guides_found, BEguides_found = dh.get_Guides(search_params,BE_search_params)
-    for k,v in guides_found.items():
-        print(k,v)
-    for k,v in BEguides_found.items():
-        print(k,v)
+        print(len(guides_found['gRNA'])
+            #for k,v in guides_found:
+    #    print(k,v)
+    #for k,v in BEguides_found.items():
+    #    print(k,v)
 
 '''
