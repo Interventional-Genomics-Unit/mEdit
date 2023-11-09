@@ -1,5 +1,5 @@
 # **** Variables ****
-configfile: "config/guide_prediction_default_template.yaml"
+configfile: "config/guide_prediction_private_template.yaml"
 configfile: "config/preprocessing_configuration.yaml"
 
 # configfile: "config/aws_download.yaml"
@@ -15,22 +15,103 @@ import glob
 # noinspection SmkAvoidTabWhitespace
 rule all:
 	input:
-		# Pull information from clinVar
-		expand("{root_dir}/{mode}/jobs/{job_name}/guide_prediction/{sequence_id}/guides_report/",
+		# Pull VCFs either from private (de novo sequenced) or the pangenomes available
+		expand("{root_dir}/{mode}/source_vcfs/{vcf_id}.vcf.gz",
+			root_dir=config["output_directory"],mode=config["processing_mode"],
+			vcf_id=config["vcf_id"]),
+		# With the relevant VCF downloaded, proceed with creating consensus FASTA
+		expand("{root_dir}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.fa",
+			root_dir=config["output_directory"],mode=config["processing_mode"],
+			vcf_id=config["vcf_id"],sequence_id=config["sequence_id"]),
+		# Predicted guides using the most recent human genome assembly
+		expand("{root_dir}/{mode}/jobs/{job_name}/guide_prediction-{sequence_id}/guides_report/{gene_report}",
 			root_dir=config["output_directory"], mode=config["processing_mode"],
-			job_name=config["run_name"], sequence_id=config["sequence_id"])
+			job_name=config["run_name"], sequence_id=config["sequence_id"], gene_report=config["gene_report"])
 
 
+# noinspection SmkAvoidTabWhitespace
+rule pull_vcf:
+	output:
+		expand("{root_dir}/{mode}/source_vcfs/{vcf_id}.vcf.gz",
+			root_dir=config["output_directory"], mode=config["processing_mode"], vcf_id=config["vcf_id"])
+	params:
+		aws_url = config["aws_url"],
+		aws_path = config["aws_path"] ,
+		aws_filename_suffix = config["filename_suffix"],
+		vcf_id = config["vcf_id"],
+		root_dir=config["output_directory"],
+		mode=config["processing_mode"]
+	shell:
+		"""
+        # 1) download diploid VCF files from AWS (-->to be a loop using index file) 
+        wget {params.aws_url}/{params.vcf_id}/{params.aws_path}/{params.vcf_id}.{params.aws_filename_suffix}.vcf.gz -O {params.root_dir}/{params.mode}/source_vcfs/{params.vcf_id}.vcf.gz
+		"""
+
+# noinspection SmkAvoidTabWhitespace
+rule consensus_fasta:
+	input:
+		assembly_path=lambda wildcards: glob.glob("{fasta_root_path}/{sequence_id}.fa.gz".format(
+			fasta_root_path=config["fasta_root_path"],sequence_id=wildcards.sequence_id)),
+		source_vcf = "{root_dir}/{mode}/source_vcfs/{vcf_id}.vcf.gz"
+	output:
+		consensus_fasta = "{root_dir}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.fa",
+		filtered_vcf = "{root_dir}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.filtered.vcf.gz"
+	params:
+		source_vcf_prefix="{root_dir}/{mode}/consensus_refs/{sequence_id}/{vcf_id}",
+		# target_consensus_prefix="{root_dir}/{mode}/consensus_refs/{sequence_id}/{vcf_id}",
+		# genome_prefix=config["vcf_id"],
+		dump_dir="{root_dir}/consensus_refs/downloads",
+		fasta_root_path=config["fasta_root_path"]
+	resources:
+		mem_mb=100000
+	shell:
+		"""
+		# Prepare directories:
+        # 2) filter GAT1 or GAT2 samples (samples where one haplotype has a sequence depth = 0)
+        # & filter reference & variant alleles > 5nt
+        # Create index file
+        bcftools filter -O z -o {output.filtered_vcf} -e 'GT="." || ILEN <= -5 || ILEN >= 5' {input.source_vcf} 
+        bcftools index -t {output.filtered_vcf}
+
+        # 3) Making a consensus
+        #previously made a seperate hg38 Ref Fasta that only have standard chromsomes --> /groups/clinical/projects/editability/tables/raw_tables/VCFs/hg38_standard.fa.gz
+        samtools dict {input.assembly_path} -o {params.fasta_root_path}/{wildcards.sequence_id}.dict
+        samtools faidx {input.assembly_path} -o {input.assembly_path}.fai
+
+        gzip -dv {output.filtered_vcf}
+        bgzip {params.source_vcf_prefix}.filtered.vcf
+
+        bcftools consensus -f {input.assembly_path} {output.filtered_vcf} -o {output.consensus_fasta}
+
+        # Cleanup
+        rm {input.assembly_path}.fai {input.assembly_path}.dict
+        """
+
+# noinspection SmkAvoidTabWhitespace
 rule fetch_guides:
 	input:
-		query_manifest=lambda wildcards: glob.glob("{variant_query_dir}/hgvs_test_queries.csv".format(
+		query_manifest = lambda wildcards: glob.glob("{variant_query_dir}/hgvs_test_queries.csv".format(
 			variant_query_dir=config["variant_query_dir"])),
-		assembly_path=lambda wildcards: glob.glob("{fasta_root_path}/{sequence_id}.fa.gz".format(
+		assembly_path = lambda wildcards: glob.glob("{fasta_root_path}/{sequence_id}.fa.gz".format(
 			fasta_root_path=config["fasta_root_path"],sequence_id=wildcards.sequence_id))
 	output:
-		directory("{root_dir}/{mode}/jobs/{job_name}/guide_prediction/{sequence_id}/guides_report")
+		"{root_dir}/{mode}/jobs/{job_name}/guide_prediction-{sequence_id}/guides_report/{gene_report}"
 	params:
-		support_tables=config["support_tables"]
+		# == Main output path
+		main_out = "{root_dir}/{mode}/jobs/{job_name}/guide_prediction-{sequence_id}/guides_report",
+		# == Output paths
+		gene_report = config["gene_report"],
+		variant_report = config["variant_report"],
+		be_report = config["be_report"],
+		guides_report = config["guides_report"],
+		# == Intermediate output path
+		intermediate_out="{root_dir}/{mode}/jobs/{job_name}/guide_prediction-{sequence_id}/dynamic_params",
+		# == Intermediate filenames
+		snv_site_info = config["snv_site_info"],
+		guide_search_params = config["guide_search_params"],
+		# == Processed tables branch
+		support_tables = config["support_tables"],
+		annote_path=config["refseq_table"]
 	conda:
 		"envs/medit.yaml"
 	message:
@@ -43,3 +124,9 @@ rule fetch_guides:
         """
 	script:
 		"py/fetchGuides.py"
+
+# noinspection SmkAvoidTabWhitespace
+# rule process_vcf:
+# 	input:
+# 		filtered_vcf = "{root_dir}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.filtered.vcf.gz"
+# 	output
