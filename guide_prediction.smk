@@ -24,9 +24,14 @@ rule all:
 			root_dir=config["output_directory"],mode=config["processing_mode"],
 			vcf_id=config["vcf_id"],sequence_id=config["sequence_id"]),
 		# Predicted guides using the most recent human genome assembly
-		expand("{root_dir}/{mode}/jobs/{job_name}/guide_prediction-{sequence_id}/guides_report/{gene_report}",
+		expand("{root_dir}/{mode}/jobs/{job_name}/guide_prediction-{sequence_id}/guides_report_ref/Guides_found.csv",
 			root_dir=config["output_directory"], mode=config["processing_mode"],
-			job_name=config["run_name"], sequence_id=config["sequence_id"], gene_report=config["gene_report"])
+			job_name=config["run_name"], sequence_id=config["sequence_id"]),
+		# Predicted guides on alternative genomes based on the reference listed above
+		expand("{root_dir}/{mode}/jobs/{job_name}/guide_prediction-{sequence_id}/guides_report_{vcf_id}/Guide_differences",
+			root_dir=config["output_directory"],mode=config["processing_mode"],
+			job_name=config["run_name"],sequence_id=config["sequence_id"],
+			vcf_id=config["vcf_id"])
 
 
 # noinspection SmkAvoidTabWhitespace
@@ -95,20 +100,19 @@ rule fetch_guides:
 		assembly_path = lambda wildcards: glob.glob("{fasta_root_path}/{sequence_id}.fa.gz".format(
 			fasta_root_path=config["fasta_root_path"],sequence_id=wildcards.sequence_id))
 	output:
-		"{root_dir}/{mode}/jobs/{job_name}/guide_prediction-{sequence_id}/guides_report/{gene_report}"
+		guides_report_out = "{root_dir}/{mode}/jobs/{job_name}/guide_prediction-{sequence_id}/guides_report_ref/Guides_found.csv",
+		guide_search_params = "{root_dir}/{mode}/jobs/{job_name}/guide_prediction-{sequence_id}/dynamic_params/guide_search_params.pkl"
 	params:
 		# == Main output path
-		main_out = "{root_dir}/{mode}/jobs/{job_name}/guide_prediction-{sequence_id}/guides_report",
-		# == Output paths
+		main_out = "{root_dir}/{mode}/jobs/{job_name}/guide_prediction-{sequence_id}/guides_report_ref",
+		# == Main output filenames
 		gene_report = config["gene_report"],
 		variant_report = config["variant_report"],
 		be_report = config["be_report"],
-		guides_report = config["guides_report"],
 		# == Intermediate output path
 		intermediate_out="{root_dir}/{mode}/jobs/{job_name}/guide_prediction-{sequence_id}/dynamic_params",
 		# == Intermediate filenames
 		snv_site_info = config["snv_site_info"],
-		guide_search_params = config["guide_search_params"],
 		# == Processed tables branch
 		support_tables = config["support_tables"],
 		annote_path=config["refseq_table"]
@@ -126,7 +130,17 @@ rule fetch_guides:
 		"py/fetchGuides.py"
 
 # noinspection SmkAvoidTabWhitespace
-# rule process_vcf:
-# 	input:
-# 		filtered_vcf = "{root_dir}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.filtered.vcf.gz"
-# 	output
+rule process_vcf:
+	input:
+		filtered_vcf = "{root_dir}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.filtered.vcf.gz",
+		guides_report_out= "{root_dir}/{mode}/jobs/{job_name}/guide_prediction-{sequence_id}/guides_report_ref/Guides_found.csv",
+		guide_search_params= "{root_dir}/{mode}/jobs/{job_name}/guide_prediction-{sequence_id}/dynamic_params/guide_search_params.pkl"
+	output:
+		diff_guides = "{root_dir}/{mode}/jobs/{job_name}/guide_prediction-{sequence_id}/guides_report_{vcf_id}/Guide_differences.csv"
+	params:
+		# == Main output path
+		main_out = "{root_dir}/{mode}/jobs/{job_name}/guide_prediction-{sequence_id}/guides_report_{vcf_id}/"
+	conda:
+		"envs/vcf.yaml"
+	script:
+		"py/process_genome.py"
