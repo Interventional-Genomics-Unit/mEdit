@@ -9,6 +9,7 @@ processed_tables: "/groups/clinical/projects/editability/tables/processed_tables
 simple_tables: "/groups/clinical/projects/editability/tables/processed_tables/guide_acquisition_tables"
 hgvs_lookup: "/groups/clinical/projects/editability/tables/processed_tables/HGVSlookup.csv"
 clinvar_update: "/groups/clinical/projects/editability/tables/processed_tables/clinvar_lastUpdate.txt"
+refseq_table: "/groups/clinical/projects/editability/tables/processed_tables/ncbiRefSeq.txt.gz"
 
 # == RAW TABLES ==
 # Main path for raw tables

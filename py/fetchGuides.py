@@ -566,7 +566,6 @@ class Fetch_Guides:
 			snv_info[ch] = new_data
 
 		self.snv_info = snv_info
-		# self.write_snv_site_info()
 
 	@staticmethod
 	def validate_hgvs(queries):
@@ -606,7 +605,7 @@ class Fetch_Guides:
 			print('Query are not in the correct Coordinate + allele Format')
 		return validated_queries
 
-	def run_FetchGuides(self, outfile_path):
+	def run_FetchGuides(self, outfile_guides, outfile_be_guides):
 		global dh, query
 		self.fetch_query_info()
 		print('Finding Guides.....')
@@ -643,12 +642,12 @@ class Fetch_Guides:
 		guidedf, BEdf = None, None
 
 		if len(self.all_guides.keys()) != 0:
-			guidedf = self.write_guide_csv(self.all_guides, outfile_path)
+			guidedf = self.write_guide_csv(self.all_guides, outfile_guides)
 			self.clininfo_flag = True
 			# self.add_clininfo()
 
 		if len(self.all_BE.keys()) != 0:
-			BEdf = self.write_guide_csv(self.all_BE, outfile_path)
+			BEdf = self.write_guide_csv(self.all_BE, outfile_be_guides)
 		return {'all_variant': self.all_variant,
 		        'all_gene': self.all_gene,
 		        'guide_table': guidedf,
@@ -661,16 +660,16 @@ def main():
 	input_file = str(snakemake.input.query_manifest)
 	fasta_path = str(snakemake.input.assembly_path)
 	# === Outputs ===
-	# Non-dependent
+	guides_report = str(snakemake.output.guides_report_out)
+	guide_search_params_path = str(snakemake.output.guide_search_params)
 	# === Params ===
 	resultsfolder = set_export(str(snakemake.params.main_out))
 	gene_report = f"{resultsfolder}/{str(snakemake.params.gene_report)}"
 	variant_report = f"{resultsfolder}/{str(snakemake.params.variant_report)}"
 	be_report = f"{resultsfolder}/{str(snakemake.params.be_report)}"
-	guides_report = f"{resultsfolder}/{str(snakemake.params.guides_report)}"
+	# guides_report = f"{resultsfolder}/{str(snakemake.params.guides_report)}"
 	# == Intermediate paths
 	intermediate_out = set_export(str(snakemake.params.intermediate_out))
-	guide_search_params_path = f"{intermediate_out}/{str(snakemake.params.guide_search_params)}"
 	snv_site_info_path = f"{intermediate_out}/{str(snakemake.params.snv_site_info)}"
 	# == Processed tables branch
 	datadir = str(snakemake.params.support_tables)
@@ -692,9 +691,6 @@ def main():
 	# == Input Setup ==
 	df = pd.read_csv(input_file)
 	queries = list(df.iloc[:, 0])
-	# == Define guides output path ==
-	guides_report_out = be_report if BEmode == 'on' \
-		else guides_report
 
 	# == Report processed input variables ==
 	print(f"""
@@ -721,7 +717,7 @@ def main():
 	                  annote_path
 	                  )
 	# == Set up object and run core methods ==
-	exports = fg.run_FetchGuides(guides_report_out)
+	exports = fg.run_FetchGuides(guides_report, be_report)
 
 	# == Export Intermediate files ==
 	fg.write_snv_site_info(snv_site_info_path)

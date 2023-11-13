@@ -1,8 +1,10 @@
-import pandas as pd
-import vcf
+# Native Modules
 import os
 import pickle
-
+# Installed Modules
+import pandas as pd
+import vcf
+# Project Modules
 from dataH import DataHandler
 
 #################################
@@ -26,6 +28,7 @@ def extract_vcf_record(snv_coord,vcf_fname,window = 30):
         records_found.append(record)
         print(record)
     return records_found
+
 
 def extract_variant_info(record,hg38extracted_seq,hg38coord):
     '''
@@ -71,7 +74,6 @@ def extract_variant_info(record,hg38extracted_seq,hg38coord):
     return record.REF, alt.sequence, zyg, vt, new_seq
 
 
-
 def find_overlapping_variants(vcf_fname,altgenome_name,hg38_snvinfo,search_params):
 
     new_guides = {}
@@ -114,7 +116,7 @@ def find_overlapping_variants(vcf_fname,altgenome_name,hg38_snvinfo,search_param
     return variants_found, new_guides
 
 
-def write_results(hg38guide_results,variants_found,new_guides_dict,altgenome_name,refgenome_name,resultsfolder):
+def write_results(hg38guide_results,variants_found,new_guides_dict,altgenome_name,refgenome_name,outfile):
     '''
     compares guides found in new genome and ref genome.
     Drops unchanged guides and labels guides impacted by ALT
@@ -182,22 +184,12 @@ def write_results(hg38guide_results,variants_found,new_guides_dict,altgenome_nam
        f'{altgenome_name}_Pam', f'{altgenome_name}_Doench Score',f'{altgenome_name}_Guide_Impact',
         'Variant_Type', 'REF|ALT','Examined_ALT', f'{altgenome_name}Var_Position', f'{altgenome_name}_Zygosity']
         df = pd.DataFrame(new_rows, columns=cols)
-        df.to_csv(f'{resultsfolder}/{altgenome_name}_guide_differences.csv',index = False)
+        df.to_csv(outfile,index = False)
 
 
-def fetch_ALT_guides(vcf_fname,resultsfolder,altgenome_name,refgenome_name = 'HG38'):
+def fetch_ALT_guides(vcf_fname,ref_guide_report,searchp_path,diffguides_report,altgenome_name,refgenome_name):
 
-    #Extract results from hg38
-    paths = os.listdir(resultsfolder)
-    hg38guide_results = [x for x in paths if x.endswith('Guides_found.csv')] #Get hg38 found guides
-
-    #Daniel - is this the best way to do this? or can you do this in a snakemake thing???? <------------DANIEL
-    if len(hg38guide_results) > 1:
-        print('warning: there but only be one file ends in Guides_Found.csv in results folder')
-    else:
-        hg38guide_results = resultsfolder + hg38guide_results[0]
-
-    searchp_path = [resultsfolder + x for x in paths if x.endswith('guide_search_params')][0] #Get guide search params used
+    hg38guide_results = ref_guide_report
     search_params = pickle.load(open(searchp_path, 'rb'))
 
     # get hg38_snv_info (60bp extracted sequence, translation info, hg38_coordinates etc.
@@ -212,7 +204,28 @@ def fetch_ALT_guides(vcf_fname,resultsfolder,altgenome_name,refgenome_name = 'HG
         print(f'no overlapping variants detected in {altgenome_name}')
 
 
+def main():
+    # SNAKEMAKE IMPORTS
+    # === Inputs ===
+    filtered_vcf = str(snakemake.input.filtered_vcf)
+    guides_report = str(snakemake.input.guides_report_out)
+    guide_search_params = str(snakemake.input.guide_search_params)
+    # === Outputs ===
+    diffguides_out = str(snakemake.params.diff_guides)
+    # === Wildcards ===
+    altgenome_name = str(snakemake.wildcards.vcf_id)
+    refgenome_name = str(snakemake.wildcards.sequence_id)
 
+    # resultsfolder = "/groups/clinical/projects/editability/medit_queries/medit_test/test_out/"
+    # vcf_fname = "/groups/clinical/projects/editability/tables/raw_tables/VCFs/HG02257.filtered.vcf.gz"
+    # altgenome_name = 'HG02257'
+    # refgenome_name = 'HG38'
+
+    fetch_ALT_guides(filtered_vcf,guides_report,guide_search_params, diffguides_out, altgenome_name, refgenome_name)
+
+
+if __name__ == "__main__":
+    main()
 
 
 
