@@ -1,6 +1,6 @@
 # Native Modules
-import os
 import pickle
+import subprocess
 # Installed Modules
 import pandas as pd
 import vcf
@@ -15,7 +15,8 @@ from dataH import DataHandler
 ## assumption that the VCF imported. Has the Alternate gene specified
 ## A deletion greater than 5
 
-def extract_vcf_record(snv_coord,vcf_fname,window = 30):
+
+def extract_vcf_record(snv_coord, vcf_fname, window=30):
     '''
     seraches for an alternate genome variant in the +/-60bp of snv query position
     '''
@@ -31,7 +32,7 @@ def extract_vcf_record(snv_coord,vcf_fname,window = 30):
     return records_found
 
 
-def extract_variant_info(record,hg38extracted_seq,hg38coord):
+def extract_variant_info(record, hg38extracted_seq, hg38coord):
     '''
     for a given alt record found determine the ALT information
     and create a new extracted sequence incorporating the ALT allele
@@ -75,7 +76,7 @@ def extract_variant_info(record,hg38extracted_seq,hg38coord):
     return record.REF, alt.sequence, zyg, vt, new_seq
 
 
-def find_overlapping_variants(vcf_fname,altgenome_name,hg38_snvinfo,search_params):
+def find_overlapping_variants(vcf_fname,altgenome_name, hg38_snvinfo, search_params):
 
     new_guides = {}
     v_info = [[],[],[],[],[],[],[]]
@@ -117,7 +118,7 @@ def find_overlapping_variants(vcf_fname,altgenome_name,hg38_snvinfo,search_param
     return variants_found, new_guides
 
 
-def write_results(hg38guide_results,variants_found,new_guides_dict,altgenome_name,refgenome_name,outfile):
+def write_results(hg38guide_results, variants_found, new_guides_dict, altgenome_name, refgenome_name, outfile):
     '''
     compares guides found in new genome and ref genome.
     Drops unchanged guides and labels guides impacted by ALT
@@ -128,8 +129,8 @@ def write_results(hg38guide_results,variants_found,new_guides_dict,altgenome_nam
         var_df = pd.DataFrame(variants_found).set_index('QueryTerm')
         new_guides = pd.DataFrame(new_guides_dict).drop(columns=[ 'Guide_ID','SNV Position', 'Ref>Alt','Annotation'])
         hg38_gdf = hg38_gdf.loc[hg38_gdf.QueryTerm.isin(set(variants_found['QueryTerm']))]
-        hg38_gdf = hg38_gdf.drop(columns =['SNV Position', 'Ref>Alt'])
-        old_guides = hg38_gdf.join(var_df, how = 'outer' ,on = 'QueryTerm').reset_index(drop=True)
+        hg38_gdf = hg38_gdf.drop(columns=['SNV Position', 'Ref>Alt'])
+        old_guides = hg38_gdf.join(var_df, how='outer', on='QueryTerm').reset_index(drop=True)
 
         new_info = new_guides.to_dict('tight')['data']
         print('            ')
@@ -185,11 +186,12 @@ def write_results(hg38guide_results,variants_found,new_guides_dict,altgenome_nam
        f'{altgenome_name}_Pam', f'{altgenome_name}_Doench Score',f'{altgenome_name}_Guide_Impact',
         'Variant_Type', 'REF|ALT','Examined_ALT', f'{altgenome_name}Var_Position', f'{altgenome_name}_Zygosity']
         df = pd.DataFrame(new_rows, columns=cols)
-        df.to_csv(outfile,index = False)
+        df.to_csv(outfile, index=False)
 
 
-def fetch_ALT_guides(vcf_fname,ref_guide_report,searchp_path, sitep_path,diffguides_report,altgenome_name,refgenome_name):
+def fetch_ALT_guides(vcf_fname, ref_guide_report, searchp_path, sitep_path, diffguides_report, altgenome_name, refgenome_name):
 
+    # Get search parameters and the results from the reference assembly
     hg38guide_results = ref_guide_report
     search_params = pickle.load(open(searchp_path, 'rb'))
     # get hg38_snv_info (60bp extracted sequence, translation info, hg38_coordinates etc.
@@ -198,9 +200,11 @@ def fetch_ALT_guides(vcf_fname,ref_guide_report,searchp_path, sitep_path,diffgui
     variants_found, new_guides_dict = find_overlapping_variants(vcf_fname, altgenome_name,hg38_snvinfo, search_params)
 
     if len(variants_found['QueryTerm']) > 0:
-        write_results(hg38guide_results, variants_found, new_guides_dict, altgenome_name, refgenome_name,diffguides_report)
+        write_results(hg38guide_results, variants_found, new_guides_dict, altgenome_name, refgenome_name, diffguides_report)
     else:
         print(f'no overlapping variants detected in {altgenome_name}')
+        with open(diffguides_report, 'w') as f:
+            f.write(f"No guide differences found based on the VCF {altgenome_name}")
 
 
 def main():
@@ -212,6 +216,8 @@ def main():
     snv_site_info = str(snakemake.input.snv_site_info)
     # === Outputs ===
     diffguides_out = str(snakemake.output.diff_guides)
+    # === Params ===
+    idx_filtered_vcf = str(snakemake.params.idx_filtered_vcf)
     # === Wildcards ===
     altgenome_name = str(snakemake.wildcards.vcf_id)
     refgenome_name = str(snakemake.wildcards.sequence_id)
@@ -220,6 +226,10 @@ def main():
     # vcf_fname = "/groups/clinical/projects/editability/tables/raw_tables/VCFs/HG02257.filtered.vcf.gz"
     # altgenome_name = 'HG02257'
     # refgenome_name = 'HG38'
+
+    # Generate vcf index with tabix
+    print(f"Generate tabix file on:\n {idx_filtered_vcf}")
+    subprocess.run(f"tabix {filtered_vcf}", shell=True)
 
     fetch_ALT_guides(filtered_vcf,
                      guides_report,
@@ -232,18 +242,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-'''
-## Test 
-
-resultsfolder = "/groups/clinical/projects/editability/medit_queries/medit_test/test_out/"
-vcf_fname = "/groups/clinical/projects/editability/tables/raw_tables/VCFs/HG02257.filtered.vcf.gz"
-
-altgenome_name = 'HG02257'
-refgenome_name = 'HG38'
-
-fetch_ALT_guides(vcf_fname,resultsfolder,altgenome_name,refgenome_name = 'HG38')
-'''
