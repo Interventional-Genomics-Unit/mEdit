@@ -27,11 +27,6 @@ variant_query_dir: "/groups/doudna/projects/daniel_projects/editability/jobs/que
 gene_report: "Gene_Report.csv"
 variant_report: "Variant_Report.csv"
 be_report: "BaseEditors_found.csv"
-guides_report: "Guides_found.csv"
-
-# Intermediate files
-guide_search_params: "guide_search_params.pkl"
-snv_site_info: "snv_site_info.pkl"
 
 # Path where downloaded references are temporarily stored
 #fasta_download_path: "/groups/clinical/projects/clinical_shared_data/hprc/aws2"

@@ -4,6 +4,7 @@ import pickle
 # Installed Modules
 import pandas as pd
 import vcf
+# == Pysam REQUIRED ==
 # Project Modules
 from dataH import DataHandler
 
@@ -187,19 +188,17 @@ def write_results(hg38guide_results,variants_found,new_guides_dict,altgenome_nam
         df.to_csv(outfile,index = False)
 
 
-def fetch_ALT_guides(vcf_fname,ref_guide_report,searchp_path,diffguides_report,altgenome_name,refgenome_name):
+def fetch_ALT_guides(vcf_fname,ref_guide_report,searchp_path, sitep_path,diffguides_report,altgenome_name,refgenome_name):
 
     hg38guide_results = ref_guide_report
     search_params = pickle.load(open(searchp_path, 'rb'))
-
     # get hg38_snv_info (60bp extracted sequence, translation info, hg38_coordinates etc.
-    sitep_path = [resultsfolder + x for x in paths if x.endswith('snv_site_info')][0]
     hg38_snvinfo = pickle.load(open(sitep_path, 'rb'))
 
     variants_found, new_guides_dict = find_overlapping_variants(vcf_fname, altgenome_name,hg38_snvinfo, search_params)
 
     if len(variants_found['QueryTerm']) > 0:
-        write_results(hg38guide_results, variants_found, new_guides_dict, altgenome_name, refgenome_name,resultsfolder)
+        write_results(hg38guide_results, variants_found, new_guides_dict, altgenome_name, refgenome_name,diffguides_report)
     else:
         print(f'no overlapping variants detected in {altgenome_name}')
 
@@ -210,8 +209,9 @@ def main():
     filtered_vcf = str(snakemake.input.filtered_vcf)
     guides_report = str(snakemake.input.guides_report_out)
     guide_search_params = str(snakemake.input.guide_search_params)
+    snv_site_info = str(snakemake.input.snv_site_info)
     # === Outputs ===
-    diffguides_out = str(snakemake.params.diff_guides)
+    diffguides_out = str(snakemake.output.diff_guides)
     # === Wildcards ===
     altgenome_name = str(snakemake.wildcards.vcf_id)
     refgenome_name = str(snakemake.wildcards.sequence_id)
@@ -221,7 +221,13 @@ def main():
     # altgenome_name = 'HG02257'
     # refgenome_name = 'HG38'
 
-    fetch_ALT_guides(filtered_vcf,guides_report,guide_search_params, diffguides_out, altgenome_name, refgenome_name)
+    fetch_ALT_guides(filtered_vcf,
+                     guides_report,
+                     guide_search_params,
+                     snv_site_info,
+                     diffguides_out,
+                     altgenome_name,
+                     refgenome_name)
 
 
 if __name__ == "__main__":

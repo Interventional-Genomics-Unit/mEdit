@@ -662,6 +662,7 @@ def main():
 	# === Outputs ===
 	guides_report = str(snakemake.output.guides_report_out)
 	guide_search_params_path = str(snakemake.output.guide_search_params)
+	snv_site_info_path = str(snakemake.output.snv_site_info)
 	# === Params ===
 	resultsfolder = set_export(str(snakemake.params.main_out))
 	gene_report = f"{resultsfolder}/{str(snakemake.params.gene_report)}"
@@ -669,8 +670,6 @@ def main():
 	be_report = f"{resultsfolder}/{str(snakemake.params.be_report)}"
 	# guides_report = f"{resultsfolder}/{str(snakemake.params.guides_report)}"
 	# == Intermediate paths
-	intermediate_out = set_export(str(snakemake.params.intermediate_out))
-	snv_site_info_path = f"{intermediate_out}/{str(snakemake.params.snv_site_info)}"
 	# == Processed tables branch
 	datadir = str(snakemake.params.support_tables)
 	annote_path = str(snakemake.params.annote_path)
