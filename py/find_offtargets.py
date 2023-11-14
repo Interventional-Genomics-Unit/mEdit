@@ -15,6 +15,7 @@ Usage: cas-offinder {input_filename|-} {C|G|A}[device_id(s)] {output_filename|-}
 (C: using CPUs, G: using GPUs, A: using accelerators)
 '''
 
+
 def make_casoffinder_input(infile,fasta_fname,pam, pamISfirst, guidelen,guides,gnames,casoff_params):
     ## create input file for cas-offinder
     mm, RNAbb, DNAbb, PU = casoff_params
@@ -38,7 +39,6 @@ def make_casoffinder_input(infile,fasta_fname,pam, pamISfirst, guidelen,guides,g
                 line = f"{grna}{dpam} {mm} {gname}" + "\n"
             f.writelines(line)
             print(line)
-
 
 
 def cas_offinder_bulge(input_filename, output_filename,cas_off_expath,bulge):
@@ -209,6 +209,7 @@ def agg_results(output_filename,mmco):
                 ots_dict[gid][(btype,int(mm))] += 1
     return ots_dict
 
+
 def write_out_res(ots,gdf,casoff_params,resultsfolder,guide_tab_fname):
     df = pd.DataFrame(ots)
 
@@ -269,58 +270,73 @@ def run_casoffinder(resultsfolder,fasta_fname,guide_tab_fname,search_params,
     write_out_res(ots, gdf, casoff_params, resultsfolder, guide_tab_fname)
 
 
+def main():
+    # SNAKEMAKE IMPORTS
+    # === Inputs ===
+    filtered_vcf = str(snakemake.input.filtered_vcf)
+    guides_report = str(snakemake.input.guides_report_out)
+    guide_search_params = str(snakemake.input.guide_search_params)
+    snv_site_info = str(snakemake.input.snv_site_info)
+    # === Outputs ===
+    diffguides_out = str(snakemake.output.diff_guides)
+    # === Wildcards ===
+    altgenome_name = str(snakemake.wildcards.vcf_id)
+    refgenome_name = str(snakemake.wildcards.sequence_id)
+
+    '''
+    ### For Daniel to snakemake <---------------
+
+    input paths for this script:
+        -resultsfolder -- results output folder
+        -guide_search_params -- search paramters used in fetchguides
+        -guide_tab_fname -- original guide table output from FetchGuides OR ALT process_genomes files
+        -fasta_fname -- Hg38 fasta or if using alternative consensus genome
+        -(maybe?) casoffinder path
+
+    input variables for the script:
+        -genome_name -- name of fasta/consensus we are searching
+        -guides_src_name -- name of the guides source genome ex. HG38 or HG02257
+
+    *possibly allow for changes in the cas-offinder parameters
+    see bottom of page
+    '''
+
+    resultsfolder = "/groups/clinical/projects/editability/medit_queries/medit_test/test_out/"
+
+    paths = listdir(resultsfolder)
+
+    # search params
+    searchp_path = [resultsfolder + x for x in paths if x.endswith('guide_search_params')][
+        0]  # Get guide search params used
+    search_params = pickle.load(open(searchp_path, 'rb'))
+
+    ##hg38 or consensus sequence
+    fasta_fname = "/groups/clinical/projects/medit_analysis/private/consensus_refs/hg38/PG_WGS_HG38.fa"
+    genome_name = 'PG'
+
+    # hg38 guides found (but could be {alt_genome}_differences.csv
+    guide_tab_fname = resultsfolder + [x for x in paths if x.endswith('Guides_found.csv')][0]  # Getfound guides
+    guides_src_name = 'HG38'
+
+    ### Daniel---> Pycharm is not find subprocess.Popen(casoffinder...) without an absolute path. so I'm adding this
+    # but I don't think its needed in the final version
+    cas_off_expath = '/home/thudson/miniconda3/envs/edit/bin/cas-offinder'
+
+    # defaults - we may allow users to change these cas-offinder settings?
+    # according to Gorodkin et al. and Lin et al.  DNA bulges are even more tolerated than mismatches alone
+    # https://www.nature.com/articles/s41467-022-30515-0
+    RNAbb = 0  # RNA bulge, a deletion in the off-target
+    DNAbb = 1  # DNA bulge, an insertion in the off-target
+    mm = 3  # max allowable mismatch
+    PU = 'C'  # G = GPU C = CPU A = Accelerators -- I don't really know which should be default?
+    casoff_params = (mm, RNAbb, DNAbb, PU)
+
+    '''
+    test
+    run_casoffinder(resultsfolder,fasta_fname,guide_tab_fname,search_params,
+                       cas_off_expath,genome_name,guides_src_name,casoff_params)
+    '''
 
 
-'''
-### For Daniel to snakemake <---------------
-
-input paths for this script:
-    -resultsfolder -- results output folder
-    -guide_search_params -- search paramters used in fetchguides
-    -guide_tab_fname -- original guide table output from FetchGuides OR ALT process_genomes files
-    -fasta_fname -- Hg38 fasta or if using alternative consensus genome
-    -(maybe?) casoffinder path
-
-input variables for the script:
-    -genome_name -- name of fasta/consensus we are searching
-    -guides_src_name -- name of the guides source genome ex. HG38 or HG02257
-
-*possibly allow for changes in the cas-offinder parameters
-see bottom of page
-'''
-
-resultsfolder = "/groups/clinical/projects/editability/medit_queries/medit_test/test_out/"
-
-paths = listdir(resultsfolder)
-
-#search params
-searchp_path = [resultsfolder + x for x in paths if x.endswith('guide_search_params')][0] #Get guide search params used
-search_params = pickle.load(open(searchp_path, 'rb'))
-
-##hg38 or consensus sequence
-fasta_fname = "/groups/clinical/projects/medit_analysis/private/consensus_refs/hg38/PG_WGS_HG38.fa"
-genome_name = 'PG'
-
-# hg38 guides found (but could be {alt_genome}_differences.csv
-guide_tab_fname =resultsfolder +  [x for x in paths if x.endswith('Guides_found.csv')][0]  # Getfound guides
-guides_src_name = 'HG38'
-
-### Daniel---> Pycharm is not find subprocess.Popen(casoffinder...) without an absolute path. so I'm adding this
-# but I don't think its needed in the final version
-cas_off_expath = '/home/thudson/miniconda3/envs/edit/bin/cas-offinder'
-
-#defaults - we may allow users to change these cas-offinder settings?
-# according to Gorodkin et al. and Lin et al.  DNA bulges are even more tolerated than mismatches alone
-#https://www.nature.com/articles/s41467-022-30515-0
-RNAbb = 0 # RNA bulge, a deletion in the off-target
-DNAbb = 1 # DNA bulge, an insertion in the off-target
-mm = 3 # max allowable mismatch
-PU = 'C' # G = GPU C = CPU A = Accelerators -- I don't really know which should be default?
-casoff_params = (mm,RNAbb,DNAbb,PU)
-
-
-'''
-test
-run_casoffinder(resultsfolder,fasta_fname,guide_tab_fname,search_params,
-                   cas_off_expath,genome_name,guides_src_name,casoff_params)
-'''
+if __name__ == "__main__":
+    main()
