@@ -12,6 +12,11 @@ run_name: "private_103023_v0"
 # Must be the same as specified for the run_name
 processing_mode: 'private'
 
+# == RUN PARAMETERS ==
+qtype: 'hgvs'
+BEmode: 'off'
+editor: 'all'
+
 # === I/O PATHS ===
 # == DIRECTORIES ==
 # Canonical storage folder for FASTA References

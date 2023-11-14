@@ -1,9 +1,7 @@
 # Native Modules
 import gzip
-import time
 import regex as re
 import os
-from datetime import date
 # Installed Modules
 import pandas as pd
 from Bio import SeqIO, SeqUtils
@@ -11,7 +9,6 @@ from Bio.Seq import Seq
 import pickle
 # Project Modules
 from dataH import DataHandler
-
 
 ###############
 # Main Script with Fetch_Guides Class for running pipeline
@@ -668,25 +665,19 @@ def main():
 	gene_report = f"{resultsfolder}/{str(snakemake.params.gene_report)}"
 	variant_report = f"{resultsfolder}/{str(snakemake.params.variant_report)}"
 	be_report = f"{resultsfolder}/{str(snakemake.params.be_report)}"
-	# guides_report = f"{resultsfolder}/{str(snakemake.params.guides_report)}"
-	# == Intermediate paths
-	# == Processed tables branch
+	#   == Processed tables branch ==
 	datadir = str(snakemake.params.support_tables)
 	annote_path = str(snakemake.params.annote_path)
-	# === Wildcards ===
-	jobname = str(snakemake.wildcards.job_name)
-	# Paths---------------------------
-	# input_file = "/groups/clinical/projects/editability/medit_queries/medit_test/test_in/hgvs_test_queries.csv"
-	# datadir = "/groups/clinical/projects/editability/tables/"
-	# resultsfolder = "/groups/clinical/projects/editability/medit_queries/medit_test/test_out/"
-	# fasta_path = "/groups/clinical/projects/clinical_shared_data/hg38/hg38.fa.gz"
-	# annote_path =  "/groups/clinical/projects/editability/tables//processed_tables/ncbiRefSeq.txt.gz"
-
+	#   == Run Parameters ==
+	qtype = str(snakemake.params.qtype)
+	BEmode = str(snakemake.params.BEmode)
+	editor = str(snakemake.params.editor)
 	# == DEBUG BLOCK ==
-	qtype = 'hgvs'
-	BEmode = 'off'
-	editor = 'all'
-	## == == ==
+	# qtype = 'hgvs'
+	# BEmode = 'off'
+	# editor = 'all'
+	# == == ==
+
 	# == Input Setup ==
 	df = pd.read_csv(input_file)
 	queries = list(df.iloc[:, 0])
@@ -706,6 +697,7 @@ def main():
 	OUTPUTS TO:
 		--> {resultsfolder}
 	""")
+
 	# == Get query items ==
 	fg = Fetch_Guides(queries,
 	                  qtype,
@@ -724,9 +716,6 @@ def main():
 
 	# == Export Variant and Gene tables ==
 	fg.add_clininfo(gene_report, variant_report)
-# for item_name in exports:
-# 	filepath = f"{resultsfolder}/{item_name}.csv"
-# 	exports[item_name].to_csv(filepath)
 
 
 if __name__ == "__main__":

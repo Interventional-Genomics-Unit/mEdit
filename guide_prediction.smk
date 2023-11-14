@@ -108,11 +108,13 @@ rule predict_guides:
 		gene_report = config["gene_report"],
 		variant_report = config["variant_report"],
 		be_report = config["be_report"],
-		# == Intermediate output path
-		# intermediate_out="{root_dir}/{mode}/jobs/{job_name}/guide_prediction-{sequence_id}/dynamic_params",
 		# == Processed tables branch
 		support_tables = config["support_tables"],
-		annote_path=config["refseq_table"]
+		annote_path = config["refseq_table"],
+		# == Run Parameters ==
+		qtype = config["qtype"],
+		BEmode = config["BEmode"],
+		editor = config["editor"]
 	conda:
 		"envs/medit.yaml"
 	message:

@@ -12,6 +12,11 @@ run_name: "private_103023_v0"
 # Must be the same as specified for the run_name
 processing_mode: 'private'
 
+# == RUN PARAMETERS ==
+qtype: 'hgvs'
+BEmode: 'off'
+editor: 'all'
+
 # === I/O PATHS ===
 # == DIRECTORIES ==
 # Canonical storage folder for FASTA References
@@ -47,11 +52,3 @@ sequence_id: ["hg38",]#"NA18906.paternal"]#, "HG03453.maternal", "NA18906.patern
 
 # The genomic window to be opened on each side of a gene harboring a variant of interest
 #window_size: 1000
-
-
-
-
-
-
-
-
