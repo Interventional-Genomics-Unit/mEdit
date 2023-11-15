@@ -82,10 +82,14 @@ def find_overlapping_variants(vcf_fname,altgenome_name, hg38_snvinfo, search_par
     v_info = [[],[],[],[],[],[],[]]
     for ch, data in hg38_snvinfo.items():
         for d in data:
-            query, tid, eid, strand, hgref, hgalt, feature_annotation, hg38extracted_seq, codons, hg38coord = d
+            try:
+                query, tid, eid, strand, hgref, hgalt, feature_annotation, hg38extracted_seq, codons, hg38coord = d
+            except ValueError:
+                print(f"WARNING: The query below has the wrong number of values to unpack. Needs further investigation:\n{d}")
+                continue
 
             #Check VCF if variant exsists in hg38 extracted_seq
-            records_found = extract_vcf_record(snv_coord = hg38coord, vcf_fname = vcf_fname, window=30)
+            records_found = extract_vcf_record(snv_coord=hg38coord, vcf_fname = vcf_fname, window=30)
 
             if len(records_found) > 0:
                 #Create new variant incorporated extracted seq
@@ -197,10 +201,15 @@ def fetch_ALT_guides(vcf_fname, ref_guide_report, searchp_path, sitep_path, diff
     # get hg38_snv_info (60bp extracted sequence, translation info, hg38_coordinates etc.
     hg38_snvinfo = pickle.load(open(sitep_path, 'rb'))
 
-    variants_found, new_guides_dict = find_overlapping_variants(vcf_fname, altgenome_name,hg38_snvinfo, search_params)
+    variants_found, new_guides_dict = find_overlapping_variants(vcf_fname, altgenome_name, hg38_snvinfo, search_params)
 
     if len(variants_found['QueryTerm']) > 0:
-        write_results(hg38guide_results, variants_found, new_guides_dict, altgenome_name, refgenome_name, diffguides_report)
+        write_results(hg38guide_results,
+                      variants_found,
+                      new_guides_dict,
+                      altgenome_name,
+                      refgenome_name,
+                      diffguides_report)
     else:
         print(f'no overlapping variants detected in {altgenome_name}')
         with open(diffguides_report, 'w') as f:

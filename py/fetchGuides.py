@@ -1,7 +1,10 @@
 # Native Modules
 import gzip
+import zlib
+
 import regex as re
 import os
+from zlib import error
 # Installed Modules
 import pandas as pd
 from Bio import SeqIO, SeqUtils
@@ -507,7 +510,7 @@ class Fetch_Guides:
 			chroms = set(hgvs_tab.loc[hgvs_tab['TranscriptID'].isin(q_prefixes), 'Chr'])
 
 			for ch in chroms:
-				df = pd.read_csv(f"{self.processed_tables}/variant_tables/{ch}_variant.txt")
+				df = pd.read_csv(f"{self.processed_tables}/variant_tables/{ch}_variant.txt", low_memory=False)
 				gadf = df.loc[df['HGVS_Simple'].isin(self.queries)]
 				snv_info[ch] = gadf[['HGVS_Simple', 'PositionVCF', 'RefAlleleVCF', 'AltAlleleVCF']].to_dict('tight')[
 					'data']
@@ -533,8 +536,14 @@ class Fetch_Guides:
 		print("Gathering Variant Genomic Info.......")
 
 		for ch, data in snv_info.items():  # find transcript info
-			fasta = SeqIO.read(gzip.open(self.fasta_path.replace('.fa.gz', f'_chr{str(ch)}.fa.gz'), 'rt'), 'fasta')
-			new_data = []
+			chr_fasta_path = self.fasta_path.replace('.fa.gz', f'_chr{str(ch)}.fa.gz')
+			try:
+				print(f"Finding transcripts information: Assessing {chr_fasta_path}")
+				fasta = SeqIO.read(gzip.open(chr_fasta_path, 'rt'), 'fasta')
+				new_data = []
+			except zlib.error:
+				print(f"The file {chr_fasta_path} is corrupted. Please regenerate background data")
+				continue
 
 			for d in data:
 				query, snvpos, ref, alt = d
@@ -544,7 +553,7 @@ class Fetch_Guides:
 				if self.qtype == 'coord':  # else use coordsinates to search trancript
 					term = f"chr{str(ch)}:{str(snvpos)}-{str(snvpos)}"
 				entry, tid_info = self.find_transcript_info(term=term, fasta=fasta)
-				if entry != None:
+				if entry is not None:
 					extracted_seq, feature_annotation, codons = self.find_snvseq_info(snvpos, alt, tid_info, entry,
 					                                                                  window=30)
 					strand = entry['strand']
@@ -609,7 +618,11 @@ class Fetch_Guides:
 		for ch, data in self.snv_info.items():
 
 			for d in data:
-				query, tid, eid, strand, ref, alt, feature_annotation, extracted_seq, codons, coord = d
+				try:
+					query, tid, eid, strand, ref, alt, feature_annotation, extracted_seq, codons, coord = d
+				except ValueError:
+					print(f"WARNING: The query below has the wrong number of values to unpack. Needs further investigation:\n{d}")
+					continue
 				dh = DataHandler(query, strand, ref, alt, feature_annotation, extracted_seq, codons, coord)
 
 			if self.BEmode != 'off':

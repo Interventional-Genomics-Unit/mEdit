@@ -93,8 +93,8 @@ rule consensus_fasta:
 # noinspection SmkAvoidTabWhitespace
 rule predict_guides:
 	input:
-		query_manifest = lambda wildcards: glob.glob("{variant_query_dir}/hgvs_test_queries.csv".format(
-			variant_query_dir=config["variant_query_dir"])),
+		query_manifest = lambda wildcards: glob.glob("{variant_query_file}".format(
+			variant_query_file=config["variant_query_file"])),
 		assembly_path = lambda wildcards: glob.glob("{fasta_root_path}/{sequence_id}.fa.gz".format(
 			fasta_root_path=config["fasta_root_path"],sequence_id=wildcards.sequence_id))
 	output:
@@ -119,11 +119,12 @@ rule predict_guides:
 		"envs/medit.yaml"
 	message:
 		"""
-        Take variants from:\n {input.query_manifest}
-        Use reference assembly:\n {input.assembly_path}
-        Take support tables from:\n {params.support_tables}
-        Generate reports on:\n {output}
-        Wildcards: {wildcards}
+Take variants from:\n {input.query_manifest}
+Run parameters:\n Query type: {params.qtype}; BEmode: {params.BEmode}; Editor scope: {params.editor}
+Use reference assembly:\n {input.assembly_path}
+Take support tables from:\n {params.support_tables}
+Generate reports on:\n {output}
+Wildcards: {wildcards}
         """
 	script:
 		"py/fetchGuides.py"

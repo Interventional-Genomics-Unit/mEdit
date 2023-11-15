@@ -25,7 +25,7 @@ fasta_root_path: "/groups/clinical/projects/clinical_shared_data/genomes/fasta"
 output_directory: "/groups/clinical/projects/medit_analysis"
 
 # Directory that holds the query HGVSs
-variant_query_dir: "/groups/doudna/projects/daniel_projects/editability/jobs/query" # "/groups/clinical/projects/editability/medit_queries/medit_test/test_in"
+variant_query_file: "/groups/clinical/projects/medit_analysis/input_queries/coord_queries.csv" #"/groups/doudna/projects/daniel_projects/editability/jobs/query" # "/groups/clinical/projects/editability/medit_queries/medit_test/test_in"
 
 # == FILENAMES ==
 # Outputs
