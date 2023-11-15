@@ -140,8 +140,8 @@ def main():
 	print("Linking protein hit ids to Nuccore entries")
 	hit_to_link, hits_not_found, record = cross_db_search(queries, efecth_db_list)
 
-	# for key in hit_to_link:
-	a = nuc_to_gb(hit_to_link['264300'], 'clinvar')
+	# for key in hit_to_links
+	hgvs_list = nuc_to_gb(hit_to_link['264300'], 'clinvar')
 
 
 if __name__ == "__main__":
