@@ -1,28 +1,3 @@
-# FASTA ID string processing parameters
-# Each top level key points to a specific database (e.g. nr). The subsequent 'level#'
-#  describe which field separator will be used to split the string,
-#  and which field will be kept after the split
-# The 'custom' key allows users to customize the process to fit their needs
-#   This option is triggered by default when the user provides a custom database path
-id_sep_dict:
-  'nr':
-    level1: [' ', 0]
-  'sprot':
-    level1: [' ', 0]
-    level2: ['|', 1]
-  'custom':
-    level1: []
-
-# Path to blast-formated database
-db_path:
-  "nr": "/shared/db/genbank/latest/blast/nr"
-  "sprot": "/groups/doudna/team_resources/shared_databases/blast/swissprot.faa"
-  "pdb": ""
-
-# Set the maximum number of Blastp hits to keep
-#  Results that surpass this limit will be kept based on lowest evalue
-blast_nkeep: 50
-
 # Email address required for Entrez queries
 entrez_login: "thedoudnalab@gmail.com"
 

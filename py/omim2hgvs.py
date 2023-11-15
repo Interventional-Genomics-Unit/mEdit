@@ -20,6 +20,18 @@ def parse_arguments():
 	# Define arguments
 	parser.add_argument('omim_list',
 	                    help='Path to a plain txt containing a column of omim entries')  # positional argument
+	parser.add_argument('-o', default='hgvs_list.txt',
+	                    dest='outfile',
+	                    help='Path to output the list of HGVSs')
+	parser.add_argument('-d',
+	                    dest='db_from',
+	                    default='clinvar',
+	                    choices=['clinvar', 'gene'],
+	                    help='The NCBI database where the IDs in the input list will be matched against')
+	parser.add_argument('-l',
+	                    dest='login_email',
+	                    default='thedoudnalab@gmail.com',
+	                    help='Email used to connect with NCBI Entrez')
 
 	# Parse arguments from the command line
 	arguments = parser.parse_args()
@@ -31,9 +43,10 @@ def elink_routine(db, hit_uid):
 	not_found = ""
 	linked = ""
 	link_record = ""
+	handle = None
 	server_attempts = 0
 	try:
-		handle = Entrez.elink(dbfrom="omim", db=db, id=f"{hit_uid}")
+		handle = Entrez.elink(dbfrom=f"{db}", db='clinvar', id=f"{hit_uid}")
 	except urllib.error.HTTPError as err:
 		if err.code == 500:
 			print(f'An internal server error occurred while handling the accession {hit_uid}')
@@ -58,7 +71,7 @@ def elink_routine(db, hit_uid):
 	return linked, hit_uid, not_found, link_record
 
 
-def cross_db_search(query_list, db_list):
+def cross_db_search(query_list, db_name):
 	progress = 0
 	source2target = {}
 	not_found_list = []
@@ -66,8 +79,8 @@ def cross_db_search(query_list, db_list):
 	for hit in query_list:
 		progress += 1
 		dup_check = []
-		# Standardize protein identifiers to NCBI UIDs through ESearch
-		handle = Entrez.esearch(db="omim", term=f"{hit}", idtype="acc")
+		# Standardize identifiers to NCBI UIDs through ESearch
+		handle = Entrez.esearch(db=f"{db_name}", term=f"{hit}", idtype="acc")
 		search_record = Entrez.read(handle)
 		try:
 			uid = search_record['IdList'][0]
@@ -76,16 +89,15 @@ def cross_db_search(query_list, db_list):
 		handle.close()
 
 		# Loop through databases (found in config) and grab Nuccore UIDs
-		for db_name in db_list:
-			if uid in set(dup_check):
-				continue
-			link_list, loop_nuc_acc, not_found_hit, full_record = elink_routine(db_name, uid)
-			if not_found_hit:
-				not_found_list.append(not_found_hit)
-				continue
-			if link_list:
-				dup_check.append(uid)
-				source2target.setdefault(loop_nuc_acc, link_list)
+		if uid in set(dup_check):
+			continue
+		link_list, loop_nuc_acc, not_found_hit, full_record = elink_routine(db_name, uid)
+		if not_found_hit:
+			not_found_list.append(not_found_hit)
+			continue
+		if link_list:
+			dup_check.append(uid)
+			source2target.setdefault(loop_nuc_acc, link_list)
 
 	return source2target, list(set(not_found_list)), full_record
 
@@ -98,9 +110,10 @@ def url2xml_dict(url):
 	return data
 
 
-def nuc_to_gb(query_list, db_name):
+def fetch_hgvs_list(query_list, db_name):
 	# Get Genbank records for each Nuccore UID
-	gb_records = {}
+	hgvs_records = {}
+	not_found = []
 	for uid in query_list:
 		handle = Entrez.esummary(db=db_name, id=f"{uid}", rettype="clinvarset", retmode="default")
 		xml_data = url2xml_dict(handle.url)
@@ -109,38 +122,39 @@ def nuc_to_gb(query_list, db_name):
 			if re.search('pathogenic', description, re.IGNORECASE):
 				hgvs = xml_data['eSummaryResult']['DocumentSummarySet']['DocumentSummary']['title']
 				# Returns a list  of Genbank SeqRecords objects
-				gb_records.setdefault(uid, hgvs)
+				hgvs_records.setdefault(uid, hgvs)
 		except KeyError:
-			gb_records.setdefault(uid, xml_data)
+			not_found.append(uid)
 			continue
 		# Returns a list  of Genbank SeqRecords objects
-	return gb_records
+	return hgvs_records, not_found
 
 
 def main():
+	# DEBUG
+	# queries = ["264300", "610006", "616034", "246450", "605911"]
+	# in_path = "/groups/doudna/projects/daniel_projects/editability/metadata/omim_test.txt"
 
 	args = parse_arguments()
 	in_path = args.omim_list
+	db_from = args.db_from
+	entrez_login = args.login_email
 	queries_df = pd.read_csv(in_path, low_memory=False, header=None)
 	queries = queries_df.iloc[:, 0].tolist()
-	# DEBUG
-	# queries = ["264300", "610006", "616034", "246450", "605911"]
-
-	# Load config file
+	#
+	# # Load config file
 	with open("/groups/doudna/projects/daniel_projects/editability/config/id_convert.yaml", "r") as f:
 		config = yaml.load(f, Loader=yaml.FullLoader)
 
-	# NCBI databases to search
-	efecth_db_list = config['efetch_db']
 	# Entrez authentication
-	print("Entrez login")
-	Entrez.email = config["entrez_login"]
+	Entrez.email = entrez_login
 
 	# Query NCBI to get nuccore UIDs associated with the protein hits using ESearch/ELink
 	print("Linking protein hit ids to Nuccore entries")
-	hit_to_link, hits_not_found, record = cross_db_search(queries, efecth_db_list)
+	hit_to_link, hits_not_found, record = cross_db_search(queries, db_from)
 
 	# for key in hit_to_links
+	for
 	hgvs_list = nuc_to_gb(hit_to_link['264300'], 'clinvar')
 
 
