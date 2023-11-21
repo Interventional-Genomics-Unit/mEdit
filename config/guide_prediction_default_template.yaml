@@ -6,9 +6,9 @@ threads: 20
 # Run name | the run names must follow the naming standard:
 # <mode>_<date>_<medit_version>
 # ::mode:: -> At the current version this can be either: 'default' or 'private'
-# ::date:: -> MMDDYY
-# ::medit_version:: -> current is v0
-run_name: "private_103023_v0"
+# ::date+time:: -> YYMMDDHHMMSSf
+# ::random alphanumeric:: -> 9m7aQ0KRZx
+run_name: "private_231120132723261783_9m7aQ0KRZx"
 # Must be the same as specified for the run_name
 processing_mode: 'private'
 
