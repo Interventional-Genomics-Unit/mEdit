@@ -43,24 +43,16 @@ class Fetch_Guides:
 		  --> if 'hgvs', providing the coordinates in the kwargs with 'hgvscoord' can reduce processing time
 		  --> hgvs assumes the query is already in clinvar and will generate a variant report with the gene report,
 		  --> if 'coord' then just gene report is created
-		:param editor: 'all', 'custom', selected list or str() of the editor choices
-		--> custom must contain kwargs, see below
+		:param editor: 'clinical', 'custom', name (list/str from editor choices)
+		--> custom must contain kwargs - pam, pamISFirst,guidelen (optional:name,win_size)
 		:param BEmode: 'off','default','all', or select BE editor for base editor choices below
 		:param genome: genome used
 		:param datadir: folder where tables and pre-computed data live
 		:param fasta_path: *Unsure using chromsome seperate files right now but unsure if this will be permenant
 		:param kwargs: 'hgvscoord' , 'clin_report','gene_report'
 
-		** if 'custom' selcted as editor in kwargs must include pam, pamISFirst, window_size (optional:name)
 		"""
 		##-----------------User Inputs--------------------##
-		self.notes = None
-		self.name = None
-		self.pam = None
-		self.pamISfirst = None
-		self.scoring = None
-		self.win_size = None
-		self.guidelen = None
 		if qtype == 'hgvs':
 			self.queries = self.validate_hgvs(queries)
 		if qtype == 'coord':
@@ -101,7 +93,7 @@ class Fetch_Guides:
 
 		# name : (pam, 5'or3'pam, gide length, approximated site of DSB site, notes )
 		# HDR most effcient within 1-7 bases outside of the DSB, so keeping this will remain standard with non-BE
-		self.editor_pamlib = {'spCas9': ('NGG', False, 20, -2, 'requirments work for SpCas9-HF1, eSpCas9 1.1'),
+		self.editor_pamlib = {'spCas9': ('NGG', False, 20, -2, 'requirements work for SpCas9-HF1, eSpCas9 1.1'),
 		                      'fnCas9': ('NGG', False, 21, -2, 'highly specifc yet large enzyme'),
 		                      'saCas9': ('NNGRRT', False, 21, -2, 'Cas9 S. Aureus 21 base guide'),
 		                      'Nme2Cas9c': ('NNNNCC', False, 23, -2, ''),
@@ -137,65 +129,59 @@ class Fetch_Guides:
 		self.all_guides = {}
 		self.all_BE = {}
 
-	def set_guidelen(self, guidelen):
-		self.guidelen = guidelen
-
-	def set_win_size(self, win_size):
-		self.win_size = win_size
 
 	def configure_search_params(self):
 		"""
 		set paramteres for the selected editor or editors(not BE editors)
 		"""
 		# search for all guides
-		if 'all' == self.editor:
-			self.search_params = {'spCas9': ('NGG', False, 20, -2, 'SpCas9, SpCas9-HF1, eSpCas9 1.1'),
+		if 'clinical' == self.editor:
+			search_params = {'spCas9': ('NGG', False, 20, -2, 'SpCas9, SpCas9-HF1, eSpCas9 1.1'),
 			                      'saCas9': ('NNGRRT', False, 21, -2, 'Cas9 S. Aureus 21 base guide'),
 			                      'CasX': ('TTCN', True, 20, 18, 'plmCas12e,dltCas12e'),
 			                      'Cas12a': ('TTTV', True, 23, 22, 'LbCas12,AsCas12a')}
 
+		# set custom editor params
+		elif 'custom' == self.editor:
+			search_params = self.set_params(self.kwargs)
+
 		# search for selected subset
-		if type(self.editor) is list:
-			self.search_params = {}
+		elif type(self.editor) is list:
+			search_params = {}
 			for e in self.editor:
-				self.search_params[e] = self.editor_pamlib[e]
+				search_params[e] = self.editor_pamlib[e]
 
 		# else use single set parameters
 		else:
-			# default - spCas9 params
-			self.win_size = [4, 8]
-			self.guidelen = 20
-			self.scoring = 'doench'
-			self.pamISfirst = False
-			self.pam = 'NGG'
-			self.name = 'spCas9'
-			self.notes = 'none'
-
-			# set custom editor params
-			if 'custom' == self.editor:
-				self.search_params = self.set_params(self.kwargs)
-
-			# select a single editor
 			if self.editor in self.editor_choices:
-				self.search_params = {self.editor: self.editor_pamlib[self.editor]}
-		return self.search_params
+				search_params = {self.editor: self.editor_pamlib[self.editor]}
+
+			else:
+				print('Please choose a name(s) found in the editor name choices')
+
+		print(f'Editor(s) set to: {[x for x in search_params.keys()]}')
+		return search_params
 
 	def set_params(self, kwargs):
-		# opts = ['pam', 'pamISfirst', 'guidelen','win_size', 'name','scoring']
-		if 'pam' in kwargs.keys():
-			self.pam = kwargs['pam']
-		if 'pamISfirst' in kwargs.keys():
-			self.pamISfirst = kwargs['pamISfirst']
-		if 'guidelen' in kwargs.keys():
-			self.guidelen = kwargs['guidelen']
-		if 'name' in kwargs.keys():
-			self.name = kwargs['name']
-		if 'win_size' in kwargs.keys():
-			self.win_size = kwargs['win_size']
-		if 'notes' in kwargs.keys():
-			self.notes = kwargs['notes']
+		name = 'custom'
 
-		params = {self.name: (self.pam, self.pamISfirst, self.win_size, self.guidelen)}
+		try:
+			pam = kwargs['pam']
+			pamISfirst = kwargs['pamISfirst']
+			guidelen = kwargs['guidelen']
+			if pamISfirst == False:
+				win_size = -2
+			else:
+				win_size = guidelen - 2
+		except KeyError:
+			print("custom editor selection MUST include a minimum of kwargs = pam, pamISFirst,guidelen")
+
+		if 'name' in kwargs.keys():
+			name = kwargs['name']
+		if 'win_size' in kwargs.keys():
+			win_size = kwargs['win_size']
+
+		params = {name: (pam, pamISfirst, win_size, guidelen, '')}
 
 		return params
 
@@ -360,9 +346,6 @@ class Fetch_Guides:
 		Finds reading frame of SNV in extracted sequence
 		'''
 		rf = 1 if dist_from_cds_start % 3 == 2 else 2 if dist_from_cds_start % 3 == 0 else 0
-		# if strand == '-':
-		#	rf = rf * -1
-		print(rf, dist_from_cds_start, strand)
 		return rf
 
 	@staticmethod
@@ -390,12 +373,16 @@ class Fetch_Guides:
 				break
 
 		# Determine the stop and start of UTR
-		exons[0] = (int(entry['cdsStart']) - int(exon_starts[0]) + exons[0][0], exons[0][1])
-		exons[-1] = (exons[-1][0], exons[-1][1] - (int(exon_ends[-1]) - int(entry['cdsEnd'])))
+		if len(exons) > 0:
+			exons[0] = (int(entry['cdsStart']) - int(exon_starts[0]) + exons[0][0], exons[0][1])
+			exons[-1] = (exons[-1][0], exons[-1][1] - (int(exon_ends[-1]) - int(entry['cdsEnd'])))
 
 		cds = Seq(''.join([str(tx_seq)[a:b] for a, b in exons]))
 		if entry['strand'] == '-':
 			cds = cds.reverse_complement()
+		else:
+			cds = None
+			exons = None
 
 		# translation = cds.translate()
 		return [exons, tx_seq, cds]
@@ -421,7 +408,7 @@ class Fetch_Guides:
 			tid_info = None
 		return entry, tid_info
 
-	def find_snvseq_info(self, snvpos, alt, tid_info, entry, window=30):
+	def find_snvseq_info(self, snvpos, alt, tid_info, entry, fasta, window=30):
 		# returns - sequence,feature,translation(if needed)
 		# feature: non-coding, utr5,ut3,intron,exon, start_codon, stop_codon
 		# snvpos, alt = 11576257, 'T'
@@ -433,9 +420,14 @@ class Fetch_Guides:
 		cdstart, cdsend = int(entry['cdsStart']) - int(entry['txStart']), int(entry['txEnd']) - int(entry['txStart'])
 		strand = entry['strand']
 
-		seq = self.extract_seqs(searchseq=tx_seq, pos=t_snvpos - 1, alt=alt, window=30)
+		seq = self.extract_seqs(searchseq=tx_seq, pos=t_snvpos - 1, alt=alt, window=window)
+		if len(seq) != window*2:
+			#if flanking or utr the extracted seq needs to come from the chromosome file
+			seq = self.extract_seqs(searchseq= fasta.seq[snvpos-100:snvpos+100], pos=t_snvpos - 1, alt=alt, window=window)
 
-		if t_snvpos < 0:
+
+
+		if t_snvpos < 0 or cds ==None:
 			# not in transcript - shouldn't happen or else no entry would be found
 			feature = 'non-coding'
 
@@ -537,13 +529,20 @@ class Fetch_Guides:
 		print("Gathering Variant Genomic Info.......")
 
 		for ch, data in snv_info.items():  # find transcript info
-			chr_fasta_path = self.fasta_path.replace('.fa.gz', f'_chr{str(ch)}.fa.gz')
+			# === Transitioning SeqIO.read to direct import of Pickled SeqRecord Objects ===
+			# chr_fasta_path = self.fasta_path.replace('.fa.gz', f'_chr{str(ch)}.fa.gz')
+			chr_fasta_path = f"{self.fasta_path}/chr{str(ch)}.pkl"
 			try:
 				print(f"Finding transcripts information: Assessing {chr_fasta_path}")
-				fasta = SeqIO.read(gzip.open(chr_fasta_path, 'rt'), 'fasta')
+				# fasta = SeqIO.read(gzip.open(chr_fasta_path, 'rt'), 'fasta')
+				with open(chr_fasta_path, 'rb') as pfile:
+					fasta = pickle.load(pfile)
 				new_data = []
-			except zlib.error:
-				print(f"The file {chr_fasta_path} is corrupted. Please regenerate background data")
+			except FileNotFoundError:
+				print(f"The file {chr_fasta_path} was not found. Please regenerate background data and check the target directory")
+				continue
+			except pickle.UnpicklingError:
+				print(f"The file {chr_fasta_path} is not in the correct format. Please regenerate background data")
 				continue
 
 			for d in data:
@@ -555,7 +554,7 @@ class Fetch_Guides:
 					term = f"chr{str(ch)}:{str(snvpos)}-{str(snvpos)}"
 				entry, tid_info = self.find_transcript_info(term=term, fasta=fasta)
 				if entry is not None:
-					extracted_seq, feature_annotation, codons = self.find_snvseq_info(snvpos, alt, tid_info, entry,
+					extracted_seq, feature_annotation, codons = self.find_snvseq_info(snvpos, alt, tid_info, entry,fasta,
 					                                                                  window=30)
 					strand = entry['strand']
 					tid, eid = entry['tid'], entry['eid']
