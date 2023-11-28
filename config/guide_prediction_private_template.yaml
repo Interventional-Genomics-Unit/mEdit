@@ -15,7 +15,7 @@ processing_mode: 'private'
 # == RUN PARAMETERS ==
 qtype: 'hgvs'
 BEmode: 'off'
-editor: 'all'
+editor: 'clinical'
 
 # This needs to be implemented through mEdit.py
 editor_list: []
@@ -23,12 +23,12 @@ editor_list: []
 # === I/O PATHS ===
 # == DIRECTORIES ==
 # Canonical storage folder for FASTA References
-fasta_root_path: "/groups/clinical/projects/clinical_shared_data/genomes/fasta"
+fasta_root_path: "/groups/clinical/projects/clinical_shared_data/genomes/pkl"
 # Parent output directory where files should be stored after processing
 output_directory: "/groups/clinical/projects/medit_analysis"
 
 # Directory that holds the query HGVSs
-variant_query_file: "/groups/clinical/projects/medit_analysis/input_queries/coord_queries.csv" #"/groups/doudna/projects/daniel_projects/editability/jobs/query" # "/groups/clinical/projects/editability/medit_queries/medit_test/test_in"
+variant_query_dir: "/groups/clinical/projects/medit_analysis/input_queries/coord_queries.csv" #"/groups/doudna/projects/daniel_projects/editability/jobs/query" # "/groups/clinical/projects/editability/medit_queries/medit_test/test_in"
 
 # == FILENAMES ==
 # Outputs
@@ -42,9 +42,9 @@ be_report: "BaseEditors_found.csv"
 #fasta_compressed_path: "/groups/clinical/projects/clinical_shared_data/hprc/bgzipped_fasta"
 
 # === DOWNLOAD PARAMETERS ===
-aws_url: "https://s3-us-west-2.amazonaws.com/human-pangenomics/working/HPRC"
+aws_url: "https://s3-us-west-2.amazonaws.com/human-pangenomics/working/HPRC/"
 aws_path: "assemblies/year1_freeze_assembly_v2/assembly_qc/dipcall_v0.2"
-filename_suffix: "f1_assembly_v2.dip"
+filename_suffix: "f1_assembly_v2.pair"
 vcf_id: ["PG_WGS_HG38"]
 
 # === FILE PREFIXES ===

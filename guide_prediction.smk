@@ -1,5 +1,5 @@
 # **** Variables ****
-configfile: "config/guide_prediction_private_template.yaml"
+configfile: "config/guide_prediction_default_template.yaml"
 configfile: "config/preprocessing_configuration.yaml"
 
 # configfile: "config/aws_download.yaml"
@@ -37,8 +37,7 @@ rule all:
 # noinspection SmkAvoidTabWhitespace
 rule pull_vcf:
 	output:
-		expand("{root_dir}/{mode}/source_vcfs/{vcf_id}.vcf.gz",
-			root_dir=config["output_directory"], mode=config["processing_mode"], vcf_id=config["vcf_id"])
+		"{root_dir}/{mode}/source_vcfs/{vcf_id}.vcf.gz"
 	params:
 		aws_url = config["aws_url"],
 		aws_path = config["aws_path"] ,
@@ -49,7 +48,8 @@ rule pull_vcf:
 	shell:
 		"""
         # 1) download diploid VCF files from AWS (-->to be a loop using index file) 
-        wget {params.aws_url}/{params.vcf_id}/{params.aws_path}/{params.vcf_id}.{params.aws_filename_suffix}.vcf.gz -O {params.root_dir}/{params.mode}/source_vcfs/{params.vcf_id}.vcf.gz
+        touch {params.root_dir}/{params.mode}/source_vcfs/{wildcards.vcf_id}.vcf.gz
+        wget {params.aws_url}/{wildcards.vcf_id}/{params.aws_path}/{wildcards.vcf_id}.{params.aws_filename_suffix}.vcf.gz -O {params.root_dir}/{params.mode}/source_vcfs/{wildcards.vcf_id}.vcf.gz || true
 		"""
 
 # noinspection SmkAvoidTabWhitespace
@@ -93,10 +93,10 @@ rule consensus_fasta:
 # noinspection SmkAvoidTabWhitespace
 rule predict_guides:
 	input:
-		query_manifest = lambda wildcards: glob.glob("{variant_query_file}".format(
-			variant_query_file=config["variant_query_file"])),
-		assembly_path = lambda wildcards: glob.glob("{fasta_root_path}/{sequence_id}.fa.gz".format(
-			fasta_root_path=config["fasta_root_path"],sequence_id=wildcards.sequence_id))
+		query_manifest = lambda wildcards: glob.glob("{variant_query_dir}".format(
+			variant_query_dir=config["variant_query_dir"])),
+		assembly_path = lambda wildcards: glob.glob("{fasta_root_path}".format(
+			fasta_root_path=config["fasta_root_path"]))
 	output:
 		guides_report_out = "{root_dir}/{mode}/jobs/{job_name}/guide_prediction-{sequence_id}/guides_report_ref/Guides_found.csv",
 		guide_search_params = "{root_dir}/{mode}/jobs/{job_name}/guide_prediction-{sequence_id}/dynamic_params/guide_search_params.pkl",
