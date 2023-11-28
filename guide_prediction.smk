@@ -87,7 +87,7 @@ rule consensus_fasta:
         bcftools consensus -f {input.assembly_path} {output.filtered_vcf} -o {output.consensus_fasta}
 
         # Cleanup
-        rm {input.assembly_path}.fai {input.assembly_path}.dict
+        rm {input.assembly_path}.fai {params.fasta_root_path}/{wildcards.sequence_id}.dict
         """
 
 # noinspection SmkAvoidTabWhitespace

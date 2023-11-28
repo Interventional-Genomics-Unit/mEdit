@@ -17,6 +17,9 @@ qtype: 'hgvs'
 BEmode: 'off'
 editor: 'all'
 
+# This needs to be implemented through mEdit.py
+editor_list: []
+
 # === I/O PATHS ===
 # == DIRECTORIES ==
 # Canonical storage folder for FASTA References
