@@ -19,8 +19,6 @@ editor: ""
 
 # === I/O PATHS ===
 # == DIRECTORIES ==
-# Canonical storage folder for FASTA References
-fasta_root_path: "fasta_refs"
 # Parent output directory where files should be stored after processing
 output_directory: ""
 # Directory that holds the query HGVSs

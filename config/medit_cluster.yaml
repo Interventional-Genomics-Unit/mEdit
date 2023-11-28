@@ -1,0 +1,9 @@
+# cluster.yaml - cluster configuration for my Snakefile.
+__default__:
+  partition: node
+  time: '6:00:00'
+  cores: 20
+
+bgzip_compress:
+  cores: 5
+  time: '5:00:00'

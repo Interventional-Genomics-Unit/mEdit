@@ -7,6 +7,8 @@ import pytz
 # == Installed Modules ==
 import yaml
 # == Project Modules ==
+from programs.guide_prediction import run as guide_prediction
+from programs.db_set import run as db_set
 
 
 def parse_arguments():
@@ -27,9 +29,19 @@ def parse_arguments():
 	# 	description="Predict off-target effects for the guides found",
 	# 	dest="program",
 	# )
+	# === Db Setup ===
+	dbset_parser = programs.add_parser(
+		'db_set',
+		help='Setup the necessary background data to run mEdit')
+	ref_genome = dbset_parser.add_argument_group("== Reference Genome Pre-Processing ==")
+	ref_genome.add_argument('--ref',
+	                        dest='db_path',
+	                        default='medit_database',
+	                        help='Provide the path where mEdit background data should be'
+	                             ' stored ahead of the analysis [default: mEdit_database_<jobtag>/')
 	# === Guide Prediction Program ===
 	fguides_parser = programs.add_parser(
-		'find_guides',
+		'guide_prediction',
 		help='The core mEdit program finds potential guides for '
 		     'variants specified on the input by searching a diverse set of editors'
 	)
@@ -45,7 +57,7 @@ def parse_arguments():
 		'-o',
 		dest='output',
 		default='mEdit_analysis',
-		help='Path to root directory where mEdit output will be stored [default: mEdit_analysis/]'
+		help='Path to root directory where mEdit output will be stored [default: mEdit_analysis_<jobtag>/]'
 	)
 	run_params = fguides_parser.add_argument_group("== mEdit Core Parameters ==")
 	run_params.add_argument(
@@ -75,19 +87,18 @@ def parse_arguments():
 	run_params.add_argument(
 		'--editor',
 		dest='editor_request',
-		# TODO: Collect a string value {'clinical', 'custom', 'user defined list' }
-		default='all',
-		choices=['all'],
+		default='clinical',
+		choices=['clinical', 'custom', 'user defined list'],
 		help='Pick which set of editors will be used in the mEdit run. '
-	                         'Options: \n'
-	                         '"all" - EXPLAIN WHAT IS IN HERE; '
-	                         '"other_options" - EXPLAIN WHAT IS IN HERE [default = "all"]'
+		     'Options: \n'
+		     '"clinical" - EXPLAIN WHAT IS IN HERE; '
+		     '"custom" - EXPLAIN WHAT IS IN HERE  '
+		     '"user defined list" - EXPLAIN WHAT IS IN HERE [default = "clinical"]'
 	)
 	run_params.add_argument(
 		'--be',
 		dest='bemode_request',
-		#TODO: Collect a string value {'off', 'custom', 'default', 'user defined list'}
-		action='store_true',
+		choices=['off', 'default', 'custom', 'user defined list'],
 		help='Add this flag to make mEdit process base-editors [default = off]'
 	)
 
@@ -142,48 +153,18 @@ def write_yaml_to_file(py_obj, filename):
 def main():
 	# === Call argument parsing function ===
 	args = parse_arguments()
-	# == Load Run Parameters values ==
-	output_path = args.output
-	run_mode = args.mode
-	private_genome = args.private_genome
-	qtype = args.qtype_request
-	editor = args.editor_request
-	beflag = args.bemode_request
-	# == Load SLURM-related values ==
-	ncores = args.ncores
-	maxtime = args.maxtime
+	# mEdit Program
+	program = args.program
 
-	# === Input Checks ===
-	# Check run mode
-	if run_mode == 'private':
-		if not private_genome:
-			raise "Please provide a VCF input file to run mEdit's private mode"
-	# Process BEmode input
-	bemode = 'on' if beflag else 'off'
-
-	# === Load template configuration file ===
-	with open("config/guide_pred.yaml", 'r') as config_handle:
-		config_template = yaml.safe_load(config_handle)
-	with open("config/cluster.yaml", 'r') as cluster_handle:
-		cluster_template = yaml.safe_load(cluster_handle)
-
-	# === Assign Variables to Configuration File ===
 	# Assign jobtag and run mode to config
 	jobtag = date_tag()
-	config_template['run_name'] = f"{run_mode}_{jobtag}"
-	config_template['processing_mode'] = run_mode
-	config_template['output_directory'] = output_path
-	# Assign run parameters to config
-	config_template['qtype'] = qtype
-	config_template['editor'] = editor
-	config_template['BEmode'] = bemode
-	# Assign cluster options
-	cluster_template['__default__']['cores'] = ncores
-	cluster_template['__default__']['time'] = maxtime
 
-	# Set export paths for dynamic YAML files
-	dynamic_config_path = f"config/config_{jobtag}.yaml"
-	dynamic_cluster_path = f"config/cluster_{jobtag}.yaml"
+	if program == "guide_prediction":
+		guide_prediction(args, jobtag)
+
+	# == Database Parameters
+	if program == "db_set":
+		db_set(args, jobtag)
 
 
 if __name__ == "__main__":
