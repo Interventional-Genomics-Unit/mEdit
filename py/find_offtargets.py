@@ -236,8 +236,14 @@ def write_out_res(ots,gdf,casoff_params,resultsfolder,guide_tab_fname):
     df.to_csv(out, sep = '\t')
 
 
-def run_casoffinder(resultsfolder,fasta_fname,guide_tab_fname,search_params,
-                   cas_off_expath,genome_name,guides_src_name,casoff_params):
+def run_casoffinder(resultsfolder,
+                    fasta_fname,
+                    guide_tab_fname,
+                    search_params,
+                    cas_off_expath,
+                    genome_name,
+                    guides_src_name,
+                    casoff_params):
     gdf = pd.read_csv(guide_tab_fname)
     ots = {}
     gpr = gdf.groupby('Editor')
@@ -252,13 +258,20 @@ def run_casoffinder(resultsfolder,fasta_fname,guide_tab_fname,search_params,
         guides, gnames = list(stats.gRNA), list(stats.Guide_ID)
 
         # make input file
-        make_casoffinder_input(infile, fasta_fname,pam, pamISfirst, guidelen, guides, gnames,casoff_params)
+        make_casoffinder_input(infile,
+                               fasta_fname,
+                               pam,
+                               pamISfirst,
+                               guidelen,
+                               guides,
+                               gnames,
+                               casoff_params)
 
         #start = time.time()
         ## with defualt setting 3mm, 1 dnabulge, 0 rnabulge,
         #run cas-offinder/ adjust input file for bulge
         output_filename = infile.replace('_input.txt', '_output.txt')
-        cas_offinder_bulge(infile, output_filename, cas_off_expath,bulge)
+        cas_offinder_bulge(infile, output_filename, cas_off_expath, bulge)
         #end = time.time()
         #print(f'total_time for {editor}: {end - start}')
         #print(f'total_time per guide: {(end - start)/len(guides)}')
@@ -334,8 +347,14 @@ def main():
     # PU = 'C'  # G = GPU C = CPU A = Accelerators -- I don't really know which should be default?
     casoff_params = (mm, RNAbb, DNAbb, PU)
 
-    run_casoffinder(resultsfolder, fasta_fname, guide_tab_fname, search_params,
-                    cas_off_expath, genome_name, guides_src_name, casoff_params)
+    run_casoffinder(resultsfolder,
+                    fasta_fname,
+                    guide_tab_fname,
+                    search_params,
+                    cas_off_expath,
+                    genome_name,
+                    guides_src_name,
+                    casoff_params)
 
 
 if __name__ == "__main__":

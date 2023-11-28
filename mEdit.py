@@ -75,6 +75,7 @@ def parse_arguments():
 	run_params.add_argument(
 		'--editor',
 		dest='editor_request',
+		# TODO: Collect a string value {'clinical', 'custom', 'user defined list' }
 		default='all',
 		choices=['all'],
 		help='Pick which set of editors will be used in the mEdit run. '
@@ -85,6 +86,7 @@ def parse_arguments():
 	run_params.add_argument(
 		'--be',
 		dest='bemode_request',
+		#TODO: Collect a string value {'off', 'custom', 'default', 'user defined list'}
 		action='store_true',
 		help='Add this flag to make mEdit process base-editors [default = off]'
 	)

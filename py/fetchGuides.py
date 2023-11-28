@@ -2,8 +2,9 @@
 import gzip
 import zlib
 
-import regex as re
+# import regex as re
 import os
+import re
 from zlib import error
 # Installed Modules
 import pandas as pd
@@ -625,29 +626,29 @@ class Fetch_Guides:
 					continue
 				dh = DataHandler(query, strand, ref, alt, feature_annotation, extracted_seq, codons, coord)
 
-			if self.BEmode != 'off':
-				guides, BEguides = dh.get_Guides(self.search_params, self.BE_search_params)
-			else:
-				guides, BEguides = dh.get_Guides(self.search_params)
-
-			if len(BEguides['gRNA']) > 0:
-				if len(self.all_BE.keys()) == 0:
-					for k, v in BEguides.items():
-						self.all_BE[k] = v
+				if self.BEmode != 'off':
+					guides, BEguides = dh.get_Guides(self.search_params, self.BE_search_params)
 				else:
-					for k, v in BEguides.items():
-						self.all_BE[k] += v
-			if len(guides['gRNA']) > 0:
-				if len(self.all_guides.keys()) == 0:
-					for k, v in guides.items():
-						self.all_guides[k] = v
-				else:
-					for k, v in guides.items():
-						self.all_guides[k] += v
+					guides, BEguides = dh.get_Guides(self.search_params)
 
-					print(len((guides['gRNA'])), ' guides found for ', query)
-			else:
-				print(f"No guides found for the query {query}")
+				if len(BEguides['gRNA']) > 0:
+					if len(self.all_BE.keys()) == 0:
+						for k, v in BEguides.items():
+							self.all_BE[k] = v
+					else:
+						for k, v in BEguides.items():
+							self.all_BE[k] += v
+				if len(guides['gRNA']) > 0:
+					if len(self.all_guides.keys()) == 0:
+						for k, v in guides.items():
+							self.all_guides[k] = v
+					else:
+						for k, v in guides.items():
+							self.all_guides[k] += v
+
+						print(len((guides['gRNA'])), ' guides found for ', query)
+				else:
+					print(f"No guides found for the query {query}")
 
 		guidedf, BEdf = None, None
 
