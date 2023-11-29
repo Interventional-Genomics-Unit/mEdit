@@ -1,5 +1,5 @@
 # == Native Modules ==
-
+from os.path import abspath
 # == Installed Modules ==
 import yaml
 # == Project Modules ==
@@ -7,7 +7,7 @@ import yaml
 
 def run(args, jobtag):
 	# == Load Run Parameters values ==
-	output_path = args.output
+	output_path = abspath(args.output)
 	run_mode = args.mode
 	private_genome = args.private_genome
 	qtype = args.qtype_request
@@ -26,9 +26,9 @@ def run(args, jobtag):
 	bemode = 'on' if beflag else 'off'
 
 	# === Load template configuration file ===
-	with open("../config/medit_guide_pred.yaml", 'r') as config_handle:
+	with open("config/medit_guide_pred.yaml", 'r') as config_handle:
 		config_template = yaml.safe_load(config_handle)
-	with open("../config/medit_cluster.yaml", 'r') as cluster_handle:
+	with open("config/medit_cluster.yaml", 'r') as cluster_handle:
 		cluster_template = yaml.safe_load(cluster_handle)
 
 	# === Assign Variables to Configuration File ===

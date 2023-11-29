@@ -1,2 +1,19 @@
 # == Canonical storage folder for FASTA References
 fasta_root_path: ""
+
+# == PROCESSED TABLES ==
+# Main path for processed tables
+processed_tables: "processed_tables"
+# Processed filepaths
+simple_tables: "guide_acquisition_tables"
+hgvs_lookup: "HGVSlookup.csv"
+clinvar_update: "clinvar_lastUpdate.txt"
+refseq_table: "ncbiRefSeq.txt.gz"
+
+# == RAW TABLES ==
+# Main path for raw tables
+raw_tables: "raw_tables"
+# Raw filepaths
+clinvar_summary: "variant_summary.txt.gz"
+hpa: "proteinatlas.tsv"
+gencode: "GENEonly_cleaned_genecode_annotation.csv"
