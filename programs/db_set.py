@@ -16,7 +16,8 @@ def run(args, jobtag):
 	db_path_tag = f"{db_path}/medit_db-{jobtag}"
 	# === Assign Variables to Configuration File ===
 	# == Assign jobtag and Fasta root path ==
-	config_db_template['fasta_root_path'] = f"{db_path_tag}/pkl"
+	fasta_root_path = f"{db_path_tag}/{config_db_template['fasta_root_path']}"
+	config_db_template['fasta_root_path'] = fasta_root_path
 	# == Parse the Processed Tables folder and its contents ==
 	processed_tables = f"{db_path_tag}/{config_db_template['processed_tables']}"
 	config_db_template["processed_tables"] = processed_tables
@@ -36,7 +37,7 @@ def run(args, jobtag):
 	# === Download Data ===
 	# == SeqRecord Pickles
 	print("Downloading Genomic References")
-	cmd_aws = f"aws s3 cp --recursive s3://meditdb/pkl.gz {db_path_tag}/pkl/"
+	cmd_aws = f"aws s3 cp --recursive s3://meditdb/pkl.gz {fasta_root_path}"
 	# subprocess.run(cmd_aws, shell=True)
 	# == Processed Tables and Raw Tables
 	print("Downloading Pre-Processed Background Data Sets")
@@ -46,9 +47,9 @@ def run(args, jobtag):
 	# subprocess.run(cmd_aws, shell=True)
 
 	print("Decompressing Database Genomic References")
-	cmd_gz = f"tar zxf {db_path_tag}/pkl.gz"
+	cmd_gz = f"tar zxf {fasta_root_path}.tar.gz"
 	# subprocess.run(cmd_gz, shell=True)
-	cmd_gz = f"tar zxf {processed_tables}.gz"
+	cmd_gz = f"tar zxf {processed_tables}.tar.gz"
 	# subprocess.run(cmd_gz, shell=True)
-	cmd_gz = f"tar zxf {processed_tables}.gz"
+	cmd_gz = f"tar zxf {raw_tables}.tar.gz"
 	# subprocess.run(cmd_gz, shell=True)
