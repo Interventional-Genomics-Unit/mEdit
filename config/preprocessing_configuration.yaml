@@ -25,3 +25,9 @@ clinvar_ftp: "https://ftp.ncbi.nlm.nih.gov/pub/clinvar/tab_delimited/variant_sum
 clinvar_vcf: "https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/clinvar.vcf.gz"
 clinvar_index: "https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/clinvar.vcf.gz.tbi"
 refseq: "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/ncbiRefSeq.txt.gz"
+
+
+# === Local Configuration Sources ===
+# BEs / Editors
+editors: "pkl/editors.pkl"
+base_editors: "pkl/base_editors.pkl"

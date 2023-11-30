@@ -52,6 +52,5 @@ vcf_id: ["PG_WGS_HG38"]
 sequence_id: ["hg38",]#"NA18906.paternal"]#, "HG03453.maternal", "NA18906.paternal"]
 
 
-
 # The genomic window to be opened on each side of a gene harboring a variant of interest
 #window_size: 1000

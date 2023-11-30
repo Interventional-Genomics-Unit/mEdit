@@ -1,5 +1,5 @@
 # **** Variables ****
-configfile: "config/guide_prediction_default_template.yaml"
+configfile: "config/guide_prediction_private_template.yaml"
 configfile: "config/preprocessing_configuration.yaml"
 
 # configfile: "config/aws_download.yaml"
@@ -65,6 +65,8 @@ rule consensus_fasta:
 		source_vcf_prefix="{root_dir}/{mode}/consensus_refs/{sequence_id}/{vcf_id}",
 		dump_dir="{root_dir}/consensus_refs/downloads",
 		fasta_root_path=config["fasta_root_path"]
+	conda:
+		"envs/samtools.yaml"
 	resources:
 		mem_mb=100000
 	shell:
@@ -111,6 +113,9 @@ rule predict_guides:
 		# == Processed tables branch
 		support_tables = config["support_tables"],
 		annote_path = config["refseq_table"],
+		# == Editor Parameters
+		editors = config["editors"],
+		base_editors = config["base_editors"],
 		# == Run Parameters ==
 		qtype = config["qtype"],
 		BEmode = config["BEmode"],

@@ -1,5 +1,8 @@
+#
+#
+# === Remote Configuration Sources ===
 # == Canonical storage folder for FASTA References
-fasta_root_path: ""
+fasta_root_path: "genome_pkl"
 
 # == PROCESSED TABLES ==
 # Main path for processed tables
@@ -17,3 +20,8 @@ raw_tables: "raw_tables"
 clinvar_summary: "variant_summary.txt.gz"
 hpa: "proteinatlas.tsv"
 gencode: "GENEonly_cleaned_genecode_annotation.csv"
+
+# === Local Configuration Sources ===
+# BEs / Editors
+editors: "pkl/editors.pkl"
+base_editors: "pkl/bes.pkl"

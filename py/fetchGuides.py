@@ -33,6 +33,8 @@ class Fetch_Guides:
 	             qtype: str,
 	             editor: str | list,
 	             BEmode: str | list,
+	             editors: dict,
+	             base_editors: dict,
 	             datadir: str,
 	             fasta_path: str,
 	             annote_path: str,
@@ -46,6 +48,8 @@ class Fetch_Guides:
 		:param editor: 'clinical', 'custom', name (list/str from editor choices)
 		--> custom must contain kwargs - pam, pamISFirst,guidelen (optional:name,win_size)
 		:param BEmode: 'off','default','all', or select BE editor for base editor choices below
+		:param editors: Dictionary containing information on the current set of editors supported by mEdit
+		:param base_editors: Dictionary containing information on the current set of base editors supported by mEdit
 		:param genome: genome used
 		:param datadir: folder where tables and pre-computed data live
 		:param fasta_path: *Unsure using chromsome seperate files right now but unsure if this will be permenant
@@ -83,13 +87,15 @@ class Fetch_Guides:
 
 		##---------------libraries and keys--------------------##
 		# [editor]: pam, pamISfirst, win_size, guidelen, scoring, notes/altnames
-		self.editor_choices = ['spCas9', 'saCas9', 'spG', 'SpRY-HighE', 'scCas9',
-		                       'stCas9', 'iSpyMacCas9', 'CasX', 'AsCas12a', 'LbCas12a', 'Cas12c1']
+		# self.editor_choices = ['spCas9', 'saCas9', 'spG', 'SpRY-HighE', 'scCas9',
+		#                        'stCas9', 'iSpyMacCas9', 'CasX', 'AsCas12a', 'LbCas12a', 'Cas12c1']
+		self.editor_choices = list(editors.keys())
 
-		self.BE_choices = ['BE1', 'BE3', 'BE2', 'HF-BE3', 'BE4', 'BE4max', 'BE4-Gam', 'YE1-BE3', 'EE-BE3', 'YE2-BE3',
-		                   'YEE-BE3', 'VQR-BE3', 'VRER-BE3', 'SaBE3', 'SaBE4', 'SaBE4-Gam', 'Sa(KKH)-BE3', 'xBE3',
-		                   'Target-AID',
-		                   'ABE7.9', 'ABE7.10', 'xABE,ABESa', 'VQR-ABE', 'VRER-ABE', 'ABEsa', 'Sa(KKH)-ABE']
+		# self.BE_choices = ['BE1', 'BE3', 'BE2', 'HF-BE3', 'BE4', 'BE4max', 'BE4-Gam', 'YE1-BE3', 'EE-BE3', 'YE2-BE3',
+		#                    'YEE-BE3', 'VQR-BE3', 'VRER-BE3', 'SaBE3', 'SaBE4', 'SaBE4-Gam', 'Sa(KKH)-BE3', 'xBE3',
+		#                    'Target-AID',
+		#                    'ABE7.9', 'ABE7.10', 'xABE,ABESa', 'VQR-ABE', 'VRER-ABE', 'ABEsa', 'Sa(KKH)-ABE']
+		self.BE_choices = list(base_editors.keys())
 
 		# name : (pam, 5'or3'pam, gide length, approximated site of DSB site, notes )
 		# HDR most effcient within 1-7 bases outside of the DSB, so keeping this will remain standard with non-BE
@@ -681,6 +687,9 @@ def main():
 	#   == Processed tables branch ==
 	datadir = str(snakemake.params.support_tables)
 	annote_path = str(snakemake.params.annote_path)
+	# == Editor Parameters
+	editors_path = str(snakemake.params.editors)
+	base_editors_path = str(snakemake.params.base_editors)
 	#   == Run Parameters ==
 	qtype = str(snakemake.params.qtype)
 	BEmode = str(snakemake.params.BEmode)
@@ -694,6 +703,12 @@ def main():
 	# == Input Setup ==
 	df = pd.read_csv(input_file)
 	queries = list(df.iloc[:, 0])
+
+	# == Editors / BEs Setup ==
+	with open(editors_path, 'rb') as edfile:
+		editors = pickle.load(edfile)
+	with open(base_editors_path, 'rb') as befile:
+		base_editors = pickle.load(befile)
 
 	# == Report processed input variables ==
 	print(f"""
@@ -716,6 +731,8 @@ def main():
 	                  qtype,
 	                  editor,
 	                  BEmode,
+	                  editors,
+	                  base_editors,
 	                  datadir,
 	                  fasta_path,
 	                  annote_path

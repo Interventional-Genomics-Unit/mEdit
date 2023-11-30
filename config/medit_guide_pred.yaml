@@ -5,7 +5,6 @@ entrez_login: ""
 threads: 1
 # Run name | the run names must follow the naming standard:
 # <mode>_<date>_<medit_version>
-# ::mode:: -> At the current version this can be either: 'default' or 'private'
 # ::date+time:: -> YYMMDDHHMMSSf
 # ::random alphanumeric:: -> 9m7aQ0KRZx
 run_name: ""
@@ -45,10 +44,6 @@ vcf_id: ["HG00438", "HG00621", "HG00673", "HG00735", "HG00741", "HG01071", "HG01
 # Reference genome prefix
 sequence_id: ["hg38",]#"NA18906.paternal"]#, "HG03453.maternal", "NA18906.paternal"]
 
-
-
-# The genomic window to be opened on each side of a gene harboring a variant of interest
-#window_size: 1000
 
 
 
