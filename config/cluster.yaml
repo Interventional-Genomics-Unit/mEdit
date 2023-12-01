@@ -7,3 +7,6 @@ __default__:
 bgzip_compress:
   cores: 5
   time: '5:00:00'
+
+consensus_fasta:
+  time: '10:00:00'
