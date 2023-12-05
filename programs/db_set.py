@@ -6,7 +6,7 @@ import yaml
 # == Project Modules ==
 
 
-def run(args, jobtag):
+def dbset(args, jobtag):
 	# === Load template configuration file ===
 	with open("config/medit_database.yaml", 'r') as config_handle:
 		config_db_template = yaml.safe_load(config_handle)

@@ -1,0 +1,57 @@
+# == Native Modules ==
+import subprocess
+import gzip
+import shutil
+from datetime import datetime
+import secrets
+import string
+import pytz
+import os
+# == Installed Modules ==
+import yaml
+# == Project Modules ==
+
+
+def compress_file(file_path):
+	if not is_gzipped(file_path):
+		# If not gzipped, compress the file
+		with open(file_path, 'rb') as f_in, gzip.open(file_path + '.gz', 'wb') as f_out:
+			shutil.copyfileobj(f_in, f_out)
+		print(f"File '{file_path}' compressed successfully.")
+	else:
+		cmd_rename = f"mv {file_path} {file_path}.gz"
+		subprocess.run(cmd_rename, shell=True)
+		print("This file is already compressed.")
+		print(f"Created VCF file input on: {file_path}.gz")
+
+
+def date_tag():
+	# Create a random string of 20 characters
+	random_str = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(10))
+
+	# Set the timezone to PST
+	pst = pytz.timezone('America/Los_Angeles')
+	# Get the current date and time
+	current_datetime = datetime.now(pst)
+	# Format the date as a string with day, hour, minute, and second
+	formatted_date = f"{current_datetime.strftime('%y%m%d%H%M%S%f')}_{random_str}"
+
+	return formatted_date
+
+
+def is_gzipped(file_path):
+	with open(file_path, 'rb') as f:
+		# Check if the file starts with the gzip magic bytes
+		return f.read(2) == b'\x1f\x8b'
+
+
+def set_export(outdir):
+	# Create outdir and all missing parent directories
+	os.makedirs(outdir, exist_ok=True)
+	return outdir
+
+
+def write_yaml_to_file(py_obj, filename):
+	with open(f'{filename}', 'w',) as f:
+		yaml.dump(py_obj, f, sort_keys=False)
+	print(f'YAML config sucessfully written to file: {filename}')

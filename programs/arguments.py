@@ -4,8 +4,8 @@ from argparse import RawTextHelpFormatter
 import textwrap
 
 
-def run():
-	#  Launch argparse parser
+def parse_arguments():
+	# -> === Launch argparse parser === <-
 	parser = argp(
 		prog='mEdit',
 		description='',
@@ -13,6 +13,7 @@ def run():
 		usage='%(prog)s [options]',
 		formatter_class=RawTextHelpFormatter
 	)
+
 	programs = parser.add_subparsers(
 		title="== mEdit Programs ==",
 		description=textwrap.dedent('''mEdit can be operated through a list of different programs.'''),
@@ -54,7 +55,7 @@ def run():
 	in_out.add_argument(
 		'-o',
 		dest='output',
-		default='mEdit_analysis',
+		default='medit_analysis',
 		help=textwrap.dedent('''
 			Path to root directory where mEdit outputs will be stored [default: mEdit_analysis_<jobtag>/]''')
 	)
@@ -123,7 +124,7 @@ def run():
 	cluster_opt = parser.add_argument_group("== SLURM Options ==")
 	cluster_opt.add_argument(
 		'--ncores',
-		dest='cores',
+		dest='ncores',
 		default=1,
 		help=textwrap.dedent('''
 			When submitting mEdit jobs to an HPC workload manager, the user can specify the number of 

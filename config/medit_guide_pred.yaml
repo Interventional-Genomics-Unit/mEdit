@@ -42,7 +42,7 @@ vcf_id: ["HG00438", "HG00621", "HG00673", "HG00735", "HG00741", "HG01071", "HG01
 
 # === FILE PREFIXES ===
 # Reference genome prefix
-sequence_id: ["hg38",]#"NA18906.paternal"]#, "HG03453.maternal", "NA18906.paternal"]
+sequence_id: ["hg38"]#"NA18906.paternal"]#, "HG03453.maternal", "NA18906.paternal"]
 
 
 
