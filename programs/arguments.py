@@ -74,6 +74,7 @@ def parse_arguments():
 	run_params.add_argument(
 		'-g',
 		dest='private_genome',
+		default=None,
 		help=textwrap.dedent('''
 			Provide a gunzip compressed VCF file to run mEdit’s private mode''')
 	)

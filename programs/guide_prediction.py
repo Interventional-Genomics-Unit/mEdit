@@ -21,19 +21,24 @@ def guide_prediction(args, jobtag):
 	# == Load SLURM-related values ==
 	ncores = args.ncores
 	maxtime = args.maxtime
+	# ->=== INPUT CHECKS ===<-
+	#   == Check the presence of private genome among the inputs ==
+	if private_genome:
+		mode = 'private'
 
-	# === Set export paths tied to the SMK pipeline ===
+	# ->=== OUTPUT SETUP ===<-
+	# == Set export paths tied to the SMK pipeline ==
 	vcf_dir_path = f"{root_dir}/{mode}/source_vcfs"
 	config_dir_path = f"{root_dir}/config"
 	vcf_filename = f"{jobtag}.vcf"
-	# === Set export paths for dynamic YAML files ===
+	# == Set export paths for dynamic YAML files ==
 	dynamic_config_path = f"{config_dir_path}/config_{jobtag}.yaml"
 	dynamic_cluster_path = f"{config_dir_path}/cluster_{jobtag}.yaml"
-	# => Create sub-folder to host private VCF
+	# == Create sub-folders to host VCFs, and config files ==
 	set_export(vcf_dir_path)
 	set_export(config_dir_path)
 
-	print(f'Maybe {vcf_dir_path} was created')
+	print(f'A VCF directory was created on: {vcf_dir_path}')
 	# Process BEmode input
 	bemode = 'on' if beflag else 'off'
 
@@ -55,13 +60,14 @@ def guide_prediction(args, jobtag):
 	cluster_template['__default__']['cores'] = ncores
 	cluster_template['__default__']['time'] = maxtime
 
-	# === Input Checks ===
-	# Check run mode
+	# ->=== PRIVATE GENOME RUN ===<-
+	# == Check run mode ==
 	if mode == 'private':
+		# == Enforce presence of private genome in this mode ==
 		if not private_genome:
 			print("Please provide a VCF input file to run mEdit's private mode")
 			sys.exit(1)
-		# ---- VCF ID adjustment for private vcf run ----
+		# == VCF ID adjustment for private vcf run ==
 		# => Import VCF file prefix information to config file
 		config_template["vcf_id"] = jobtag
 		# => Create a copy of the VCF in the internal mEdit directory
@@ -75,12 +81,16 @@ def guide_prediction(args, jobtag):
 	write_yaml_to_file(cluster_template, dynamic_cluster_path)
 
 	# === Invoke SMK Pipelines ===
-	snakemake_command = f"snakemake --snakefile vcf_processing.smk -j {ncores} --configfile {dynamic_config_path} --use-conda -n"
+	smk_command_vcf = f"snakemake --snakefile vcf_processing.smk -j {ncores} --configfile {dynamic_config_path} --use-conda -n"
 
+	smk_command_gpred = f"snakemake --snakefile guide_prediction.smk -j {ncores} --configfile {dynamic_config_path} --use-conda -n"
 	# Execute the Snakemake command using subprocess
 	try:
 		print("Calling VCF Processing pipeline with the following command:")
-		print(f"{snakemake_command}")
-		subprocess.run(snakemake_command, shell=True, check=True)
+		print(f"{smk_command_vcf}")
+		subprocess.run(smk_command_vcf, shell=True, check=True)
+		print("Calling Guide Prediction pipeline with the following command:")
+		print(f"{smk_command_gpred}")
+		# subprocess.run(smk_command_gpred, shell=True, check=True)
 	except subprocess.CalledProcessError as e:
 		print(f"Error: {e}")

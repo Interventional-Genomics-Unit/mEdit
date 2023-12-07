@@ -21,8 +21,8 @@ def compress_file(file_path):
 	else:
 		cmd_rename = f"mv {file_path} {file_path}.gz"
 		subprocess.run(cmd_rename, shell=True)
-		print("This file is already compressed.")
-		print(f"Created VCF file input on: {file_path}.gz")
+		print("This VCF file is already compressed.")
+		print(f"Created a copy of the VCF file input on: {file_path}.gz")
 
 
 def date_tag():
@@ -54,4 +54,4 @@ def set_export(outdir):
 def write_yaml_to_file(py_obj, filename):
 	with open(f'{filename}', 'w',) as f:
 		yaml.dump(py_obj, f, sort_keys=False)
-	print(f'YAML config sucessfully written to file: {filename}')
+	print(f'Configuration file sucessfully written to: {filename}')
