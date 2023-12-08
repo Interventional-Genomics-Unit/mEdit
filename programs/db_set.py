@@ -4,6 +4,7 @@ import subprocess
 # == Installed Modules ==
 import yaml
 # == Project Modules ==
+from programs.medit_lib import launch_shell_cmd, set_export
 
 
 def dbset(args, jobtag):
@@ -14,11 +15,16 @@ def dbset(args, jobtag):
 	# === Load Database Path ===
 	db_path = abspath(args.db_path)
 	db_path_tag = f"{db_path}/medit_db-{jobtag}"
+
+	vcf_dir_path = f"{db_path_tag}/standard/source_vcfs"
+	set_export(vcf_dir_path)
 	# === Assign Variables to Configuration File ===
-	# == Assign jobtag and Fasta root path ==
+	#   == Parent Database Path
+	config_db_template['db_path'] = db_path_tag
+	#   == Assign jobtag and Fasta root path ==
 	fasta_root_path = f"{db_path_tag}/{config_db_template['fasta_root_path']}"
 	config_db_template['fasta_root_path'] = fasta_root_path
-	# == Parse the Processed Tables folder and its contents ==
+	#   == Parse the Processed Tables folder and its contents ==
 	processed_tables = f"{db_path_tag}/{config_db_template['processed_tables']}"
 	config_db_template["processed_tables"] = processed_tables
 	config_db_template["simple_tables"] = f"{processed_tables}/{config_db_template['simple_tables']}"
@@ -26,30 +32,23 @@ def dbset(args, jobtag):
 	config_db_template["clinvar_update"] = f"{processed_tables}/{config_db_template['clinvar_update']}"
 	config_db_template["refseq_table"] = f"{processed_tables}/{config_db_template['refseq_table']}"
 
-	# == Parse the Raw Tables folder and its contents ==
+	#   == Parse the Raw Tables folder and its contents ==
 	raw_tables = f"{db_path_tag}/{config_db_template['raw_tables']}"
 	config_db_template["raw_tables"] = raw_tables
 	config_db_template["clinvar_summary"] = f"{raw_tables}/{config_db_template['clinvar_summary']}"
 	config_db_template["hpa"] = f"{raw_tables}/{config_db_template['hpa']}"
 	config_db_template["gencode"] = f"{raw_tables}/{config_db_template['gencode']}"
 
-	print(config_db_template)
 	# === Download Data ===
-	# == SeqRecord Pickles
-	print("Downloading Genomic References")
-	cmd_aws = f"aws s3 cp --recursive s3://meditdb/pkl.gz {fasta_root_path}"
-	# subprocess.run(cmd_aws, shell=True)
-	# == Processed Tables and Raw Tables
+	#   == SeqRecord Pickles
+	print("Downloading Database of Genomic References")
+	launch_shell_cmd(f"aws s3 cp s3://medit.db/genome_pkl.tar.gz {db_path_tag}")
+	#   == HPRC VCF files Setup
+	launch_shell_cmd(f"aws s3 cp --recursive s3://medit.db/hprc/ {vcf_dir_path}")
+	#   == Processed Tables and Raw Tables
 	print("Downloading Pre-Processed Background Data Sets")
-	cmd_aws = f"aws s3 cp --recursive s3://meditdb/processed_tables.gz {processed_tables}.gz"
-	# subprocess.run(cmd_aws, shell=True)
-	cmd_aws = f"aws s3 cp --recursive s3://meditdb/raw_tables.gz {raw_tables}.gz"
-	# subprocess.run(cmd_aws, shell=True)
-
-	print("Decompressing Database Genomic References")
-	cmd_gz = f"tar zxf {fasta_root_path}.tar.gz"
-	# subprocess.run(cmd_gz, shell=True)
-	cmd_gz = f"tar zxf {processed_tables}.tar.gz"
-	# subprocess.run(cmd_gz, shell=True)
-	cmd_gz = f"tar zxf {raw_tables}.tar.gz"
-	# subprocess.run(cmd_gz, shell=True)
+	launch_shell_cmd(f"aws s3 cp s3://medit.db/processed_tables.tar.gz {db_path_tag}")
+	launch_shell_cmd(f"aws s3 cp s3://medit.db/raw_tables.tar.gz {db_path_tag}")
+	print("Decompressing Databases")
+	launch_shell_cmd(f"gzip -d {db_path_tag}/*.gz")
+	launch_shell_cmd(f"tar -xf {db_path_tag}/*.gz")

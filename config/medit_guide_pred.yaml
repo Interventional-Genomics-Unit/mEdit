@@ -4,7 +4,7 @@ entrez_login: ""
 # Default thread number for processing in this and associated SMK pipeline
 threads: 1
 # Run name | the run names must follow the naming standard:
-# <mode>_<date>_<medit_version>
+# <date>_<medit_version>
 # ::date+time:: -> YYMMDDHHMMSSf
 # ::random alphanumeric:: -> 9m7aQ0KRZx
 run_name: ""
@@ -18,8 +18,6 @@ editor: ""
 
 # === I/O PATHS ===
 # == DIRECTORIES ==
-# Parent output directory where files should be stored after processing
-output_directory: ""
 # Directory that holds the query HGVSs
 variant_query_dir: ""
 

@@ -12,7 +12,7 @@ import yaml
 # == Project Modules ==
 
 
-def compress_file(file_path):
+def compress_file(file_path: str):
 	if not is_gzipped(file_path):
 		# If not gzipped, compress the file
 		with open(file_path, 'rb') as f_in, gzip.open(file_path + '.gz', 'wb') as f_out:
@@ -39,19 +39,24 @@ def date_tag():
 	return formatted_date
 
 
-def is_gzipped(file_path):
+def is_gzipped(file_path: str):
 	with open(file_path, 'rb') as f:
 		# Check if the file starts with the gzip magic bytes
 		return f.read(2) == b'\x1f\x8b'
 
 
-def set_export(outdir):
+def launch_shell_cmd(command: str):
+	print(f"Invoking command-line call:\n{command}")
+	subprocess.run(command, shell=True)
+
+
+def set_export(outdir: str):
 	# Create outdir and all missing parent directories
 	os.makedirs(outdir, exist_ok=True)
 	return outdir
 
 
-def write_yaml_to_file(py_obj, filename):
+def write_yaml_to_file(py_obj, filename: str):
 	with open(f'{filename}', 'w',) as f:
 		yaml.dump(py_obj, f, sort_keys=False)
 	print(f'Configuration file sucessfully written to: {filename}')

@@ -5,9 +5,10 @@ import sys
 # == Installed Modules ==
 import yaml
 # == Project Modules ==
-from programs.medit_lib import compress_file
-from programs.medit_lib import write_yaml_to_file
-from programs.medit_lib import set_export
+from programs.medit_lib import (compress_file,
+                                write_yaml_to_file,
+                                set_export,
+                                launch_shell_cmd)
 
 
 def guide_prediction(args, jobtag):
@@ -28,17 +29,14 @@ def guide_prediction(args, jobtag):
 
 	# ->=== OUTPUT SETUP ===<-
 	# == Set export paths tied to the SMK pipeline ==
-	vcf_dir_path = f"{root_dir}/{mode}/source_vcfs"
 	config_dir_path = f"{root_dir}/config"
 	vcf_filename = f"{jobtag}.vcf"
 	# == Set export paths for dynamic YAML files ==
 	dynamic_config_path = f"{config_dir_path}/config_{jobtag}.yaml"
 	dynamic_cluster_path = f"{config_dir_path}/cluster_{jobtag}.yaml"
 	# == Create sub-folders to host VCFs, and config files ==
-	set_export(vcf_dir_path)
 	set_export(config_dir_path)
 
-	print(f'A VCF directory was created on: {vcf_dir_path}')
 	# Process BEmode input
 	bemode = 'on' if beflag else 'off'
 
@@ -67,13 +65,18 @@ def guide_prediction(args, jobtag):
 		if not private_genome:
 			print("Please provide a VCF input file to run mEdit's private mode")
 			sys.exit(1)
+
+		# == Create a private VCF directory when a private run is issued
+		vcf_dir_path = f"{root_dir}/{mode}/source_vcfs"
+		print(f'A VCF directory was created on: {vcf_dir_path}')
+		set_export(vcf_dir_path)
+
 		# == VCF ID adjustment for private vcf run ==
-		# => Import VCF file prefix information to config file
+		#   => Import VCF file prefix information to config file
 		config_template["vcf_id"] = jobtag
-		# => Create a copy of the VCF in the internal mEdit directory
-		cmd_copy_vcf = f"cp {private_genome} {vcf_dir_path}/{vcf_filename}"
-		subprocess.run(cmd_copy_vcf, shell=True)
-		# => Check VCF file compression and compress if necessary
+		#   => Create a copy of the VCF in the internal mEdit directory
+		launch_shell_cmd(f"cp {private_genome} {vcf_dir_path}/{vcf_filename}")
+		#   => Check VCF file compression and compress if necessary
 		compress_file(f"{vcf_dir_path}/{vcf_filename}")
 
 	# === Write YAML configs to mEdit Root Directory ===
@@ -81,16 +84,12 @@ def guide_prediction(args, jobtag):
 	write_yaml_to_file(cluster_template, dynamic_cluster_path)
 
 	# === Invoke SMK Pipelines ===
-	smk_command_vcf = f"snakemake --snakefile vcf_processing.smk -j {ncores} --configfile {dynamic_config_path} --use-conda -n"
-
-	smk_command_gpred = f"snakemake --snakefile guide_prediction.smk -j {ncores} --configfile {dynamic_config_path} --use-conda -n"
-	# Execute the Snakemake command using subprocess
 	try:
-		print("Calling VCF Processing pipeline with the following command:")
-		print(f"{smk_command_vcf}")
-		subprocess.run(smk_command_vcf, shell=True, check=True)
-		print("Calling Guide Prediction pipeline with the following command:")
-		print(f"{smk_command_gpred}")
-		# subprocess.run(smk_command_gpred, shell=True, check=True)
+		# == VCF Processing Pipeline
+		print("Calling VCF Processing pipeline")
+		launch_shell_cmd(f"snakemake --snakefile vcf_processing.smk -j {ncores} --configfile {dynamic_config_path} --use-conda -n")
+		# == Guide Prediction Pipeline
+		print("Calling Guide Prediction pipeline")
+		launch_shell_cmd(f"snakemake --snakefile guide_prediction.smk -j {ncores} --configfile {dynamic_config_path} --use-conda -n")
 	except subprocess.CalledProcessError as e:
 		print(f"Error: {e}")

@@ -15,30 +15,30 @@ import glob
 rule all:
 	input:
 		# Pull VCFs either from private (de novo sequenced) or the pangenomes available
-		expand("{root_dir}/{mode}/source_vcfs/{vcf_id}.vcf.gz",
-			root_dir=config["output_directory"],mode=config["processing_mode"],
+		expand("{db_path}/{mode}/source_vcfs/{vcf_id}.vcf.gz",
+			db_path=config["db_path"],mode=config["processing_mode"],
 			vcf_id=config["vcf_id"]),
 		# With the relevant VCF downloaded, proceed with creating consensus FASTA
-		expand("{root_dir}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.fa",
-			root_dir=config["output_directory"],mode=config["processing_mode"],
+		expand("{db_path}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.fa",
+			db_path=config["db_path"],mode=config["processing_mode"],
 			vcf_id=config["vcf_id"],sequence_id=config["sequence_id"])
 
 # noinspection SmkAvoidTabWhitespace
 rule pull_vcf:
 	output:
-		"{root_dir}/{mode}/source_vcfs/{vcf_id}.vcf.gz"
+		"{db_path}/{mode}/source_vcfs/{vcf_id}.vcf.gz"
 	params:
 		aws_url = config["aws_url"],
 		aws_path = config["aws_path"] ,
 		aws_filename_suffix = config["filename_suffix"],
 		vcf_id = config["vcf_id"],
-		root_dir=config["output_directory"],
+		db_path=config["db_path"],
 		mode=config["processing_mode"]
 	shell:
 		"""
         # 1) download diploid VCF files from AWS (-->to be a loop using index file) 
-        touch {params.root_dir}/{params.mode}/source_vcfs/{wildcards.vcf_id}.vcf.gz
-        wget {params.aws_url}/{wildcards.vcf_id}/{params.aws_path}/{wildcards.vcf_id}.{params.aws_filename_suffix}.vcf.gz -O {params.root_dir}/{params.mode}/source_vcfs/{wildcards.vcf_id}.vcf.gz || true
+        touch {params.db_path}/{params.mode}/source_vcfs/{wildcards.vcf_id}.vcf.gz
+        wget {params.aws_url}/{wildcards.vcf_id}/{params.aws_path}/{wildcards.vcf_id}.{params.aws_filename_suffix}.vcf.gz -O {params.db_path}/{params.mode}/source_vcfs/{wildcards.vcf_id}.vcf.gz || true
 		"""
 
 # noinspection SmkAvoidTabWhitespace
@@ -46,13 +46,13 @@ rule consensus_fasta:
 	input:
 		assembly_path=lambda wildcards: glob.glob("{fasta_root_path}/{sequence_id}.fa.gz".format(
 			fasta_root_path=config["fasta_root_path"],sequence_id=wildcards.sequence_id)),
-		source_vcf = "{root_dir}/{mode}/source_vcfs/{vcf_id}.vcf.gz"
+		source_vcf = "{db_path}/{mode}/source_vcfs/{vcf_id}.vcf.gz"
 	output:
-		consensus_fasta = "{root_dir}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.fa",
-		filtered_vcf = "{root_dir}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.filtered.vcf.gz"
+		consensus_fasta = "{db_path}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.fa",
+		filtered_vcf = "{db_path}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.filtered.vcf.gz"
 	params:
-		source_vcf_prefix="{root_dir}/{mode}/consensus_refs/{sequence_id}/{vcf_id}",
-		dump_dir="{root_dir}/consensus_refs/downloads",
+		source_vcf_prefix="{db_path}/{mode}/consensus_refs/{sequence_id}/{vcf_id}",
+		dump_dir="{db_path}/consensus_refs/downloads",
 		fasta_root_path=config["fasta_root_path"]
 	conda:
 		"envs/samtools.yaml"

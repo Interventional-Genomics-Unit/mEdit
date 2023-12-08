@@ -23,6 +23,8 @@ editor: 'all'
 fasta_root_path: "/groups/clinical/projects/clinical_shared_data/genomes/fasta"
 # Parent output directory where files should be stored after processing
 output_directory: "/groups/clinical/projects/medit_analysis"
+# Parent output directory where background data and DBs are stored
+db_path: "/groups/clinical/projects/medit_database"
 # Directory that holds the query HGVSs
 variant_query_dir: "/groups/doudna/projects/daniel_projects/editability/jobs/query" # "/groups/clinical/projects/editability/medit_queries/medit_test/test_in"
 

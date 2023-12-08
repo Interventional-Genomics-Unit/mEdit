@@ -143,8 +143,8 @@ def main():
 	queries = queries_df.iloc[:, 0].tolist()
 	#
 	# # Load config file
-	with open("/groups/doudna/projects/daniel_projects/editability/config/id_convert.yaml", "r") as f:
-		config = yaml.load(f, Loader=yaml.FullLoader)
+	# with open("/groups/doudna/projects/daniel_projects/editability/config/id_convert.yaml", "r") as f:
+	# 	config = yaml.load(f, Loader=yaml.FullLoader)
 
 	# Entrez authentication
 	Entrez.email = entrez_login
@@ -154,8 +154,9 @@ def main():
 	hit_to_link, hits_not_found, record = cross_db_search(queries, db_from)
 
 	# for key in hit_to_links
-	for
-	hgvs_list = nuc_to_gb(hit_to_link['264300'], 'clinvar')
+	hgvs_list = []
+	for input_id in hit_to_link:
+		hgvs_list.extend(fetch_hgvs_list(hit_to_link[input_id], 'clinvar'))
 
 
 if __name__ == "__main__":
