@@ -26,13 +26,13 @@ def parse_arguments():
 			Setup the necessary background data to run mEdit'''),
 		formatter_class=RawTextHelpFormatter
 	)
-	ref_genome = dbset_parser.add_argument_group("== Reference Genome Pre-Processing ==")
-	ref_genome.add_argument('--ref',
-	                        dest='db_path',
-	                        default='medit_database',
-	                        help=textwrap.dedent('''
-		                        Provide the path where mEdit background data should be
-		                        stored ahead of the analysis. Requires ~3GB in-disk storage [default: mEdit_database_<jobtag>]'''))
+	ref_db_parse = dbset_parser.add_argument_group("== Reference Database Pre-Processing ==")
+	ref_db_parse.add_argument('-d',
+	                          dest='db_path',
+	                          default='.',
+	                          help=textwrap.dedent('''
+	                          Provide the path where the "mEdit_database" directory will be created
+	                          ahead of the analysis. Requires ~5GB in-disk storage [default: ./mEdit_database]'''))
 	# === Guide Prediction Program ===
 	fguides_parser = programs.add_parser(
 		'guide_prediction',
@@ -59,6 +59,12 @@ def parse_arguments():
 		help=textwrap.dedent('''
 			Path to root directory where mEdit outputs will be stored [default: mEdit_analysis_<jobtag>/]''')
 	)
+	in_out.add_argument('-d',
+	                    dest='db_path',
+	                    default='.',
+	                    help=textwrap.dedent('''
+	                    Provide the path where the "mEdit_database" directory was created
+	                    ahead of the analysis using the "db_set" program. [default: ./mEdit_database]'''))
 	run_params = fguides_parser.add_argument_group("== mEdit Core Parameters ==")
 	run_params.add_argument(
 		'-m',

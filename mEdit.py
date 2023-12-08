@@ -21,7 +21,7 @@ def main():
 
 	# == Database Parameters
 	if program == "db_set":
-		db_set(args, jobtag)
+		db_set(args)
 
 
 if __name__ == "__main__":
