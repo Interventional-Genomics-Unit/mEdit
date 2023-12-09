@@ -58,5 +58,5 @@ def set_export(outdir: str):
 
 def write_yaml_to_file(py_obj, filename: str):
 	with open(f'{filename}', 'w',) as f:
-		yaml.dump(py_obj, f, sort_keys=False)
+		yaml.safe_dump(py_obj, f, sort_keys=False, default_style='"')
 	print(f'Configuration file sucessfully written to: {filename}')

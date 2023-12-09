@@ -28,9 +28,11 @@ def guide_prediction(args, jobtag):
 	if private_genome:
 		mode = 'private'
 
+	allowed_rules = ''
+
 	# ->=== OUTPUT SETUP ===<-
 	# == Set import paths tied to the SMK pipeline
-	config_db_path = f"{db_path_full}/config_db"
+	config_db_path = f"{db_path_full}/config_db/config_db.yaml"
 	# == Set export paths tied to the SMK pipeline ==
 	config_dir_path = f"{root_dir}/config"
 	vcf_filename = f"{jobtag}.vcf"
@@ -55,6 +57,7 @@ def guide_prediction(args, jobtag):
 
 	# === Assign Variables to Configuration File ===
 	config_template['run_name'] = f"{mode}_{jobtag}"
+	config_template['support_tables'] = db_path_full
 	config_template['processing_mode'] = mode
 	config_template['output_directory'] = root_dir
 	# Assign run parameters to config
@@ -72,7 +75,7 @@ def guide_prediction(args, jobtag):
 		if not private_genome:
 			print("Please provide a VCF input file to run mEdit's private mode")
 			sys.exit(1)
-
+		allowed_rules = "--allowed-rules consensus_fasta"
 		# == Create a private VCF directory when a private run is issued
 		vcf_dir_path = f"{root_dir}/{mode}/source_vcfs"
 		print(f'A VCF directory was created on: {vcf_dir_path}')
@@ -95,12 +98,12 @@ def guide_prediction(args, jobtag):
 		# == VCF Processing Pipeline
 		print("Calling VCF Processing pipeline")
 		launch_shell_cmd(f"snakemake --snakefile vcf_processing.smk"
-		                 f" -j {ncores} --configfile {dynamic_config_path}"
-		                 f" --configfile {config_db} --use-conda -n")
+		                 f" -j {ncores} {allowed_rules} --configfile {dynamic_config_path}"
+		                 f" {config_db_path} --use-conda")
 		# == Guide Prediction Pipeline
 		print("Calling Guide Prediction pipeline")
 		launch_shell_cmd(f"snakemake --snakefile guide_prediction.smk"
-		                 f" -j {ncores} --configfile {dynamic_config_path}"
-		                 f" --configfile {config_db} --use-conda -n")
+		                 f" -j {ncores} {allowed_rules} --configfile {dynamic_config_path}"
+		                 f" {config_db_path} --use-conda -n")
 	except subprocess.CalledProcessError as e:
 		print(f"Error: {e}")

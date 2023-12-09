@@ -1,6 +1,6 @@
 # **** Variables ****
 # configfile: "config/guide_prediction_default_template.yaml"
-configfile: "config/guide_prediction_private_template.yaml"
+# configfile: "config/guide_prediction_private_template.yaml"
 # configfile: "config/aws_download.yaml"
 
 # **** Imports ****
@@ -76,7 +76,9 @@ rule consensus_fasta:
         bgzip {params.source_vcf_prefix}.filtered.vcf
 
         bcftools consensus -f {input.assembly_path} {output.filtered_vcf} -o {output.consensus_fasta}
-
+        # --> DEBUG <-- 
+		touch {output.consensus_fasta}
+		# --> DEBUG <-- 
         # Cleanup
         rm {input.assembly_path}.fai {params.fasta_root_path}/{wildcards.sequence_id}.dict
         """

@@ -25,13 +25,13 @@ def dbset(args):
 	set_export(config_db_dir_path)
 	# === Assign Variables to Configuration File ===
 	#   == Parent Database Path
-	config_db_template['db_path'] = db_path_full
+	config_db_template['db_path'] = f"{db_path_full}"
 	#   == Assign jobtag and Fasta root path ==
 	fasta_root_path = f"{db_path_full}/{config_db_template['fasta_root_path']}"
 	config_db_template['fasta_root_path'] = fasta_root_path
 	#   == Parse the Processed Tables folder and its contents ==
 	processed_tables = f"{db_path_full}/{config_db_template['processed_tables']}"
-	config_db_template["processed_tables"] = processed_tables
+	config_db_template["processed_tables"] = f"{processed_tables}"
 	config_db_template["simple_tables"] = f"{processed_tables}/{config_db_template['simple_tables']}"
 	config_db_template["hgvs_lookup"] = f"{processed_tables}/{config_db_template['hgvs_lookup']}"
 	config_db_template["clinvar_update"] = f"{processed_tables}/{config_db_template['clinvar_update']}"
@@ -39,7 +39,7 @@ def dbset(args):
 
 	#   == Parse the Raw Tables folder and its contents ==
 	raw_tables = f"{db_path_full}/{config_db_template['raw_tables']}"
-	config_db_template["raw_tables"] = raw_tables
+	config_db_template["raw_tables"] = f"{raw_tables}"
 	config_db_template["clinvar_summary"] = f"{raw_tables}/{config_db_template['clinvar_summary']}"
 	config_db_template["hpa"] = f"{raw_tables}/{config_db_template['hpa']}"
 	config_db_template["gencode"] = f"{raw_tables}/{config_db_template['gencode']}"

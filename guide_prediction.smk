@@ -1,6 +1,6 @@
 # **** Variables ****
-configfile: "config/guide_prediction_private_template.yaml"
-configfile: "config/preprocessing_configuration.yaml"
+# configfile: "config/guide_prediction_private_template.yaml"
+# configfile: "config/preprocessing_configuration.yaml"
 
 # configfile: "config/aws_download.yaml"
 
