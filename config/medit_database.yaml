@@ -1,7 +1,7 @@
 #
 # === Local Configuration Information
 #   == Parent output directory where files should be stored after processing ==
-db_path: ""
+meditdb_path: ""
 # === Remote Configuration Sources ===
 # == Canonical storage folder for FASTA References
 fasta_root_path: "genome_pkl"

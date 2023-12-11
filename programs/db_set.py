@@ -25,7 +25,7 @@ def dbset(args):
 	set_export(config_db_dir_path)
 	# === Assign Variables to Configuration File ===
 	#   == Parent Database Path
-	config_db_template['db_path'] = f"{db_path_full}"
+	config_db_template['meditdb_path'] = f"{db_path_full}"
 	#   == Assign jobtag and Fasta root path ==
 	fasta_root_path = f"{db_path_full}/{config_db_template['fasta_root_path']}"
 	config_db_template['fasta_root_path'] = fasta_root_path
@@ -50,7 +50,7 @@ def dbset(args):
 	# === Download Data ===
 	#   == SeqRecord Pickles
 	print("Downloading Database of Genomic References")
-	launch_shell_cmd(f"aws s3 cp s3://medit.db/genome_pkl.tar.gz {db_path_full}")
+	launch_shell_cmd(f"aws s3 cp --recursive s3://medit.db/genome_pkl {fasta_root_path}")
 	#   == HPRC VCF files Setup
 	launch_shell_cmd(f"aws s3 cp --recursive s3://medit.db/hprc/ {vcf_dir_path}")
 	#   == Processed Tables and Raw Tables
@@ -63,5 +63,3 @@ def dbset(args):
 	                 f"rm {db_path_full}/raw_tables.tar")
 	launch_shell_cmd(f"tar -xf {db_path_full}/processed_tables.tar --directory={db_path_full}/ && "
 	                 f"rm {db_path_full}/processed_tables.tar")
-	launch_shell_cmd(f"tar -xf {db_path_full}/genome_pkl.tar --directory={db_path_full}/ && "
-	                 f"rm {db_path_full}/genome_pkl.tar")

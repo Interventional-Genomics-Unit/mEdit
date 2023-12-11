@@ -8,7 +8,7 @@ threads: 20
 # ::mode:: -> At the current version this can be either: 'default' or 'private'
 # ::date:: -> MMDDYY
 # ::medit_version:: -> current is v0
-run_name: "private_103023_v0"
+run_name: "private_121123_v0"
 # Must be the same as specified for the run_name
 processing_mode: 'private'
 

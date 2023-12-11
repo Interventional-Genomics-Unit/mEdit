@@ -18,7 +18,7 @@ def compress_file(file_path: str):
 		with open(file_path, 'rb') as f_in, gzip.open(file_path + '.gz', 'wb') as f_out:
 			shutil.copyfileobj(f_in, f_out)
 		print(f"File '{file_path}' compressed successfully.")
-	else:
+	if is_gzipped(file_path):
 		cmd_rename = f"mv {file_path} {file_path}.gz"
 		subprocess.run(cmd_rename, shell=True)
 		print("This VCF file is already compressed.")
