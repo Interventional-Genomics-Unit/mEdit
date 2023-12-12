@@ -17,7 +17,7 @@ def guide_prediction(args, jobtag):
 	root_dir = abspath(args.output)
 	db_path_full = f"{abspath(args.db_path)}/medit_database"
 	mode = args.mode
-	private_genome = args.private_genome
+	private_genomes = args.private_genome.split(",")
 	qtype = args.qtype_request
 	editor = args.editor_request
 	beflag = args.bemode_request
@@ -26,7 +26,7 @@ def guide_prediction(args, jobtag):
 	maxtime = args.maxtime
 	# ->=== INPUT CHECKS ===<-
 	#   == Check the presence of private genome among the inputs ==
-	if private_genome:
+	if private_genomes:
 		mode = 'private'
 
 	allowed_rules = ''
@@ -36,7 +36,6 @@ def guide_prediction(args, jobtag):
 	config_db_path = f"{db_path_full}/config_db/config_db.yaml"
 	# == Set export paths tied to the SMK pipeline ==
 	config_dir_path = f"{root_dir}/config"
-	vcf_filename = f"{jobtag}.vcf"
 	# == Set export paths for dynamic YAML files ==
 	dynamic_config_path = f"{config_dir_path}/config_{jobtag}.yaml"
 	dynamic_cluster_path = f"{config_dir_path}/cluster_{jobtag}.yaml"
@@ -74,7 +73,7 @@ def guide_prediction(args, jobtag):
 	# == Check run mode ==
 	if mode == 'private':
 		# == Enforce presence of private genome in this mode ==
-		if not private_genome:
+		if not private_genomes:
 			print("Please provide a VCF input file to run mEdit's private mode")
 			sys.exit(1)
 		# allowed_rules = "--allowed-rules consensus_fasta"
@@ -85,11 +84,19 @@ def guide_prediction(args, jobtag):
 
 		# == VCF ID adjustment for private vcf run ==
 		#   => Import VCF file prefix information to config file
-		config_template["vcf_id"] = jobtag
-		#   => Create a copy of the VCF in the internal mEdit directory
-		launch_shell_cmd(f"cp {private_genome} {vcf_dir_path}/{vcf_filename}")
-		#   => Check VCF file compression and compress if necessary
-		compress_file(f"{vcf_dir_path}/{vcf_filename}")
+		tagged_genomes = []
+		count_tag = 1
+		for private_genome in private_genomes:
+			loop_tag = f"{jobtag}_{count_tag}"
+			vcf_filename = f"{loop_tag}.vcf"
+			tagged_genomes.append(loop_tag)
+			#   => Create a copy of the VCF in the internal mEdit directory
+			launch_shell_cmd(f"cp {private_genome} {vcf_dir_path}/{vcf_filename}")
+			#   => Check VCF file compression and compress if necessary
+			compress_file(f"{vcf_dir_path}/{vcf_filename}")
+			count_tag += 1
+		#   => Add any amount of private genomes to the config file
+		config_template["vcf_id"] = tagged_genomes
 
 	# === Write YAML configs to mEdit Root Directory ===
 	write_yaml_to_file(config_template, dynamic_config_path)
@@ -97,12 +104,6 @@ def guide_prediction(args, jobtag):
 
 	# === Invoke SMK Pipelines ===
 	try:
-		# == VCF Processing Pipeline
-		# print("Calling VCF Processing pipeline")
-		# launch_shell_cmd(f"snakemake --snakefile vcf_processing.smk"
-		#                  f" -j {ncores} {allowed_rules} --configfile {dynamic_config_path}"
-		#                  f" {config_db_path} --use-conda")
-		# == Guide Prediction Pipeline
 		print("Calling Guide Prediction pipeline")
 		launch_shell_cmd(f"snakemake --snakefile guide_prediction.smk"
 		                 f" -j {ncores} --configfile {config_db_path}"

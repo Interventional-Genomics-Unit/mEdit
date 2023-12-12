@@ -118,6 +118,32 @@ def parse_arguments():
 			Add this flag to make mEdit process base-editors. [default = off]''')
 	)
 
+	cluster_opt = fguides_parser.add_argument_group("== SLURM Options ==")
+	cluster_opt.add_argument(
+		'-p',
+		dest='parallel_processes',
+		default=1,
+		help=textwrap.dedent('''
+				When submitting mEdit jobs to SLURM, the user can specify the number of 
+				parallel processes that will be sent to the server [default = 1]''')
+	)
+	cluster_opt.add_argument(
+		'--ncores',
+		dest='ncores',
+		default=1,
+		help=textwrap.dedent('''
+			Specify the number of cores through which each parallel process 
+			will be computed [default = 1]''')
+	)
+
+	cluster_opt.add_argument(
+		'--maxtime',
+		dest='maxtime',
+		default='1:00:00',
+		help=textwrap.dedent('''
+			Specify the maximum amount of time allowed for each parallel job [default = 1:00:00]''')
+	)
+
 	# === Off Target Effect Program ===
 	casoff_parser = programs.add_parser(
 		'offtargets',
@@ -128,23 +154,6 @@ def parse_arguments():
 	offtarget_params = casoff_parser.add_argument_group("== Off-Target Parameters ==")
 	offtarget_params.add_argument('-r', help='Reference Genome')
 
-	cluster_opt = parser.add_argument_group("== SLURM Options ==")
-	cluster_opt.add_argument(
-		'--ncores',
-		dest='ncores',
-		default=1,
-		help=textwrap.dedent('''
-			When submitting mEdit jobs to an HPC workload manager, the user can specify the number of 
-			cores through which the different processes will be parallelized [default = 1]''')
-	)
-
-	cluster_opt.add_argument(
-		'--maxtime',
-		dest='maxtime',
-		default='1:00:00',
-		help=textwrap.dedent('''
-			Specify the maximum amount of time allowed for each parallel job [default = 1:00:00]''')
-	)
 	# Parse arguments from the command line
 	arguments = parser.parse_args()
 	return arguments
