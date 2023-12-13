@@ -7,8 +7,11 @@ import secrets
 import string
 import pytz
 import os
+import re
+import pickle
 # == Installed Modules ==
 import yaml
+from Bio import SeqIO
 # == Project Modules ==
 
 
@@ -48,6 +51,25 @@ def is_gzipped(file_path: str):
 def launch_shell_cmd(command: str):
 	print(f"Invoking command-line call:\n{command}")
 	subprocess.run(command, shell=True)
+
+
+def list_files_by_extension(root_path, extension: str):
+	file_list = []
+	for root, dirs, files in os.walk(root_path, topdown=False):
+		for name in files:
+			if name.endswith(extension):
+				file_list.append(os.path.join(root, name))
+	return file_list
+
+
+def pickle_chromosomes(genome_fasta, output_dir):
+	records = SeqIO.parse(open(genome_fasta, 'rt'), "fasta")
+	for record in records:
+		if re.search(r"chr\w{0,2}$", record.id):
+			outfile = f"{output_dir}/{record.id}.pkl"
+			with open(outfile, 'ab') as gfile:
+				print(f"Serializing chromosome {record.id}")
+				pickle.dump(record, gfile)
 
 
 def set_export(outdir: str):

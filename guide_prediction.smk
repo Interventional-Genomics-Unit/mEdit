@@ -66,22 +66,20 @@ Wildcards in this rule:
         # & filter reference & variant alleles > 5nt
         # Create index file
         bcftools filter -O z -o {output.filtered_vcf} -e 'GT="." || ILEN <= -5 || ILEN >= 5' {input.source_vcf} 
-        bcftools index -t {output.filtered_vcf}
+        bcftools index -f -t {output.filtered_vcf}
 
         # 3) Making a consensus
         #previously made a seperate hg38 Ref Fasta that only have standard chromsomes --> /groups/clinical/projects/editability/tables/raw_tables/VCFs/hg38_standard.fa.gz
         samtools dict {input.assembly_path} -o {params.fasta_root_path}/{wildcards.sequence_id}.dict
         samtools faidx {input.assembly_path} -o {input.assembly_path}.fai
 
-        gzip -dv {output.filtered_vcf}
-        bgzip {params.source_vcf_prefix}.filtered.vcf
+        # gzip -dv {output.filtered_vcf}
+        # bgzip {params.source_vcf_prefix}.filtered.vcf
 
         bcftools consensus -f {input.assembly_path} {output.filtered_vcf} -o {output.consensus_fasta}
-        # --> DEBUG <-- 
-		touch {output.consensus_fasta}
-		# --> DEBUG <-- 
+        
         # Cleanup
-        rm {input.assembly_path}.fai {params.fasta_root_path}/{wildcards.sequence_id}.dict
+        # rm {input.assembly_path}.fai {params.fasta_root_path}/{wildcards.sequence_id}.dict
         """
 
 # noinspection SmkAvoidTabWhitespace

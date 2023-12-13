@@ -16,7 +16,8 @@ def parse_arguments():
 
 	programs = parser.add_subparsers(
 		title="== mEdit Programs ==",
-		description=textwrap.dedent('''mEdit can be operated through a list of different programs.'''),
+		description=textwrap.dedent('''
+		mEdit can be operated through a list of different programs.'''),
 		dest="program",
 	)
 	# === Db Setup ===
@@ -31,14 +32,24 @@ def parse_arguments():
 	                          dest='db_path',
 	                          default='.',
 	                          help=textwrap.dedent('''
-	                          Provide the path where the "mEdit_database" directory will be created
-	                          ahead of the analysis. Requires ~5GB in-disk storage [default: ./mEdit_database]'''))
+	                          Provide the path where the "mEdit_database" 
+	                          directory will be created ahead of the analysis.
+	                          Requires ~6.5GB in-disk storage 
+	                          [default: ./mEdit_database]'''))
+	ref_db_parse.add_argument('-p',
+	                          dest='threads',
+	                          default='1',
+	                          help=textwrap.dedent('''
+	                          Provide the number of cores for parallel decompression
+	                          of mEdit databases.
+	                          '''))
 	# === Guide Prediction Program ===
 	fguides_parser = programs.add_parser(
 		'guide_prediction',
 		help=textwrap.dedent('''
 			The core mEdit program finds potential guides for
-			variants specified on the input by searching a diverse set of editors.'''),
+			variants specified on the input by searching a diverse set of
+			editors.'''),
 		formatter_class=RawTextHelpFormatter
 	)
 	in_out = fguides_parser.add_argument_group("== Input/Output Options ==")
@@ -47,9 +58,9 @@ def parse_arguments():
 		dest='query_input',
 		required=True,
 		help=textwrap.dedent('''
-			Path to plain text file containing the query (or set of queries) of variant(s)
-			for mEdit analysis. Must be a single nucleotide variation.
-			See --qtype for formatting options.
+			Path to plain text file containing the query (or set of queries) 
+			of variant(s) for mEdit analysis. Must be a single nucleotide 
+			variation. See --qtype for formatting options.
 			''')
 	)
 	in_out.add_argument(
@@ -57,14 +68,17 @@ def parse_arguments():
 		dest='output',
 		default='medit_analysis',
 		help=textwrap.dedent('''
-			Path to root directory where mEdit outputs will be stored [default: mEdit_analysis_<jobtag>/]''')
+			Path to root directory where mEdit outputs will be stored 
+			[default: mEdit_analysis_<jobtag>/]''')
 	)
 	in_out.add_argument('-d',
 	                    dest='db_path',
 	                    default='.',
 	                    help=textwrap.dedent('''
-	                    Provide the path where the "mEdit_database" directory was created
-	                    ahead of the analysis using the "db_set" program. [default: ./mEdit_database]'''))
+	                    Provide the path where the "mEdit_database" 
+	                    directory was created ahead of the analysis 
+	                    using the "db_set" program. 
+	                    [default: ./mEdit_database]'''))
 	run_params = fguides_parser.add_argument_group("== mEdit Core Parameters ==")
 	run_params.add_argument(
 		'-m',
@@ -72,17 +86,21 @@ def parse_arguments():
 		default='standard',
 		choices=['standard', 'private'],
 		help=textwrap.dedent('''
-			The MODE option determines how mEdit will run your job. [default = "standard"]
-			[1-] "standard": will find and process guides based on a reference human genome assembly 
-				along with a diverse set of pangenomes from HPRC.
-			[2-] "private": requires a private VCF file and use it to process and find guides.''')
+			The MODE option determines how mEdit will run your job. 
+			[default = "standard"]
+			[1-] "standard": will find and process guides based on a 
+			reference human genome assembly along with a diverse set of 
+			pangenomes from HPRC.
+			[2-] "private": requires a private VCF file and use it to 
+			process and find guides.''')
 	)
 	run_params.add_argument(
 		'-g',
 		dest='private_genome',
 		default=None,
 		help=textwrap.dedent('''
-			Provide a gunzip compressed VCF file to run mEdit’s private mode''')
+			Provide a gunzip compressed VCF file to run mEdit’s 
+			private mode''')
 	)
 	run_params.add_argument(
 		'--qtype',
@@ -91,10 +109,12 @@ def parse_arguments():
 		choices=['hgvs', 'coord'],
 		help=textwrap.dedent('''
 			Set the query type provided to mEdit. [default = "hgvs"]
-			[1-] "hgvs": must at least contain the Refseq identifier followed by “:” and the commonly used 
-				HGVS nomenclature: Example: NM_000518.5:c.114G>A
-			[2-] "coord": must contain hg38 coordinates followed by (ALT>REF). Alleles must be the plus strand
-				Example: chr11:5226778C>T\n''')
+			[1-] "hgvs": must at least contain the Refseq identifier 
+			followed by “:” and the commonly used HGVS nomenclature. 
+			Example: NM_000518.5:c.114G>A
+			[2-] "coord": must contain hg38 coordinates followed by 
+			(ALT>REF). Alleles must be the plus strand.
+			Example: chr11:5226778C>T\n''')
 	)
 	run_params.add_argument(
 		'--editor',
@@ -102,12 +122,14 @@ def parse_arguments():
 		default='clinical',
 		choices=['clinical', 'custom', 'user defined list'],
 		help=textwrap.dedent('''
-			Pick which set of editors will be used in the mEdit run. [default = "clinical"]
-			Use medit.py list to access the arrays of editors currently supported in each category.
-			[1-] "clinical": a short list of clinically relevant editors that are either in pre-clinical or 
-				clinical trials.
-			[2-] "custom": select guide search parameters. This requires a separate input of parameters : 
-				‘pam’, ‘pamISfirst’,’guidelen’
+			Pick which set of editors will be used in the mEdit run. 
+			[default = "clinical"]
+			Use medit.py list to access the arrays of editors currently 
+			supported in each category.
+			[1-] "clinical": a short list of clinically relevant editors 
+			that are either in pre-clinical orclinical trials.
+			[2-] "custom": select guide search parameters. This requires a
+			 separate input of parameters : ‘pam’, ‘pamISfirst’,’guidelen’
 			[3-] "user defined list": - Comma-separated list of editors''')
 	)
 	run_params.add_argument(
@@ -115,25 +137,32 @@ def parse_arguments():
 		dest='bemode_request',
 		choices=['off', 'standard', 'custom', 'user defined list'],
 		help=textwrap.dedent('''
-			Add this flag to make mEdit process base-editors. [default = off]''')
+			Add this flag to make mEdit process base-editors. 
+			[default = off]''')
 	)
-
+	run_params.add_argument(
+		'--dry',
+		dest='dry_run',
+		action='store_true',
+		help=textwrap.dedent('''
+			Perform a dry run of mEdit.'''))
 	cluster_opt = fguides_parser.add_argument_group("== SLURM Options ==")
 	cluster_opt.add_argument(
 		'-p',
 		dest='parallel_processes',
-		default=1,
 		help=textwrap.dedent('''
-				When submitting mEdit jobs to SLURM, the user can specify the number of 
-				parallel processes that will be sent to the server [default = 1]''')
+				Most processes in mEdit can be submitted to SLURM.
+				When submitting mEdit jobs to SLURM, the user can specify
+				the number of parallel processes that will be sent to the 
+				server [default = 1]''')
 	)
 	cluster_opt.add_argument(
 		'--ncores',
 		dest='ncores',
-		default=1,
+		default=2,
 		help=textwrap.dedent('''
 			Specify the number of cores through which each parallel process 
-			will be computed [default = 1]''')
+			will be computed. [default = 2]''')
 	)
 
 	cluster_opt.add_argument(
@@ -141,7 +170,8 @@ def parse_arguments():
 		dest='maxtime',
 		default='1:00:00',
 		help=textwrap.dedent('''
-			Specify the maximum amount of time allowed for each parallel job [default = 1:00:00]''')
+			Specify the maximum amount of time allowed for each parallel job.
+			Format example: 2 hours -> "2:00:00" [default = 1 hour]''')
 	)
 
 	# === Off Target Effect Program ===
@@ -152,7 +182,8 @@ def parse_arguments():
 		formatter_class=RawTextHelpFormatter
 	)
 	offtarget_params = casoff_parser.add_argument_group("== Off-Target Parameters ==")
-	offtarget_params.add_argument('-r', help='Reference Genome')
+	offtarget_params.add_argument(
+		'-r', help='Reference Genome')
 
 	# Parse arguments from the command line
 	arguments = parser.parse_args()

@@ -5,6 +5,8 @@ import subprocess
 import yaml
 # == Project Modules ==
 from programs.medit_lib import (launch_shell_cmd,
+                                list_files_by_extension,
+                                pickle_chromosomes,
                                 set_export,
                                 write_yaml_to_file)
 
@@ -17,6 +19,8 @@ def dbset(args):
 	# === Load Database Path ===
 	db_path_full = f"{abspath(args.db_path)}/medit_database"
 	config_db_dir_path = f"{db_path_full}/config_db"
+
+	threads = args.threads
 
 	vcf_dir_path = f"{db_path_full}/standard/source_vcfs"
 	config_db_path = f"{config_db_dir_path}/config_db.yaml"
@@ -51,6 +55,11 @@ def dbset(args):
 	#   == SeqRecord Pickles
 	print("Downloading Database of Genomic References")
 	launch_shell_cmd(f"aws s3 cp --recursive s3://medit.db/genome_pkl {fasta_root_path}")
+	print("Processing FASTA reference assembly")
+	#   == Only one file is expected in this directory. Hence, the 1st item of the list
+	reference_fasta_path = list_files_by_extension(fasta_root_path, 'fa.gz')[0]
+	launch_shell_cmd(f"bgzip -c -@ {threads} -d {reference_fasta_path} > {fasta_root_path}/tmp_hg38.fa")
+	pickle_chromosomes(f"{fasta_root_path}/tmp_hg38.fa", fasta_root_path)
 	#   == HPRC VCF files Setup
 	launch_shell_cmd(f"aws s3 cp --recursive s3://medit.db/hprc/ {vcf_dir_path}")
 	#   == Processed Tables and Raw Tables
@@ -58,7 +67,7 @@ def dbset(args):
 	launch_shell_cmd(f"aws s3 cp s3://medit.db/processed_tables.tar.gz {db_path_full}")
 	launch_shell_cmd(f"aws s3 cp s3://medit.db/raw_tables.tar.gz {db_path_full}")
 	print("Decompressing Databases")
-	launch_shell_cmd(f"gzip -d {db_path_full}/*.gz")
+	launch_shell_cmd(f"pigz -p {threads} -d {db_path_full}/*.gz")
 	launch_shell_cmd(f"tar -xf {db_path_full}/raw_tables.tar --directory={db_path_full}/ && "
 	                 f"rm {db_path_full}/raw_tables.tar")
 	launch_shell_cmd(f"tar -xf {db_path_full}/processed_tables.tar --directory={db_path_full}/ && "

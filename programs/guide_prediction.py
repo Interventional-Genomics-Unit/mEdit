@@ -24,12 +24,24 @@ def guide_prediction(args, jobtag):
 	# == Load SLURM-related values ==
 	ncores = args.ncores
 	maxtime = args.maxtime
+	parallel_processes = args.parallel_processes
+	dry_run = args.dry_run
+	# == Define dynamic SMK call variables ==
+	allowed_rules = ['']
+	cluster_smk_setup = ['']
+	dryrun_setup = ''
 	# ->=== INPUT CHECKS ===<-
 	#   == Check the presence of private genome among the inputs ==
 	if private_genomes:
 		mode = 'private'
-
-	allowed_rules = ''
+	#   == Check the request to run on a cluster
+	if parallel_processes:
+		cluster_smk_setup = ['', '--cluster "sbatch -t {cluster.time} -n {cluster.cores}" '
+		                         '--cluster-config config/medit_cluster.yaml']
+		allowed_rules = ['--until "consensus_fasta"', '']
+	#   == Check the dry run request
+	if dry_run:
+		dryrun_setup = '-n'
 
 	# ->=== OUTPUT SETUP ===<-
 	# == Set import paths tied to the SMK pipeline
@@ -105,8 +117,18 @@ def guide_prediction(args, jobtag):
 	# === Invoke SMK Pipelines ===
 	try:
 		print("Calling Guide Prediction pipeline")
-		launch_shell_cmd(f"snakemake --snakefile guide_prediction.smk"
-		                 f" -j {ncores} --configfile {config_db_path}"
-		                 f" {dynamic_config_path}  --use-conda -n")
+		for smk_setup_idx in range(len(allowed_rules)):
+			# --> When cluster submission is switched on,
+			launch_shell_cmd(f"snakemake "
+			                 f"--snakefile guide_prediction.smk "
+			                 f"-j {ncores} "
+			                 f"{allowed_rules[smk_setup_idx]} "
+			                 f"{cluster_smk_setup[smk_setup_idx]} "
+			                 f"--configfile {config_db_path} "
+			                 f"{dynamic_config_path} "
+			                 f"--use-conda "
+			                 f"{dryrun_setup}"
+			                 )
+
 	except subprocess.CalledProcessError as e:
 		print(f"Error: {e}")

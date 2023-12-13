@@ -5,6 +5,8 @@ meditdb_path: ""
 # === Remote Configuration Sources ===
 # == Canonical storage folder for FASTA References
 fasta_root_path: "genome_pkl"
+# == Current hg38 assembly accession
+assembly_acc: "GCF_000001405.40"
 
 # == PROCESSED TABLES ==
 # Main path for processed tables
@@ -26,4 +28,4 @@ gencode: "GENEonly_cleaned_genecode_annotation.csv"
 # === Local Configuration Sources ===
 # BEs / Editors
 editors: "pkl/editors.pkl"
-base_editors: "pkl/bes.pkl"
+base_editors: "pkl/base_editors.pkl"
