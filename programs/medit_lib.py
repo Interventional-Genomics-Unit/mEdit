@@ -62,6 +62,14 @@ def list_files_by_extension(root_path, extension: str):
 	return file_list
 
 
+def parse_editor_request(request):
+	processed_request = request
+	if type(processed_request) is list:
+		processed_request = request.split(',')
+
+	return processed_request
+
+
 def pickle_chromosomes(genome_fasta, output_dir):
 	records = SeqIO.parse(open(genome_fasta, 'rt'), "fasta")
 	for record in records:
@@ -73,8 +81,12 @@ def pickle_chromosomes(genome_fasta, output_dir):
 
 
 def set_export(outdir: str):
-	# Create outdir and all missing parent directories
-	os.makedirs(outdir, exist_ok=True)
+	if os.path.exists(outdir):
+		print(f'The directory already exists. Skipping {outdir}')
+	# Create outdir only if it doesn't exist
+	if not os.path.exists(outdir):
+		print(f'Directory created on: {outdir}')
+		os.makedirs(outdir)
 	return outdir
 
 

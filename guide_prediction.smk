@@ -108,8 +108,8 @@ rule predict_guides:
 		base_editors = config["base_editors"],
 		# == Run Parameters ==
 		qtype = config["qtype"],
-		BEmode = config["BEmode"],
-		editor = config["editor"]
+		be_request = config["be_request"],
+		editor_request = config["editor_request"]
 	conda:
 		"envs/medit.yaml"
 	message:
@@ -122,8 +122,8 @@ Inputs used:
 
 Run parameters:
 --> Query type: {params.qtype} 
---> BEmode: {params.BEmode}
---> Editor scope: {params.editor}
+--> BEmode: {params.be_request}
+--> Editor scope: {params.editor_request}
 
 Outputs generated:
 --> Generate reports on: {output}

@@ -6,29 +6,34 @@ import sys
 import yaml
 # == Project Modules ==
 from programs.medit_lib import (compress_file,
-                                write_yaml_to_file,
+                                launch_shell_cmd,
+                                parse_editor_request,
                                 set_export,
-                                launch_shell_cmd)
+                                write_yaml_to_file
+                                )
 
 
 def guide_prediction(args, jobtag):
 	# == Load Run Parameters values ==
 	query_input = args.query_input
+	user_jobtag = args.user_jobtag
 	root_dir = abspath(args.output)
 	db_path_full = f"{abspath(args.db_path)}/medit_database"
 	mode = args.mode
 	private_genomes = args.private_genome.split(",")
 	qtype = args.qtype_request
-	editor = args.editor_request
-	beflag = args.bemode_request
+	editor_request = parse_editor_request(args.editor_request)
+	be_request = parse_editor_request(args.be_request)
 	# == Load SLURM-related values ==
 	ncores = args.ncores
 	maxtime = args.maxtime
 	parallel_processes = args.parallel_processes
 	dry_run = args.dry_run
+
 	# == Define dynamic SMK call variables ==
 	allowed_rules = ['']
 	cluster_smk_setup = ['']
+	smk_run_triggers = ''
 	dryrun_setup = ''
 	# ->=== INPUT CHECKS ===<-
 	#   == Check the presence of private genome among the inputs ==
@@ -36,12 +41,17 @@ def guide_prediction(args, jobtag):
 		mode = 'private'
 	#   == Check the request to run on a cluster
 	if parallel_processes:
+		# --> Upon SLURM run request, the guide_prediction.smk is split in two separate runs
+		# --> That's because samtool's conda package crashes on a libcrypto error when
+		#       it's deployed by snakemake on a SLURM node
 		cluster_smk_setup = ['', '--cluster "sbatch -t {cluster.time} -n {cluster.cores}" '
 		                         '--cluster-config config/medit_cluster.yaml']
 		allowed_rules = ['--until "consensus_fasta"', '']
 	#   == Check the dry run request
 	if dry_run:
 		dryrun_setup = '-n'
+	if user_jobtag:
+		smk_run_triggers = '--rerun-triggers "mtime"'
 
 	# ->=== OUTPUT SETUP ===<-
 	# == Set import paths tied to the SMK pipeline
@@ -53,9 +63,6 @@ def guide_prediction(args, jobtag):
 	dynamic_cluster_path = f"{config_dir_path}/cluster_{jobtag}.yaml"
 	# == Create sub-folders to host VCFs, and config files ==
 	set_export(config_dir_path)
-
-	# Process BEmode input
-	bemode = 'on' if beflag else 'off'
 
 	# ->=== CONFIG FILES IMPORT ===<-
 	#   == Load template configuration files ==
@@ -75,8 +82,8 @@ def guide_prediction(args, jobtag):
 	config_template['variant_query_dir'] = query_input
 	# Assign run parameters to config
 	config_template['qtype'] = qtype
-	config_template['editor'] = editor
-	config_template['BEmode'] = bemode
+	config_template['editor_request'] = editor_request
+	config_template['be_request'] = be_request
 	# Assign cluster options
 	cluster_template['__default__']['cores'] = ncores
 	cluster_template['__default__']['time'] = maxtime
@@ -91,7 +98,6 @@ def guide_prediction(args, jobtag):
 		# allowed_rules = "--allowed-rules consensus_fasta"
 		# == Create a private VCF directory when a private run is issued
 		vcf_dir_path = f"{config_db['meditdb_path']}/{mode}/source_vcfs"
-		print(f'A VCF directory was created on: {vcf_dir_path}')
 		set_export(vcf_dir_path)
 
 		# == VCF ID adjustment for private vcf run ==
@@ -102,10 +108,11 @@ def guide_prediction(args, jobtag):
 			loop_tag = f"{jobtag}_{count_tag}"
 			vcf_filename = f"{loop_tag}.vcf"
 			tagged_genomes.append(loop_tag)
-			#   => Create a copy of the VCF in the internal mEdit directory
-			launch_shell_cmd(f"cp {private_genome} {vcf_dir_path}/{vcf_filename}")
-			#   => Check VCF file compression and compress if necessary
-			compress_file(f"{vcf_dir_path}/{vcf_filename}")
+			if not user_jobtag:
+				#   => Create a copy of the VCF in the internal mEdit directory
+				launch_shell_cmd(f"cp {private_genome} {vcf_dir_path}/{vcf_filename}")
+				#   => Check VCF file compression and compress if necessary
+				compress_file(f"{vcf_dir_path}/{vcf_filename}")
 			count_tag += 1
 		#   => Add any amount of private genomes to the config file
 		config_template["vcf_id"] = tagged_genomes
@@ -115,13 +122,15 @@ def guide_prediction(args, jobtag):
 	write_yaml_to_file(cluster_template, dynamic_cluster_path)
 
 	# === Invoke SMK Pipelines ===
-	try:
-		print("Calling Guide Prediction pipeline")
-		for smk_setup_idx in range(len(allowed_rules)):
+
+	print("Calling Guide Prediction pipeline")
+	for smk_setup_idx in range(len(allowed_rules)):
+		try:
 			# --> When cluster submission is switched on,
 			launch_shell_cmd(f"snakemake "
 			                 f"--snakefile guide_prediction.smk "
 			                 f"-j {ncores} "
+			                 f"{smk_run_triggers} "
 			                 f"{allowed_rules[smk_setup_idx]} "
 			                 f"{cluster_smk_setup[smk_setup_idx]} "
 			                 f"--configfile {config_db_path} "
@@ -129,6 +138,7 @@ def guide_prediction(args, jobtag):
 			                 f"--use-conda "
 			                 f"{dryrun_setup}"
 			                 )
-
-	except subprocess.CalledProcessError as e:
-		print(f"Error: {e}")
+		except subprocess.CalledProcessError as e:
+			print(f"Error: {e}")
+		except ValueError:
+			print(f"Process completed in a previous run. Moving to the next one...")

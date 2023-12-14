@@ -78,7 +78,14 @@ def parse_arguments():
 	                    Provide the path where the "mEdit_database" 
 	                    directory was created ahead of the analysis 
 	                    using the "db_set" program. 
-	                    [default: ./mEdit_database]'''))
+	                    [default: ./mEdit_database]''')
+	                    )
+	in_out.add_argument('-j',
+	                    dest='jobtag',
+	                    help=textwrap.dedent('''
+	                    Provide the tag associated with the current mEdit job.
+	                    mEdit will generate a random jobtag by default''')
+	                    )
 	run_params = fguides_parser.add_argument_group("== mEdit Core Parameters ==")
 	run_params.add_argument(
 		'-m',
@@ -127,14 +134,14 @@ def parse_arguments():
 			Use medit.py list to access the arrays of editors currently 
 			supported in each category.
 			[1-] "clinical": a short list of clinically relevant editors 
-			that are either in pre-clinical orclinical trials.
+			that are either in pre-clinical or clinical trials.
 			[2-] "custom": select guide search parameters. This requires a
 			 separate input of parameters : ‘pam’, ‘pamISfirst’,’guidelen’
 			[3-] "user defined list": - Comma-separated list of editors''')
 	)
 	run_params.add_argument(
 		'--be',
-		dest='bemode_request',
+		dest='be_request',
 		choices=['off', 'standard', 'custom', 'user defined list'],
 		help=textwrap.dedent('''
 			Add this flag to make mEdit process base-editors. 

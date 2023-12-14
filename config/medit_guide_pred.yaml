@@ -13,8 +13,8 @@ processing_mode: ""
 
 # == RUN PARAMETERS ==
 qtype: ""
-BEmode: ""
-editor: ""
+be_request: ""
+editor_request: ""
 
 # === I/O PATHS ===
 # == DIRECTORIES ==

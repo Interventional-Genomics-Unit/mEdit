@@ -31,8 +31,8 @@ class Fetch_Guides:
 	def __init__(self,
 	             queries: list,
 	             qtype: str,
-	             editor: str | list,
-	             BEmode: str | list,
+	             editor_request: str | list,
+	             be_request: str | list,
 	             editors: dict,
 	             base_editors: dict,
 	             datadir: str,
@@ -45,9 +45,9 @@ class Fetch_Guides:
 		  --> if 'hgvs', providing the coordinates in the kwargs with 'hgvscoord' can reduce processing time
 		  --> hgvs assumes the query is already in clinvar and will generate a variant report with the gene report,
 		  --> if 'coord' then just gene report is created
-		:param editor: 'clinical', 'custom', name (list/str from editor choices)
+		:param editor_request: 'clinical', 'custom', name (list/str from editor choices)
 		--> custom must contain kwargs - pam, pamISFirst,guidelen (optional:name,win_size)
-		:param BEmode: 'off','default','all', or select BE editor for base editor choices below
+		:param be_request: 'off','default','all', or select BE editor for base editor choices below
 		:param editors: Dictionary containing information on the current set of editors supported by mEdit
 		:param base_editors: Dictionary containing information on the current set of base editors supported by mEdit
 		:param genome: genome used
@@ -62,12 +62,14 @@ class Fetch_Guides:
 		if qtype == 'coord':
 			self.queries = self.validate_coord(queries)
 		self.qtype = qtype
-		self.editor = editor
-		self.BEmode = BEmode
+		self.editor_request = editor_request
+		self.be_request = be_request
 		self.hgvscoord = None
 		self.clin_report = True
 		self.gene_report = True
 		self.kwargs = kwargs
+		self.editor_lib = editors
+		self.be_lib = base_editors
 
 		if 'hgvscoord' in kwargs.keys():
 			self.hgvscoord = self.validate_coord(kwargs['hgvscoord'])  # 'chr11:5226778C>T'
@@ -124,7 +126,7 @@ class Fetch_Guides:
 		self.search_params = self.configure_search_params()
 
 		# configure BE options
-		if self.BEmode != 'off':
+		if self.be_request != 'off':
 			self.BE_search_params = self.set_BE_params()
 		# ---------------Flags--------------------------#
 		self.clininfo_flag = False
@@ -141,26 +143,27 @@ class Fetch_Guides:
 		set paramteres for the selected editor or editors(not BE editors)
 		"""
 		# search for all guides
-		if 'clinical' == self.editor:
-			search_params = {'spCas9': ('NGG', False, 20, -2, 'SpCas9, SpCas9-HF1, eSpCas9 1.1'),
-			                      'saCas9': ('NNGRRT', False, 21, -2, 'Cas9 S. Aureus 21 base guide'),
-			                      'CasX': ('TTCN', True, 20, 18, 'plmCas12e,dltCas12e'),
-			                      'Cas12a': ('TTTV', True, 23, 22, 'LbCas12,AsCas12a')}
-
+		if self.editor_request == 'clinical':
+			# search_params = {'spCas9': ('NGG', False, 20, -2, 'SpCas9, SpCas9-HF1, eSpCas9 1.1'),
+			#                  'saCas9': ('NNGRRT', False, 21, -2, 'Cas9 S. Aureus 21 base guide'),
+			#                  'CasX': ('TTCN', True, 20, 18, 'plmCas12e,dltCas12e'),
+			#                  'Cas12a': ('TTTV', True, 23, 22, 'LbCas12,AsCas12a')}
+			search_params = self.editor_lib['clinical']
 		# set custom editor params
-		elif 'custom' == self.editor:
+		elif self.editor_request == 'custom':
 			search_params = self.set_params(self.kwargs)
 
 		# search for selected subset
-		elif type(self.editor) is list:
+		# TODO: The guide_prediction.py needs to ingest this correctly
+		elif type(self.editor_request) is list:
 			search_params = {}
-			for e in self.editor:
-				search_params[e] = self.editor_pamlib[e]
+			for e in self.editor_request:
+				search_params[e] = self.editor_lib[e]
 
 		# else use single set parameters
 		else:
-			if self.editor in self.editor_choices:
-				search_params = {self.editor: self.editor_pamlib[self.editor]}
+			if self.editor_request in self.editor_choices:
+				search_params = {self.editor_request: self.editor_pamlib[self.editor_request]}
 
 			else:
 				print('Please choose a name(s) found in the editor name choices')
@@ -195,38 +198,44 @@ class Fetch_Guides:
 		# sets base editor search params, each key is a list of 2 or more; refernce seq search params,
 		# then any set that follows starts with the conversion (ex. 'AG' is A --> G) and then the base editors that have the same params
 
-		BE_lib = {'spCas9-def': [('NGG', False, 20, [4, 8]), ('CT', 'BE'), ('AG', 'ABE')],
-		          'spCas9-BE14': [('NGG', False, 20, [4, 8]), ('CT', 'BE1|BE3|BE4|HF-BE')],
-		          'spCas9-ABE7.9': [('NGG', False, 20, [4, 9]), ('AG', 'ABE7.9')],
-		          'spCas9-ABE7.10': [('NGG', False, 20, [4, 7]), ('AG', 'ABE7.10')],
-		          'spCas9-max': [('NGG', False, 20, [4, 8]), ('CT', 'BE4max'), ('AG', 'ABEmax')],
-		          'Target-AID': [('NGG', False, 20, [2, 8]), ('CT', 'Target-AID')],
-		          'spCas9-YE1': [('NGG', False, 20, [4, 7]), ('CT', 'YE1-BE3')],
-		          'spCas9-YE': [('NGG', False, 20, [5, 6]), ('CT', 'EE-BE3|YE2-BE3|YEE-BE3')],
-		          'spCas9-VQR': [('NGA', False, 20, [4, 8]), ('CT', 'VQR-BE3'), ('AG', 'VQR-ABE')],
-		          'spCas9-VRER': [('NGCG', False, 20, [4, 8]), ('CT', 'VRER-BE3'), ('AG', 'VRER-ABE')],
-		          'saCas9-BE': [('NNGRRT', False, 21, [3, 12]), ('CT', 'SaBE3', 'SaBE4')],
-		          'saCas9-KKh-BE': [('NNNRRT', False, 21, [3, 12]), ('CT', 'Sa(KKH)-BE3')],
-		          'saCas9-KKH-ABE': [('NNGRRT', False, 21, [8, 18]), ('AG', 'ABESa', 'Sa(KKH)-ABE')]}
+		# BE_lib = {'spCas9-def': [('NGG', False, 20, [4, 8]), ('CT', 'BE'), ('AG', 'ABE')],
+		#           'spCas9-BE14': [('NGG', False, 20, [4, 8]), ('CT', 'BE1|BE3|BE4|HF-BE')],
+		#           'spCas9-ABE7.9': [('NGG', False, 20, [4, 9]), ('AG', 'ABE7.9')],
+		#           'spCas9-ABE7.10': [('NGG', False, 20, [4, 7]), ('AG', 'ABE7.10')],
+		#           'spCas9-max': [('NGG', False, 20, [4, 8]), ('CT', 'BE4max'), ('AG', 'ABEmax')],
+		#           'Target-AID': [('NGG', False, 20, [2, 8]), ('CT', 'Target-AID')],
+		#           'spCas9-YE1': [('NGG', False, 20, [4, 7]), ('CT', 'YE1-BE3')],
+		#           'spCas9-YE': [('NGG', False, 20, [5, 6]), ('CT', 'EE-BE3|YE2-BE3|YEE-BE3')],
+		#           'spCas9-VQR': [('NGA', False, 20, [4, 8]), ('CT', 'VQR-BE3'), ('AG', 'VQR-ABE')],
+		#           'spCas9-VRER': [('NGCG', False, 20, [4, 8]), ('CT', 'VRER-BE3'), ('AG', 'VRER-ABE')],
+		#           'saCas9-BE': [('NNGRRT', False, 21, [3, 12]), ('CT', 'SaBE3', 'SaBE4')],
+		#           'saCas9-KKh-BE': [('NNNRRT', False, 21, [3, 12]), ('CT', 'Sa(KKH)-BE3')],
+		#           'saCas9-KKH-ABE': [('NNGRRT', False, 21, [8, 18]), ('AG', 'ABESa', 'Sa(KKH)-ABE')]}
 
-		if self.BEmode == 'default':
-			self.BE_search_params = {'spCas9-def': BE_lib['spCas9-def']}
+		if self.be_request == 'default':
+			# self.BE_search_params = {'spCas9-def': BE_lib['spCas9-def']}
+			self.BE_search_params = self.be_lib['default']
+		elif self.be_request == 'all':
+			self.BE_search_params = self.be_lib['all']
 
-		elif self.BEmode == 'all':
-			self.BE_search_params = BE_lib
+		# TODO: Setup BE user-defined list processing
+		elif type(self.be_request) is list:
+			self.BE_search_params = {}
+			for e in self.be_request:
+				self.BE_search_params[e] = self.be_lib['all'][e]
 
 		else:
-			if self.BEmode not in self.BE_choices:
+			if self.be_request not in self.BE_choices:
 				print('That is not a valid Base Editor')
 				print(f'please choose from {self.BE_choices}')
 			else:
-				for k, v in BE_lib.values():
-					if self.BEmode in v[1][-1]:
-						self.BE_search_params = {self.BEmode: BE_lib[k][0:2]}
+				for k, v in self.be_lib['all'].values():
+					if self.be_request in v[1][-1]:
+						self.BE_search_params = {self.be_request: self.be_lib['all'][k][0:2]}
 
 					if len(v) == 3:
-						if self.BEmode in v[2][-1]:
-							self.BE_search_params = {self.BEmode: BE_lib[k][0] + BE_lib[k][2]}
+						if self.be_request in v[2][-1]:
+							self.BE_search_params = {self.be_request: self.be_lib['all'][k][0] + self.be_lib['all'][k][2]}
 
 		return self.BE_search_params
 
@@ -271,8 +280,8 @@ class Fetch_Guides:
 				tempvar = pd.read_csv(f"{self.processed_tables}/variant_tables/{ch}_variant.txt")
 				tempvar = tempvar.loc[tempvar['HGVS_Simple'].isin(list(self.queries))]
 				self.all_variant = pd.concat([self.all_variant, tempvar])
-
-		tempgene = pd.read_csv(f"{self.processed_tables}/gene_tables/gene_tables.csv.gz")
+		#TODO: The path to gene_tables will ideally be imported as a snakemake variable
+		tempgene = pd.read_csv(f"{self.processed_tables}/gene_tables/gene_tables.csv")
 		self.all_gene = tempgene.loc[tempgene['TranscriptID'].isin(list(all_tids))]
 
 		# datenow = date.today().strftime('%Y-%m-%d')
@@ -631,7 +640,7 @@ class Fetch_Guides:
 					continue
 				dh = DataHandler(query, strand, ref, alt, feature_annotation, extracted_seq, codons, coord)
 
-				if self.BEmode != 'off':
+				if self.be_request != 'off':
 					guides, BEguides = dh.get_Guides(self.search_params, self.BE_search_params)
 				else:
 					guides, BEguides = dh.get_Guides(self.search_params)
@@ -692,8 +701,8 @@ def main():
 	base_editors_path = str(snakemake.params.base_editors)
 	#   == Run Parameters ==
 	qtype = str(snakemake.params.qtype)
-	BEmode = str(snakemake.params.BEmode)
-	editor = str(snakemake.params.editor)
+	be_request = str(snakemake.params.be_request)
+	editor_request = str(snakemake.params.editor_request)
 	# == DEBUG BLOCK ==
 	# qtype = 'hgvs'
 	# BEmode = 'off'
@@ -716,8 +725,8 @@ def main():
 	INPUT VARIABLES:
 		Queries:\n{queries}
 		Query Type: {qtype}
-		BEmode: {BEmode}
-		editor: {editor}
+		be_request: {be_request}
+		editor_request: {editor_request}
 	PATH TO REFERENCE:
 		-> {fasta_path}
 	SUPPORT DATA DIRECTORY:
@@ -729,8 +738,8 @@ def main():
 	# == Get query items ==
 	fg = Fetch_Guides(queries,
 	                  qtype,
-	                  editor,
-	                  BEmode,
+	                  editor_request,
+	                  be_request,
 	                  editors,
 	                  base_editors,
 	                  datadir,
