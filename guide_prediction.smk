@@ -137,8 +137,8 @@ Wildcards in this rule:
 rule process_altgenomes:
 	input:
 		filtered_vcf = lambda wildcards: glob.glob("{meditdb_path}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.filtered.vcf.gz".format(
-			meditdb_path=config["meditdb_path"],mode=config["processing_mode"],
-			vcf_id=config["vcf_id"],sequence_id=config["sequence_id"]
+			meditdb_path=config["meditdb_path"],mode=wildcards.mode,
+			vcf_id=wildcards.vcf_id,sequence_id=wildcards.sequence_id
 		)),
 		guides_report_out= "{root_dir}/{mode}/jobs/{job_name}/guide_prediction-{sequence_id}/guides_report_ref/Guides_found.csv",
 		guide_search_params= "{root_dir}/{mode}/jobs/{job_name}/guide_prediction-{sequence_id}/dynamic_params/guide_search_params.pkl",

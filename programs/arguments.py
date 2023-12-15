@@ -142,7 +142,8 @@ def parse_arguments():
 	run_params.add_argument(
 		'--be',
 		dest='be_request',
-		choices=['off', 'standard', 'custom', 'user defined list'],
+		choices=['off', 'default', 'custom', 'user defined list'],
+		default='default',
 		help=textwrap.dedent('''
 			Add this flag to make mEdit process base-editors. 
 			[default = off]''')

@@ -49,8 +49,18 @@ def is_gzipped(file_path: str):
 
 
 def launch_shell_cmd(command: str):
-	print(f"Invoking command-line call:\n{command}")
-	subprocess.run(command, shell=True)
+	print(f"--> Invoking command-line call:\n{command}")
+	result = subprocess.run(command,
+	                        shell=True,
+	                        stderr=subprocess.PIPE,
+	                        stdout=subprocess.PIPE,
+	                        universal_newlines=True
+	                        )
+	if re.findall(r"ValueError: min\(\) arg is an empty sequence", result.stderr):
+		print("--> A consensus FASTA has already been generated for this job. Skipping.")
+	if not re.findall(r"ValueError: min\(\) arg is an empty sequence", result.stderr):
+		print(result.stderr)
+	print(result.stdout)
 
 
 def list_files_by_extension(root_path, extension: str):
@@ -82,7 +92,7 @@ def pickle_chromosomes(genome_fasta, output_dir):
 
 def set_export(outdir: str):
 	if os.path.exists(outdir):
-		print(f'The directory already exists. Skipping {outdir}')
+		print(f'--> Skipping directory creation: {outdir}')
 	# Create outdir only if it doesn't exist
 	if not os.path.exists(outdir):
 		print(f'Directory created on: {outdir}')
@@ -93,4 +103,4 @@ def set_export(outdir: str):
 def write_yaml_to_file(py_obj, filename: str):
 	with open(f'{filename}', 'w',) as f:
 		yaml.safe_dump(py_obj, f, sort_keys=False, default_style='"')
-	print(f'Configuration file sucessfully written to: {filename}')
+	print(f'--> Configuration file created: {filename}')

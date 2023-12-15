@@ -108,11 +108,10 @@ def guide_prediction(args, jobtag):
 			loop_tag = f"{jobtag}_{count_tag}"
 			vcf_filename = f"{loop_tag}.vcf"
 			tagged_genomes.append(loop_tag)
-			if not user_jobtag:
-				#   => Create a copy of the VCF in the internal mEdit directory
-				launch_shell_cmd(f"cp {private_genome} {vcf_dir_path}/{vcf_filename}")
-				#   => Check VCF file compression and compress if necessary
-				compress_file(f"{vcf_dir_path}/{vcf_filename}")
+			#   => Create a copy of the VCF in the internal mEdit directory
+			launch_shell_cmd(f"cp {private_genome} {vcf_dir_path}/{vcf_filename}")
+			#   => Check VCF file compression and compress if necessary
+			compress_file(f"{vcf_dir_path}/{vcf_filename}")
 			count_tag += 1
 		#   => Add any amount of private genomes to the config file
 		config_template["vcf_id"] = tagged_genomes
@@ -123,7 +122,7 @@ def guide_prediction(args, jobtag):
 
 	# === Invoke SMK Pipelines ===
 
-	print("Calling Guide Prediction pipeline")
+	print("# == Calling Guide Prediction pipeline == #")
 	for smk_setup_idx in range(len(allowed_rules)):
 		try:
 			# --> When cluster submission is switched on,
