@@ -13,6 +13,7 @@ from Bio.Seq import Seq
 import pickle
 # Project Modules
 from dataH import DataHandler
+from annotate import get_refseq_entry, find_snvseq_info, find_transcript_info
 
 ###############
 # Main Script with Fetch_Guides Class for running pipeline
@@ -88,38 +89,8 @@ class Fetch_Guides:
 		self.snv_info = {}  # {chrom: (id,snv_pos,ref,alt)}
 
 		##---------------libraries and keys--------------------##
-		# [editor]: pam, pamISfirst, win_size, guidelen, scoring, notes/altnames
-		# self.editor_choices = ['spCas9', 'saCas9', 'spG', 'SpRY-HighE', 'scCas9',
-		#                        'stCas9', 'iSpyMacCas9', 'CasX', 'AsCas12a', 'LbCas12a', 'Cas12c1']
 		self.editor_choices = list(editors.keys())
-
-		# self.BE_choices = ['BE1', 'BE3', 'BE2', 'HF-BE3', 'BE4', 'BE4max', 'BE4-Gam', 'YE1-BE3', 'EE-BE3', 'YE2-BE3',
-		#                    'YEE-BE3', 'VQR-BE3', 'VRER-BE3', 'SaBE3', 'SaBE4', 'SaBE4-Gam', 'Sa(KKH)-BE3', 'xBE3',
-		#                    'Target-AID',
-		#                    'ABE7.9', 'ABE7.10', 'xABE,ABESa', 'VQR-ABE', 'VRER-ABE', 'ABEsa', 'Sa(KKH)-ABE']
 		self.BE_choices = list(base_editors.keys())
-
-		# name : (pam, 5'or3'pam, gide length, approximated site of DSB site, notes )
-		# HDR most effcient within 1-7 bases outside of the DSB, so keeping this will remain standard with non-BE
-		self.editor_pamlib = {'spCas9': ('NGG', False, 20, -2, 'requirements work for SpCas9-HF1, eSpCas9 1.1'),
-		                      'fnCas9': ('NGG', False, 21, -2, 'highly specifc yet large enzyme'),
-		                      'saCas9': ('NNGRRT', False, 21, -2, 'Cas9 S. Aureus 21 base guide'),
-		                      'Nme2Cas9c': ('NNNNCC', False, 23, -2, ''),
-		                      'spG': ('NGN', False, 20, -2, '20bp-NGN - SpG'),
-		                      'SpRY-HighE': ('NRN', False, 20, -2, 'High Efficiency Pam'),
-		                      'scCas9': (
-			                      'NNGT', False, 20, -2,
-			                      '20bp-NNGT - Cas9 S. canis - high efficiency PAM, recommended'),
-		                      'stCas9': ('NNAGAA', False, 20, -2, 'Cas9 S. Thermophilus'),
-		                      'iSpyMacCas9': ('NAA', False, 20, -2, ''),
-		                      'CasX': ('TTCN', True, 20, 18, 'plmCas12e,dltCas12e'),
-		                      'AsCas12a': ('TTTV', True, 23, 22, 'TTT(A/C/G)-23bp - Cas12a (Cpf1)'),
-		                      'LbCas12a': ('TTTV', True, 23, 22, 'LbCpf1'),
-		                      'Cas12d': ('TA', True, 18, 17, 'CasY'),
-		                      'Cas12c1': ('TG', True, 23, 22, 'C2c3'),
-		                      'AacCas12b': ('TTN', True, 20, 18, ''),
-		                      'UnCas12c2': ('TN', True, 20, 18, 'only binds, does not cut')
-		                      }
 
 		## ------------Defaults and settings------------------##
 		##configure editor options
@@ -144,10 +115,6 @@ class Fetch_Guides:
 		"""
 		# search for all guides
 		if self.editor_request == 'clinical':
-			# search_params = {'spCas9': ('NGG', False, 20, -2, 'SpCas9, SpCas9-HF1, eSpCas9 1.1'),
-			#                  'saCas9': ('NNGRRT', False, 21, -2, 'Cas9 S. Aureus 21 base guide'),
-			#                  'CasX': ('TTCN', True, 20, 18, 'plmCas12e,dltCas12e'),
-			#                  'Cas12a': ('TTTV', True, 23, 22, 'LbCas12,AsCas12a')}
 			search_params = self.editor_lib['clinical']
 		# set custom editor params
 		elif self.editor_request == 'custom':
@@ -163,7 +130,7 @@ class Fetch_Guides:
 		# else use single set parameters
 		else:
 			if self.editor_request in self.editor_choices:
-				search_params = {self.editor_request: self.editor_pamlib[self.editor_request]}
+				search_params = {self.editor_request: self.editor_lib[self.editor_request]}
 
 			else:
 				print('Please choose a name(s) found in the editor name choices')
@@ -198,22 +165,7 @@ class Fetch_Guides:
 		# sets base editor search params, each key is a list of 2 or more; refernce seq search params,
 		# then any set that follows starts with the conversion (ex. 'AG' is A --> G) and then the base editors that have the same params
 
-		# BE_lib = {'spCas9-def': [('NGG', False, 20, [4, 8]), ('CT', 'BE'), ('AG', 'ABE')],
-		#           'spCas9-BE14': [('NGG', False, 20, [4, 8]), ('CT', 'BE1|BE3|BE4|HF-BE')],
-		#           'spCas9-ABE7.9': [('NGG', False, 20, [4, 9]), ('AG', 'ABE7.9')],
-		#           'spCas9-ABE7.10': [('NGG', False, 20, [4, 7]), ('AG', 'ABE7.10')],
-		#           'spCas9-max': [('NGG', False, 20, [4, 8]), ('CT', 'BE4max'), ('AG', 'ABEmax')],
-		#           'Target-AID': [('NGG', False, 20, [2, 8]), ('CT', 'Target-AID')],
-		#           'spCas9-YE1': [('NGG', False, 20, [4, 7]), ('CT', 'YE1-BE3')],
-		#           'spCas9-YE': [('NGG', False, 20, [5, 6]), ('CT', 'EE-BE3|YE2-BE3|YEE-BE3')],
-		#           'spCas9-VQR': [('NGA', False, 20, [4, 8]), ('CT', 'VQR-BE3'), ('AG', 'VQR-ABE')],
-		#           'spCas9-VRER': [('NGCG', False, 20, [4, 8]), ('CT', 'VRER-BE3'), ('AG', 'VRER-ABE')],
-		#           'saCas9-BE': [('NNGRRT', False, 21, [3, 12]), ('CT', 'SaBE3', 'SaBE4')],
-		#           'saCas9-KKh-BE': [('NNNRRT', False, 21, [3, 12]), ('CT', 'Sa(KKH)-BE3')],
-		#           'saCas9-KKH-ABE': [('NNGRRT', False, 21, [8, 18]), ('AG', 'ABESa', 'Sa(KKH)-ABE')]}
-
 		if self.be_request == 'default':
-			# self.BE_search_params = {'spCas9-def': BE_lib['spCas9-def']}
 			self.BE_search_params = self.be_lib['default']
 		elif self.be_request == 'all':
 			self.BE_search_params = self.be_lib['all']
@@ -256,12 +208,10 @@ class Fetch_Guides:
 
 	def write_guide_csv(self, guides, outfile):
 		df = pd.DataFrame(guides)
-		if 'Doench Score' in df.columns:
-			temp = df[df['Editor'] == 'spCas9'].sort_values(by='Doench Score', ascending=False)
-			df = pd.concat([temp, df[df['Editor'] != 'spCas9']]).reset_index(drop=True)
+		if 'On-Target Efficiency Score' in df.columns:
+			temp = df[df['On-Target Efficiency Score'] != '-'].sort_values(by='On-Target Efficiency Score', ascending=False)
+			df = pd.concat([temp, df[df['On-Target Efficiency Score'] == '-']]).reset_index(drop=True)
 		df['Guide_ID'] = [y + str(x) for x, y in zip(list(df.index), list(df['Guide_ID']))]
-		# nameout = 'BaseEditors_found.csv' if gtype == 'BE' else 'Guides_found.csv'
-		# datenow = date.today().strftime('%Y-%m-%d')
 		df.to_csv(outfile, index=False)
 		return df
 
@@ -296,7 +246,7 @@ class Fetch_Guides:
 			self.all_variant.to_csv(variant_out, index=False)
 
 	@staticmethod
-	def extract_seqs(searchseq, pos, alt, window=30):
+	def extract_seqs(searchseq, pos, alt, window):
 		"""
 		extracts the sequence +/-30bp surrounding a SNV then swaps ref for alt allele
 		"""
@@ -304,218 +254,22 @@ class Fetch_Guides:
 		extracted_seq = Seq(extracted_seq[0:window] + alt + extracted_seq[window + 1:]).upper()
 		return extracted_seq
 
-	def get_refseq_entry(self, term, field):
-		'''
-		Using ncbiRefSeq.txt to find cds features by either interval, gene name or transcript ID
-		example input:
-		term, field = 'NM_000532.5', 'tid'
-		term, field = 'ENST00000251654.9', 'eid'
-		term, field = 'PCCB','name'
-		term,field =  'chr3:136250339-136330169','interval'
-		'''
-
-		global entry
-		labels = ['eid', 'tid', 'chrom', 'strand', 'txStart', 'txEnd',
-		          'cdsStart', 'cdsEnd', 'exonStarts', 'exonEnds', 'name', 'exonFrames']
-
-		if field != 'interval':
-			not_found = True
-			for line in gzip.open(self.annote_path, 'rt'):
-				tokens = line.split('\t')
-				entry = dict(zip(labels, tokens))
-				if term in entry[field]:
-					not_found = False
-					break
-
-			if not_found:
-				entry = None
-				print(f"{term} not found in refseq data")
-
-				if '.' in term:
-					new_term = term.split('.')[0]
-					print(f'searching for {new_term} instead')
-					entry = self.get_refseq_entry(new_term, field)
-
-		else:  # only used for intervals search
-			not_found = True
-			ch = term.split(":")[0]
-			start, end = term.split(":")[1].split('-')
-			pos = int((int(start) + int(end)) / 2)
-
-			for line in gzip.open(self.annote_path, 'rt'):
-				tokens = line.split('\t')
-				entry = dict(zip(labels, tokens))
-				if ch == entry['chrom']:
-					if pos in range(int(entry['txStart']), int(entry['txEnd'])):
-						not_found = False
-						break
-			if not_found:
-				entry = None
-				print(f"{term} not found in refseq data")
-
-		return entry
-
-	@staticmethod
-	def find_codons(dist_from_cds_start, strand):
-		'''
-		Finds reading frame of SNV in extracted sequence
-		'''
-		rf = 1 if dist_from_cds_start % 3 == 2 else 2 if dist_from_cds_start % 3 == 0 else 0
-		return rf
-
-	@staticmethod
-	def get_cds_info(tx_seq, entry):
-		'''
-		uses entry info to find cds (without utr's)
-		'''
-		exon_starts = entry['exonStarts'][:-1].split(',')
-		exon_ends = entry['exonEnds'][:-1].split(',')
-		exon_frames = entry['exonFrames'].replace("\n", "")[:-1].split(',')
-		tx_start = int(entry['txStart'])
-
-		exons = [(int(exon_starts[i]) - tx_start, int(exon_ends[i]) - tx_start) for i in range(len(exon_ends))]
-		for i in range(len(exon_frames)):
-			if exon_frames[i] == '-1':  # -1 means entire exon is UTR
-				exons = exons[1:]
-				exon_starts = exon_starts[1:]
-			else:
-				break
-		for i in range(1, len(exon_frames)):
-			if exon_frames[-i] == '-1':
-				exons = exons[0:len(exons) - 1]
-				exon_ends = exon_ends[0:-1]
-			else:
-				break
-
-		# Determine the stop and start of UTR
-		if len(exons) > 0:
-			exons[0] = (int(entry['cdsStart']) - int(exon_starts[0]) + exons[0][0], exons[0][1])
-			exons[-1] = (exons[-1][0], exons[-1][1] - (int(exon_ends[-1]) - int(entry['cdsEnd'])))
-
-		cds = Seq(''.join([str(tx_seq)[a:b] for a, b in exons]))
-		if entry['strand'] == '-':
-			cds = cds.reverse_complement()
-		else:
-			cds = None
-			exons = None
-
-		# translation = cds.translate()
-		return [exons, tx_seq, cds]
-
-	def find_transcript_info(self, term, fasta):
-		'''
-		Using a Refseq Transcript_ID, Ensembl Transcript_ID or coordinates find transcript annotations and transcript sequence
-		from either a genome fasta path or given genome sequence
-		'''
-		# id= 'NM_000532.5' or 'ENST00000251654.9'
-		# fasta = f"/groups/clinical/projects/clinical_shared_data/hg38/hg38_chr20.fa.gz"
-		if type(fasta) == str:
-			fasta_seq = SeqIO.read(gzip.open(fasta, 'rt'), 'fasta')
-		else:
-			fasta_seq = fasta
-		field = 'eid' if term.startswith('E') else 'tid' if term.startswith('N') else 'interval'
-
-		entry = self.get_refseq_entry(term=term, field=field)
-		if entry != None:
-			tx_seq = fasta_seq.seq[int(entry['txStart']):int(entry['txEnd'])]
-			tid_info = self.get_cds_info(tx_seq, entry)
-		else:
-			tid_info = None
-		return entry, tid_info
-
-	def find_snvseq_info(self, snvpos, alt, tid_info, entry, fasta, window=30):
-		# returns - sequence,feature,translation(if needed)
-		# feature: non-coding, utr5,ut3,intron,exon, start_codon, stop_codon
-		# snvpos, alt = 11576257, 'T'
-		global dist_from_cds_start
-		seq, feature, rf = None, None, None
-
-		exons, tx_seq, cds = tid_info
-		t_snvpos = int(snvpos) - int(entry['txStart'])
-		cdstart, cdsend = int(entry['cdsStart']) - int(entry['txStart']), int(entry['txEnd']) - int(entry['txStart'])
-		strand = entry['strand']
-
-		seq = self.extract_seqs(searchseq=tx_seq, pos=t_snvpos - 1, alt=alt, window=window)
-		if len(seq) != window*2:
-			#if flanking or utr the extracted seq needs to come from the chromosome file
-			seq = self.extract_seqs(searchseq= fasta.seq[snvpos-100:snvpos+100], pos=t_snvpos - 1, alt=alt, window=window)
-
-
-
-		if t_snvpos < 0 or cds ==None:
-			# not in transcript - shouldn't happen or else no entry would be found
-			feature = 'non-coding'
-
-		else:
-			if t_snvpos in range(cdstart, cdsend + 1):
-				# in CDS
-				# find if utr
-				feature = 'intron'
-				if t_snvpos in range(cdstart, exons[0][0] + 1):
-					feature = '3utr' if strand == '-' else '5utr'
-				elif t_snvpos in range(exons[-1][1], cdsend + 1):
-					feature = '5utr' if strand == '-' else '3utr'
-
-				# find if exon or intron
-				else:
-					exon_n = 0
-					for x in exons:
-						# if in exon find reading frame
-						if t_snvpos in range(x[0], x[1] + 1):
-							# stop and start codon
-							feature = 'exon'
-							dist = sum([e[1] - e[0] for e in exons[0:exon_n]])
-							dist_from_cds_start = dist + (t_snvpos - x[0])
-
-							if strand == '-':
-								dist_from_cds_start = (len(cds) - dist_from_cds_start) + 1
-
-							if dist_from_cds_start < 3:
-								feature = 'start_codon'
-
-							if dist_from_cds_start > len(cds) - 3:
-								feature = 'stop_codon'
-
-							rf = self.find_codons(dist_from_cds_start, strand)
-							break
-						exon_n += 1
-			else:
-				# in transcript but not in cds
-				seq = str(seq)
-
-				if len(SeqUtils.nt_search(seq[window - 6:window + 5], 'TTTATT')) > 1 or len(
-						SeqUtils.nt_search(seq[window - 6:window + 5], 'AATAAA')) > 1:
-					feature = 'polya'
-				elif len(SeqUtils.nt_search(seq[window - 6:window + 5], 'TATAAA')) > 1 or len(
-						SeqUtils.nt_search(seq[window - 6:window + 5], 'ATATTT')) > 1:
-					feature = 'promoter'
-				elif len(SeqUtils.nt_search(seq[window - 7:], 'GGNCAATCT')) > 1:
-					if len(SeqUtils.nt_search(seq[window - 7:window + 6], 'GGNCAATCT')) > 1:
-						feature = 'promoter'
-					else:
-						feature = 'TSS'
-				elif len(SeqUtils.nt_search(seq[window + 6:], 'AGATTGNCC')) > 1:
-					if len(SeqUtils.nt_search(seq[window - 7: window + 6], 'AGATTGNCC')) > 1:
-						feature = 'promoter'
-					else:
-						feature = 'TSS'
-				else:
-					feature = 'flanking'
-
-		return seq, feature, rf
+	def get_chroms(self,queries):
+		hgvs_tab = pd.read_csv(self.HGVSlookup_path)
+		q_prefixes = [x.split(':')[0] for x in queries]
+		chroms = set(hgvs_tab.loc[hgvs_tab['TranscriptID'].isin(q_prefixes), 'Chr'])
+		return chroms
 
 	def fetch_query_info(self):
 		# Gets Transcript info
 		global term
 		snv_info = {}
+		window = 50
 
 		# If quering by HGVSID with no other info then need to get chromsome/location/alt/ref
 		if self.qtype == 'hgvs' and self.hgvscoord is None:
 			print("Looking up HGVS in Clinvar.......")
-
-			hgvs_tab = pd.read_csv(self.HGVSlookup_path)
-			q_prefixes = [x.split(':')[0] for x in self.queries]
-			chroms = set(hgvs_tab.loc[hgvs_tab['TranscriptID'].isin(q_prefixes), 'Chr'])
+			chroms = self.get_chroms(self.queries)
 
 			for ch in chroms:
 				df = pd.read_csv(f"{self.processed_tables}/variant_tables/{ch}_variant.txt", low_memory=False)
@@ -567,17 +321,27 @@ class Fetch_Guides:
 					term = query.split(':')[0]
 				if self.qtype == 'coord':  # else use coordsinates to search trancript
 					term = f"chr{str(ch)}:{str(snvpos)}-{str(snvpos)}"
-				entry, tid_info = self.find_transcript_info(term=term, fasta=fasta)
+				entry, tid_info = find_transcript_info(term=term, fasta=fasta, annote_path = self.annote_path)
+
 				if entry is not None:
-					extracted_seq, feature_annotation, codons = self.find_snvseq_info(snvpos, alt, tid_info, entry,fasta,
-					                                                                  window=30)
+					exons, tx_seq, cds = tid_info
+					t_snvpos = int(snvpos) - int(entry['txStart'])
+					extracted_seq = self.extract_seqs(searchseq=tx_seq, pos=t_snvpos - 1, alt=alt, window=window)
+					if len(extracted_seq) != window * 2:
+						# if flanking or utr the extracted seq needs to come from the chromosome file
+						extracted_seq = self.extract_seqs(searchseq=fasta.seq[snvpos - 100:snvpos + 100], pos=t_snvpos - 1,
+												alt=alt,
+												window=window)
+
+					feature_annotation, codons = find_snvseq_info(extracted_seq,snvpos,exons, cds, entry,window)
 					strand = entry['strand']
 					tid, eid = entry['tid'], entry['eid']
+
 				else:
 					feature_annotation = 'undetermined/non-coding'
 					codons = 'None'
 					strand = '+'
-					extracted_seq = self.extract_seqs(fasta.seq, snvpos, alt, window=30)
+					extracted_seq = self.extract_seqs(searchseq=fasta.seq, pos=snvpos, alt=alt, window=window)
 					tid, eid = term, '-'
 				new_data.append(
 					[query, tid, eid, strand, ref, alt, feature_annotation, extracted_seq, codons,
@@ -673,6 +437,8 @@ class Fetch_Guides:
 
 		if len(self.all_BE.keys()) != 0:
 			BEdf = self.write_guide_csv(self.all_BE, outfile_be_guides)
+			self.clininfo_flag = True
+
 		return {'all_variant': self.all_variant,
 		        'all_gene': self.all_gene,
 		        'guide_table': guidedf,

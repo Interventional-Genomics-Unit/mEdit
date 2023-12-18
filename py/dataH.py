@@ -1,7 +1,7 @@
 from Bio.Seq import Seq
 from Bio import SeqUtils
-import math
 from Bio.SeqUtils import seq3
+from scoring import azimuth, oofscore
 
 
 class DataHandler:
@@ -43,36 +43,14 @@ class DataHandler:
 
         # outputs
         self.guides_found = {'QueryTerm': [], 'Editor': [], 'Guide_ID': [], 'Coordinates': [],
-                             'Strand': [], 'gRNA': [],
-                             'Pam': [], 'Doench Score': [],
-                             'SNV Position': [], 'Ref>Alt': [], 'Annotation': []}
+                             'Strand': [], 'gRNA': [], 'Pam': [], 'SNV Position': [],
+                             'On-Target Efficiency Score': [], 'OOF Score':[],'Ref>Alt': [], 'Annotation': []}
 
         self.BEguides_found = {'QueryTerm': [], 'Base Editor': [], 'Guide_ID': [], 'Coordinates': [],
-                               'gRNA': [], 'Pam': [], 'SNV Position': [], 'Strand': [],
-                               'Reference (Codon>AA)': [], 'Alternate (Codon>AA)': [], 'BE Converted (Codon>AA)': [],
+                               'Strand': [],'gRNA': [], 'Pam': [], 'SNV Position': [],
+                               'Hg38 Reference (Codon>AA)': [], 'Alternate (Codon>AA)': [], 'BE Converted (Codon>AA)': [],
                                'Conversion Type': [], 'Bystander': [], 'Annotation': []}
 
-        # tables and dictionaries
-        self.doenchParams = [
-            # pasted/typed table from PDF and converted to zero-based positions
-            (1, 'G', -0.2753771), (2, 'A', -0.3238875), (2, 'C', 0.17212887), (3, 'C', -0.1006662),
-            (4, 'C', -0.2018029), (4, 'G', 0.24595663), (5, 'A', 0.03644004), (5, 'C', 0.09837684),
-            (6, 'C', -0.7411813), (6, 'G', -0.3932644), (11, 'A', -0.466099), (14, 'A', 0.08537695),
-            (14, 'C', -0.013814), (15, 'A', 0.27262051), (15, 'C', -0.1190226), (15, 'T', -0.2859442),
-            (16, 'A', 0.09745459), (16, 'G', -0.1755462), (17, 'C', -0.3457955), (17, 'G', -0.6780964),
-            (18, 'A', 0.22508903), (18, 'C', -0.5077941), (19, 'G', -0.4173736), (19, 'T', -0.054307),
-            (20, 'G', 0.37989937), (20, 'T', -0.0907126), (21, 'C', 0.05782332), (21, 'T', -0.5305673),
-            (22, 'T', -0.8770074), (23, 'C', -0.8762358), (23, 'G', 0.27891626), (23, 'T', -0.4031022),
-            (24, 'A', -0.0773007), (24, 'C', 0.28793562), (24, 'T', -0.2216372), (27, 'G', -0.6890167),
-            (27, 'T', 0.11787758), (28, 'C', -0.1604453), (29, 'G', 0.38634258), (1, 'GT', -0.6257787),
-            (4, 'GC', 0.30004332), (5, 'AA', -0.8348362), (5, 'TA', 0.76062777), (6, 'GG', -0.4908167),
-            (11, 'GG', -1.5169074), (11, 'TA', 0.7092612), (11, 'TC', 0.49629861), (11, 'TT', -0.5868739),
-            (12, 'GG', -0.3345637), (13, 'GA', 0.76384993), (13, 'GC', -0.5370252), (16, 'TG', -0.7981461),
-            (18, 'GG', -0.6668087), (18, 'TC', 0.35318325), (19, 'CC', 0.74807209), (19, 'TG', -0.3672668),
-            (20, 'AC', 0.56820913), (20, 'CG', 0.32907207), (20, 'GA', -0.8364568), (20, 'GG', -0.7822076),
-            (21, 'TC', -1.029693), (22, 'CG', 0.85619782), (22, 'CT', -0.4632077), (23, 'AA', -0.5794924),
-            (23, 'AG', 0.64907554), (24, 'AG', -0.0773007), (24, 'CG', 0.28793562), (24, 'TG', -0.2216372),
-            (26, 'GT', 0.11787758), (28, 'GG', -0.69774)]
 
     def set_guide_search_params(self, pam, pamISfirst, win_size, scoring, guidelen):
         self.pam = pam
@@ -80,35 +58,6 @@ class DataHandler:
         self.win_size = win_size
         self.scoring = scoring
         self.guidelen = guidelen
-
-    def calcDoenchScores(self, seq):
-        """
-        Input is a 30mer: 4bp 5', 20bp guide, 3bp PAM, 3bp 5'
-        """
-        global gcWeight
-        intercept = 0.59763615
-        gcHigh = -0.1665878
-        gcLow = -0.2026259
-
-        assert (len(seq) == 30)
-        score = intercept
-        guideSeq = seq[4:24]
-        gcCount = guideSeq.count("G") + guideSeq.count("C")
-
-        if gcCount <= 10:
-            gcWeight = gcLow
-        if gcCount > 10:
-            gcWeight = gcHigh
-
-        score += abs(10 - gcCount) * gcWeight
-
-        for pos, modelSeq, weight in self.doenchParams:
-            subSeq = seq[pos:pos + len(modelSeq)]
-            if subSeq == modelSeq:
-                score += weight
-        score = int(100 * (1.0 / (1.0 + math.exp(-score))))
-
-        return score
 
     def find_codon(self, snv_rel_pos):
         if self.strand == '+':
@@ -156,16 +105,14 @@ class DataHandler:
         snv_rel_pos = len(self.extracted_seq) / 2
 
         for i in range(len(guides)):
-            editor, guide, pam_found, guide_strand, snvpos, score, start, end = guides[i]
+            editor, guide, pam_found, guide_strand, snvpos, on_score, oof_score, start, end = guides[i]
 
             target_bases = Seq(guide[win_size[0] - 1:win_size[1] + 1])  # Bases inside 4-8 window
 
             # Converted case
             convert = str(conversion[1])
             bystander = target_bases.count(conversion[0]) - 1
-            print(guide)
-            print(bystander, target_bases, conversion, win_size)
-            if self.annotation != 'exon':
+            if self.annotation not in ['exon','start_codon','stop_codon']:
                 ctype = 'NA'
                 self.add_BEguides(name,
                                   guide,
@@ -221,12 +168,13 @@ class DataHandler:
                                   ctype,
                                   bystander)
 
-    def add_guides(self, name, guide, pam_found, strand, snvpos, score, start, end):
+    def add_guides(self, name, guide, pam_found, strand, snvpos, on_score,oof_score,start,end):
         self.guides_found['QueryTerm'].append(self.query)
         self.guides_found['Editor'].append(name)
         self.guides_found['Guide_ID'].append(f'{name}_')
         self.guides_found['Coordinates'].append(f'{self.chrom}:{start}-{end}')
-        self.guides_found['Doench Score'].append(score)
+        self.guides_found['On-Target Efficiency Score'].append(on_score)
+        self.guides_found['OOF Score'].append(oof_score)
         self.guides_found['Strand'].append(strand)
         self.guides_found['Pam'].append(str(pam_found))
         self.guides_found['gRNA'].append(str(guide))
@@ -243,20 +191,19 @@ class DataHandler:
         self.BEguides_found['Pam'].append(str(pam_found))
         self.BEguides_found['SNV Position'].append(snvpos)
         self.BEguides_found['Strand'].append(strand)
-        self.BEguides_found['Reference (Codon>AA)'].append(ref)
+        self.BEguides_found['Hg38 Reference (Codon>AA)'].append(ref)
         self.BEguides_found['Alternate (Codon>AA)'].append(alt)
         self.BEguides_found['BE Converted (Codon>AA)'].append(convert)
         self.BEguides_found['Conversion Type'].append(ctype)
         self.BEguides_found['Bystander'].append(bystander)
         self.BEguides_found['Annotation'].append(self.annotation)
 
-    def get_guide_set(self, name, pam, pamISfirst,scoring, win_size, guidelen, BEmode):
+    def get_guide_set(self, name, pam, pamISfirst, win_size, guidelen, BEmode):
         """
         :param name:
         :param pam: pam seq ex:'NGG'
         :param pamISfirst: 5'or3'PAM ex:True/False
         :param win_size: list containing upper and lower limits of the targetable window. Ex:[4,8]
-        :param score: Boolean Optional Deonch scoring used for spCas9 only
         :param search window: intial search + or - SNV site
         :param guidelen: guide without pam length
         :return: Guide Dictionary
@@ -265,7 +212,7 @@ class DataHandler:
         pamlen = len(pam)
         sitelen = guidelen + pamlen
         snv_rel_pos = int(len(self.extracted_seq)/2)
-
+        on_score, oof_score = '-','-'
         if BEmode:
             win_size = [win_size[0] - guidelen -1,win_size[1] -guidelen-1]
 
@@ -281,43 +228,46 @@ class DataHandler:
 
             for i in pam_index:
                 if i in range(pam_min, pam_max + 1):
+
                     if not pamISfirst:  # 3' PAM
                         target_start = i - guidelen
                         guide = search_seq[i - guidelen:i]
+                        if not BEmode:
+                            if pam == 'NGG' and guidelen == 20:
+                                #Azmith only accurate for NGG pams
+                                on_score = azimuth(cas9_sites = [str(search_seq[target_start -3:target_start + sitelen + 4])])[0]
+                            #oof_score use only for DSB
+                            mh_score, oof_score = oofscore(str(search_seq[target_start -20:target_start + sitelen + 20]))
+                            print(oof_score,mh_score)
                         pam_found = str(search_seq[i:i + pamlen])
-                        if scoring == 'doench':
-                            score = self.calcDoenchScores(search_seq[target_start -3:target_start + sitelen + 4])
-                        else:
-                            score = '-'
+
                     else:
                         target_start = i + pamlen
                         guide = search_seq[target_start: i + sitelen]
                         pam_found = search_seq[i:target_start]
-                        score = '-'
 
                     snvpos = snv_rel_pos - target_start
                     start = self.SNV_chr_pos - snvpos
                     end = start + sitelen
 
-                    guides.append([name, guide, pam_found, search_strand, snvpos, score, start, end])
+                    guides.append([name, guide, pam_found, search_strand, snvpos, on_score, oof_score, start, end])
 
                     if not BEmode:
-                        self.add_guides(name, guide, pam_found, search_strand, snvpos, score, start, end)
+                        self.add_guides(name, guide, pam_found, search_strand, snvpos, on_score, oof_score, start, end)
         return guides
 
     def get_Guides(self, search_params, BEsearch_params=None):
+
         for name, params, in search_params.items():
-            scoring = 'doench' if name == 'spCas9' else None
             pam, pamISfirst, guidelen, dsb_loc = params[0:4]
             win_size = [int(dsb_loc)-7, int(dsb_loc)+7]
-            guides = self.get_guide_set(name, pam, pamISfirst, scoring, win_size, guidelen, BEmode=False)
+            guides = self.get_guide_set(name, pam, pamISfirst,win_size, guidelen, BEmode=False)
 
         # if BE mode is on
         if BEsearch_params is not None:
             for k, params, in BEsearch_params.items():
-                scoring = None
                 pam, pamISfirst, guidelen, win_size = params[0][0], params[0][1], params[0][2], params[0][3]
-                bguides = self.get_guide_set(k, pam, pamISfirst, scoring, win_size, guidelen, BEmode=True)
+                bguides = self.get_guide_set(k, pam, pamISfirst, win_size, guidelen, BEmode=True)
 
                 # if guides are found sep neg and pos strand guides
                 if len(bguides) > 0:
@@ -353,16 +303,8 @@ fasta_path ="/groups/clinical/projects/clinical_shared_data/hg38/hg38.fa.gz"
 
 search_params= {'spCas9': ('NGG', False, 20, -2, 'Sp Cas9, SpCas9-HF1, eSpCas9 1.1'),
                 'saCas9': ('NNGRRT', False,21, -2, 'Cas9 S. Aureus 21 base guide'),
-                #'spG': ('NGN', False, 20, -2, '20bp-NGN - SpG'),
-                #'SpRY-HighE': ('NRN', False,20, -2, 'High Efficiency Pam'),
-                #'scCas9':('NNGT',False,20,-2,'20bp-NNGT - Cas9 S. canis - high efficiency PAM, recommended'),
-                #'stCas9': ('NNAGAA', False,20, -2, 'Cas9 S. Thermophilus'),
-                #'iSpyMacCas9': ('NAA', False,20, -2, ''),
                 'CasX': ('TTCN', True, 20, 18, 'Cas12e'),
-                'AsCas12a': ('TTTV', True, 23, 22, 'TTT(A/C/G)-23bp - Cas12a (Cpf1)'),
-                'LbCas12a': ('TTTV', True, 23, 22, 'LbCpf1'),
-                #'Cas12c1': ('TG', True, 23, 22, 'C2c3')}
-
+                'AsCas12a': ('TTTV', True, 23, 22, 'TTT(A/C/G)-23bp - Cas12a (Cpf1)')}
 BE_search_params = {'spCas9-def': [('NGG', False, 20, [4, 8]), ('CT', 'BE3', 'BE4', 'BE4max', 'BE4-Gam'), ('AG', 'ABE7.9', 'ABE7.10', 'ABEmax')]}
 
 snv_info = {'11': [['NM_000518.5:c.114G>A', '-', 'C', 'T', 'exon', Seq('ATCCCCAAAGGACTCAAAGAACCTCTGGGTTCAAGGGTAGACCACCAGCAGCCTAAGGGT'), -2, 'chr11:5226778']], 
