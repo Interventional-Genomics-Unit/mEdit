@@ -26,7 +26,7 @@ def parse_arguments():
 	parser.add_argument('-d',
 	                    dest='db_from',
 	                    default='clinvar',
-	                    choices=['clinvar', 'gene'],
+	                    choices=['clinvar', 'gene','snp'],
 	                    help='The NCBI database where the IDs in the input list will be matched against')
 	parser.add_argument('-l',
 	                    dest='login_email',

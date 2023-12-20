@@ -238,7 +238,7 @@ class DataHandler:
                                 on_score = azimuth(cas9_sites = [str(search_seq[target_start -3:target_start + sitelen + 4])])[0]
                             #oof_score use only for DSB
                             mh_score, oof_score = oofscore(str(search_seq[target_start -20:target_start + sitelen + 20]))
-                            print(oof_score,mh_score)
+
                         pam_found = str(search_seq[i:i + pamlen])
 
                     else:
