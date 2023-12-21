@@ -34,6 +34,7 @@ def guide_prediction(args, jobtag):
 	# == Define dynamic SMK call variables ==
 	allowed_rules = ['']
 	cluster_smk_setup = ['']
+	smk_verbosity = [True]
 	smk_run_triggers = ''
 	dryrun_setup = ''
 	# ->=== INPUT CHECKS ===<-
@@ -48,6 +49,7 @@ def guide_prediction(args, jobtag):
 		cluster_smk_setup = ['', '--cluster "sbatch -t {cluster.time} -n {cluster.cores}" '
 		                         '--cluster-config config/medit_cluster.yaml']
 		allowed_rules = ['--until "consensus_fasta"', '']
+		smk_verbosity = [False, True]
 	#   == Check the dry run request
 	if dry_run:
 		dryrun_setup = '-n'
@@ -111,7 +113,7 @@ def guide_prediction(args, jobtag):
 			tagged_genomes.append(loop_tag)
 			if not file_exists(f"{vcf_dir_path}/{vcf_filename}"):
 				#   => Create a copy of the VCF in the internal mEdit directory
-				launch_shell_cmd(f"cp {private_genome} {vcf_dir_path}/{vcf_filename}")
+				launch_shell_cmd(f"cp {private_genome} {vcf_dir_path}/{vcf_filename}", True)
 				#   => Check VCF file compression and compress if necessary
 				compress_file(f"{vcf_dir_path}/{vcf_filename}")
 			count_tag += 1
@@ -129,7 +131,7 @@ def guide_prediction(args, jobtag):
 		try:
 			# --> When cluster submission is switched on,
 			launch_shell_cmd(f"snakemake "
-			                 f"--snakefile guide_prediction.smk "
+			                 f"--snakefile smk/guide_prediction.smk "
 			                 f"-j {ncores} "
 			                 f"{smk_run_triggers} "
 			                 f"{allowed_rules[smk_setup_idx]} "
@@ -137,7 +139,8 @@ def guide_prediction(args, jobtag):
 			                 f"--configfile {config_db_path} "
 			                 f"{dynamic_config_path} "
 			                 f"--use-conda "
-			                 f"{dryrun_setup}"
+			                 f"{dryrun_setup}",
+			                 smk_verbosity[smk_setup_idx]
 			                 )
 		except subprocess.CalledProcessError as e:
 			print(f"Error: {e}")

@@ -46,25 +46,41 @@ def file_exists(file_path):
 	return os.path.exists(file_path)
 
 
+def handle_shell_exception(subprocess_result, shell_command, verbose: bool):
+	# === Handle SMK exceptions through subprocess
+	#   == Unlock directory if necessary for SMK run
+	if re.findall("Directory cannot be locked.", subprocess_result.stdout):
+		print("--> Target directory locked. Unlocking...")
+		unlock_smk_command = f"{shell_command} --unlock"
+		launch_shell_cmd(unlock_smk_command, verbose)
+		launch_shell_cmd(shell_command, verbose)
+		return
+	#   == Skipping rule call that has already been completed
+	if re.findall(r"ValueError: min\(\) arg is an empty sequence", subprocess_result.stderr):
+		print("--> A consensus FASTA has already been generated for this job. Skipping.")
+		return
+	if not re.findall(r"ValueError: min\(\) arg is an empty sequence", subprocess_result.stderr):
+		if verbose:
+			print(subprocess_result.stderr)
+			prGreen(subprocess_result.stdout)
+		return
+
+
 def is_gzipped(file_path: str):
 	with open(file_path, 'rb') as f:
 		# Check if the file starts with the gzip magic bytes
 		return f.read(2) == b'\x1f\x8b'
 
 
-def launch_shell_cmd(command: str):
-	print(f"--> Invoking command-line call:\n{command}")
+def launch_shell_cmd(command: str, verbose: bool):
+	prCyan(f"--> Invoking command-line call:\n{command}")
 	result = subprocess.run(command,
 	                        shell=True,
 	                        stderr=subprocess.PIPE,
 	                        stdout=subprocess.PIPE,
 	                        universal_newlines=True
 	                        )
-	if re.findall(r"ValueError: min\(\) arg is an empty sequence", result.stderr):
-		print("--> A consensus FASTA has already been generated for this job. Skipping.")
-	if not re.findall(r"ValueError: min\(\) arg is an empty sequence", result.stderr):
-		print(result.stderr)
-	print(result.stdout)
+	handle_shell_exception(result, command, verbose)
 
 
 def list_files_by_extension(root_path, extension: str):
@@ -92,6 +108,14 @@ def pickle_chromosomes(genome_fasta, output_dir):
 			with open(outfile, 'ab') as gfile:
 				print(f"Serializing chromosome {record.id}")
 				pickle.dump(record, gfile)
+
+
+def prCyan(skk):
+	print("\033[96m {}\033[00m" .format(skk))
+
+
+def prGreen(skk):
+	print("\033[92m {}\033[00m" .format(skk))
 
 
 def set_export(outdir: str):
