@@ -42,6 +42,10 @@ def date_tag():
 	return formatted_date
 
 
+def file_exists(file_path):
+	return os.path.exists(file_path)
+
+
 def is_gzipped(file_path: str):
 	with open(file_path, 'rb') as f:
 		# Check if the file starts with the gzip magic bytes
