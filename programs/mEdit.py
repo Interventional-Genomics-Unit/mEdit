@@ -2,9 +2,9 @@
 # == Installed Modules ==
 # == Project Modules ==
 from programs.guide_prediction import guide_prediction as guide_prediction
-from programs.db_set import dbset as db_set
-from programs.arguments import parse_arguments as parse_arguments
-from programs.medit_lib import date_tag as date_tag
+from programs import dbset as db_set
+from programs import parse_arguments as parse_arguments
+from programs import date_tag as date_tag
 
 
 def main():

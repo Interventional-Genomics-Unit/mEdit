@@ -1,6 +1,5 @@
 # == Native Modules ==
 from os.path import abspath
-import subprocess
 # == Installed Modules ==
 import yaml
 # == Project Modules ==
