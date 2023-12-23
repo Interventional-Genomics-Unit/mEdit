@@ -5,13 +5,13 @@ import sys
 # == Installed Modules ==
 import yaml
 # == Project Modules ==
-from programs.medit_lib import (compress_file,
-                                file_exists,
-                                launch_shell_cmd,
-                                parse_editor_request,
-                                set_export,
-                                write_yaml_to_file
-                                )
+from prog.medit_lib import (compress_file,
+                            file_exists,
+                            launch_shell_cmd,
+                            parse_editor_request,
+                            set_export,
+                            write_yaml_to_file
+                            )
 
 
 def guide_prediction(args, jobtag):

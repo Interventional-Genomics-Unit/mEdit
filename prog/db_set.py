@@ -3,11 +3,11 @@ from os.path import abspath
 # == Installed Modules ==
 import yaml
 # == Project Modules ==
-from programs.medit_lib import (launch_shell_cmd,
-                                list_files_by_extension,
-                                pickle_chromosomes,
-                                set_export,
-                                write_yaml_to_file)
+from prog.medit_lib import (launch_shell_cmd,
+                            list_files_by_extension,
+                            pickle_chromosomes,
+                            set_export,
+                            write_yaml_to_file)
 
 
 def dbset(args):
