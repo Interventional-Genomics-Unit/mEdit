@@ -12,13 +12,14 @@ def main():
 	args = parse_arguments()
 	# mEdit Program
 	program = args.program
-	jobtag = args.jobtag
-	args.user_jobtag = True
 	# Assign jobtag and run mode to config
-	if not jobtag:
+	try:
+		jobtag = args.jobtag
+	except AttributeError:
 		jobtag = date_tag()
 		args.user_jobtag = False
-
+	args.user_jobtag = True
+	# Run mEdit Programs
 	if program == "guide_prediction":
 		guide_prediction(args, jobtag)
 
