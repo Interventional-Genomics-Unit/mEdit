@@ -13,7 +13,8 @@ from Bio.Seq import Seq
 import pickle
 # Project Modules
 from dataH import DataHandler
-from annotate import get_refseq_entry, find_snvseq_info, find_transcript_info
+from annotate import Transcript
+
 
 ###############
 # Main Script with Fetch_Guides Class for running pipeline
@@ -55,7 +56,6 @@ class Fetch_Guides:
 		:param datadir: folder where tables and pre-computed data live
 		:param fasta_path: *Unsure using chromsome seperate files right now but unsure if this will be permenant
 		:param kwargs: 'hgvscoord' , 'clin_report','gene_report'
-
 		"""
 		##-----------------User Inputs--------------------##
 		if qtype == 'hgvs':
@@ -65,15 +65,12 @@ class Fetch_Guides:
 		self.qtype = qtype
 		self.editor_request = editor_request
 		self.be_request = be_request
-		self.hgvscoord = None
 		self.clin_report = True
 		self.gene_report = True
 		self.kwargs = kwargs
 		self.editor_lib = editors
 		self.be_lib = base_editors
 
-		if 'hgvscoord' in kwargs.keys():
-			self.hgvscoord = self.validate_coord(kwargs['hgvscoord'])  # 'chr11:5226778C>T'
 		if 'gene_report' in kwargs.keys():
 			self.gene_report = kwargs['gene_report']
 		if 'clin_report' in kwargs.keys():
@@ -84,6 +81,7 @@ class Fetch_Guides:
 		self.HGVSlookup_path = f"{self.processed_tables}/HGVSlookup.csv"
 		self.fasta_path = fasta_path
 		self.annote_path = annote_path
+		self.window = 50
 
 		# other variables
 		self.snv_info = {}  # {chrom: (id,snv_pos,ref,alt)}
@@ -107,6 +105,7 @@ class Fetch_Guides:
 		self.all_gene = pd.DataFrame()
 		self.all_guides = {}
 		self.all_BE = {}
+		self.not_found = {}
 
 
 	def configure_search_params(self):
@@ -245,12 +244,16 @@ class Fetch_Guides:
 			print(f"\nREADY TO PRINT VARIANT OUT TO: {variant_out}\n")
 			self.all_variant.to_csv(variant_out, index=False)
 
+	def add_not_found(self,nfqueries,reason):
+		for nf in nfqueries:
+			self.not_found[nf] = reason
+
 	@staticmethod
-	def extract_seqs(searchseq, pos, alt, window):
+	def extract_seqs(searchseq, pos, alt,window):
 		"""
 		extracts the sequence +/-30bp surrounding a SNV then swaps ref for alt allele
 		"""
-		extracted_seq = str(searchseq[pos - window:pos + window])
+		extracted_seq = str(searchseq[pos -window:pos + window])
 		extracted_seq = Seq(extracted_seq[0:window] + alt + extracted_seq[window + 1:]).upper()
 		return extracted_seq
 
@@ -262,51 +265,49 @@ class Fetch_Guides:
 
 	def fetch_query_info(self):
 		# Gets Transcript info
-		global term
-		snv_info = {}
-		window = 50
 
 		# If quering by HGVSID with no other info then need to get chromsome/location/alt/ref
-		if self.qtype == 'hgvs' and self.hgvscoord is None:
+		if self.qtype == 'hgvs':
 			print("Looking up HGVS in Clinvar.......")
 			chroms = self.get_chroms(self.queries)
 
 			for ch in chroms:
 				df = pd.read_csv(f"{self.processed_tables}/variant_tables/{ch}_variant.txt", low_memory=False)
 				gadf = df.loc[df['HGVS_Simple'].isin(self.queries)]
-				snv_info[ch] = gadf[['HGVS_Simple', 'PositionVCF', 'RefAlleleVCF', 'AltAlleleVCF']].to_dict('tight')[
-					'data']
+				self.snv_info[ch] = gadf[['HGVS_Simple', 'PositionVCF', 'RefAlleleVCF', 'AltAlleleVCF']].to_dict('tight')['data']
+			found = []
+			for k in self.snv_info.keys():
+				for v in self.snv_info[k]:
+					found.append(v[0])
+			notfound = list(set(self.queries).difference(set(found)))
+			self.add_not_found(notfound, 'hgvs not found in clinvar')
 
 		# Else All information is given to find transcript info
 		else:
-			coords = self.queries if self.qtype == 'coord' else self.hgvscoord
 
 			coord_fmt = r'chr[0-9MTXY]*:(\d*)([ATCG]{1})\>([ATCG]{1})'
+			for query in self.queries:
+				ch = query.split(':')[0].replace('chr', '')
+				if ch not in self.snv_info.keys():
+					self.snv_info[ch] = []
+				snvpos, alt, ref = list(re.search(coord_fmt, query).groups())
+				self.snv_info[ch].append([query, int(snvpos), alt, ref])
 
-			print(f"\n BUG INSPECTION \n Coords: {coords}\n Queries: {self.queries}\n")
-			print(f"PREMISSAS:\n Qtype: {self.qtype}\n Hgvs Coord: {self.hgvscoord}")
-			for x in range(len(self.queries)):
-				print(f" Current Query: {x}\n")
-				ch = coords[x].split(':')[0].replace('chr', '')
-				if ch not in snv_info.keys():
-					snv_info[ch] = []
-				snvpos, alt, ref = list(re.search(coord_fmt, coords[x]).groups())
-				snv_info[ch].append([self.queries[x], int(snvpos), alt, ref])
+	def find_transcript_info(self):
 
-		self.snv_info = snv_info
+		print("Gathering Variant Genomic Info from RefSeq file.......")
 
-		print("Gathering Variant Genomic Info.......")
+		for ch, data in self.snv_info.items():  # find transcript info
+			new_data = []
+			snvcoords = [f'chr{ch}:{d[1]}-{d[1]}' for d in data]
+			Transcript.load_transcripts(self.annote_path, snvcoords)
 
-		for ch, data in snv_info.items():  # find transcript info
 			# === Transitioning SeqIO.read to direct import of Pickled SeqRecord Objects ===
-			# chr_fasta_path = self.fasta_path.replace('.fa.gz', f'_chr{str(ch)}.fa.gz')
 			chr_fasta_path = f"{self.fasta_path}/chr{str(ch)}.pkl"
 			try:
 				print(f"Finding transcripts information: Assessing {chr_fasta_path}")
-				# fasta = SeqIO.read(gzip.open(chr_fasta_path, 'rt'), 'fasta')
 				with open(chr_fasta_path, 'rb') as pfile:
 					fasta = pickle.load(pfile)
-				new_data = []
 			except FileNotFoundError:
 				print(f"The file {chr_fasta_path} was not found. Please regenerate background data and check the target directory")
 				continue
@@ -315,42 +316,40 @@ class Fetch_Guides:
 				continue
 
 			for d in data:
+
 				query, snvpos, ref, alt = d
 				print(query, ref, alt, snvpos)
-				if self.qtype == 'hgvs':  # pull refseqID from HGVS and search transcript by this
-					term = query.split(':')[0]
-				if self.qtype == 'coord':  # else use coordsinates to search trancript
-					term = f"chr{str(ch)}:{str(snvpos)}-{str(snvpos)}"
-				entry, tid_info = find_transcript_info(term=term, fasta=fasta, annote_path = self.annote_path)
+				snvcoord = f'chr{ch}:{d[1]}-{d[1]}'
+				tx = Transcript.transcript(snvcoord)
 
-				if entry is not None:
-					exons, tx_seq, cds = tid_info
-					t_snvpos = int(snvpos) - int(entry['txStart'])
-					extracted_seq = self.extract_seqs(searchseq=tx_seq, pos=t_snvpos - 1, alt=alt, window=window)
-					if len(extracted_seq) != window * 2:
+				if tx == 'intergenic':
+					tid, eid = '-', '-'
+					feature_annotation = tx
+					rf, strand = 'None', '+'
+					extracted_seq = self.extract_seqs(searchseq=fasta.seq, pos=snvpos, alt=alt,window = self.window)
+
+
+				else:
+					eid, tid, gname, strand, txstart = tx.tx_info()
+					tx_seq = tx.get_tx_seq(fasta)
+					t_snvpos = int(snvpos) - int(txstart)
+					extracted_seq = self.extract_seqs(searchseq=tx_seq, pos=t_snvpos - 1, alt=alt, window=self.window)
+
+					if len(extracted_seq) != self.window * 2:
 						# if flanking or utr the extracted seq needs to come from the chromosome file
 						extracted_seq = self.extract_seqs(searchseq=fasta.seq[snvpos - 100:snvpos + 100], pos=t_snvpos - 1,
 												alt=alt,
-												window=window)
+												window=self.window)
 
-					feature_annotation, codons = find_snvseq_info(extracted_seq,snvpos,exons, cds, entry,window)
-					strand = entry['strand']
-					tid, eid = entry['tid'], entry['eid']
+					feature_annotation, rf = tx.feature, tx.rf
 
-				else:
-					feature_annotation = 'undetermined/non-coding'
-					codons = 'None'
-					strand = '+'
-					extracted_seq = self.extract_seqs(searchseq=fasta.seq, pos=snvpos, alt=alt, window=window)
-					tid, eid = term, '-'
 				new_data.append(
-					[query, tid, eid, strand, ref, alt, feature_annotation, extracted_seq, codons,
+					[query, tid, eid, strand, ref, alt, feature_annotation, extracted_seq, rf,
 					 f"chr{str(ch)}:{str(snvpos)}"])
 
 				print('Query term & annoation:', query, feature_annotation)
-			snv_info[ch] = new_data
+			self.snv_info[ch] = new_data
 
-		self.snv_info = snv_info
 
 	@staticmethod
 	def validate_hgvs(queries):
@@ -393,6 +392,7 @@ class Fetch_Guides:
 	def run_FetchGuides(self, outfile_guides, outfile_be_guides):
 		global dh, query
 		self.fetch_query_info()
+		self.find_transcript_info()
 		print('Finding Guides.....')
 		for ch, data in self.snv_info.items():
 
