@@ -1,7 +1,7 @@
 from Bio.Seq import Seq
 from Bio import SeqUtils
 from Bio.SeqUtils import seq3
-from scoring import azimuth, oofscore
+from scoring import azimuth, oofscore, load_model_params
 
 
 class DataHandler:
@@ -38,7 +38,7 @@ class DataHandler:
         self.pam = str()  # Ex. 'NGG'
         self.pamISfirst = False  # Boolean
         self.win_size = list()  # Ex. list [4,8]
-        self.scoring = None  # Ex. True/False
+        self.gscoring = None  # Ex. True/False
         self.guidelen = 20
 
         # outputs
@@ -52,11 +52,11 @@ class DataHandler:
                                'Conversion Type': [], 'Bystander': [], 'Annotation': []}
 
 
-    def set_guide_search_params(self, pam, pamISfirst, win_size, scoring, guidelen):
+    def set_guide_search_params(self, pam, pamISfirst, win_size, gscoring, guidelen):
         self.pam = pam
         self.pamISfirst = pamISfirst
         self.win_size = win_size
-        self.scoring = scoring
+        self.gscoring = gscoring
         self.guidelen = guidelen
 
     def find_codon(self, snv_rel_pos):
@@ -312,12 +312,12 @@ snv_info = {'11': [['NM_000518.5:c.114G>A', '-', 'C', 'T', 'exon', Seq('ATCCCCAA
             '16': [['NM_000517.6:c.99G>A', '+', 'G', 'A', 'exon', Seq('CACCCCTCACTCTGCTTCTCCCCGCAGGATATTCCTGTCCTTCCCCACCACCAAGACCTA'), 2, 'chr16:173128'], 
                    ['NM_005886.3:c.1A>G', '+', 'A', 'G', 'exon', Seq('GTGGGGCTTCAGGTGCCAGCCAGCTGAAGGGTGGCCACCCCTGTGGTCACCAAGACAGCC'), 2, 'chr16:57737244']]}
 
-for ch, data in snv_info.items():
+for ch, data in fg.snv_info.items():
     for d in data:
         query, tid, eid, strand, ref, alt, feature_annotation, extracted_seq, codons, coord = d
         print(f'----------{query}--------------')
         dh = DataHandler(query, strand, ref, alt, feature_annotation, extracted_seq, codons, coord)
-    guides_found, BEguides_found = dh.get_Guides(search_params,BE_search_params)
+    guides_found, BEguides_found = dh.get_Guides(fg.search_params,fg.BE_search_params)
         print(len(guides_found['gRNA'])
             #for k,v in guides_found:
     #    print(k,v)

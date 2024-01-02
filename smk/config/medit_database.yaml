@@ -12,10 +12,10 @@ assembly_acc: "GCF_000001405.40"
 # Main path for processed tables
 processed_tables: "processed_tables"
 # Processed filepaths
-simple_tables: "guide_acquisition_tables"
+simple_tables: "guide_acquisition_tables"####DANIEL No Longer needed
 hgvs_lookup: "HGVSlookup.csv"
 clinvar_update: "clinvar_lastUpdate.txt"
-refseq_table: "ncbiRefSeq.txt.gz"
+refseq_table: "ncbiRefSeq.txt.gz" ####DANIEL CHANGE TO "ncbiRefSeq.bed.gz"
 
 # == RAW TABLES ==
 # Main path for raw tables
@@ -23,7 +23,7 @@ raw_tables: "raw_tables"
 # Raw filepaths
 clinvar_summary: "variant_summary.txt.gz"
 hpa: "proteinatlas.tsv"
-gencode: "GENEonly_cleaned_genecode_annotation.csv"
+gencode: "GENEonly_cleaned_genecode_annotation.csv" ####DANIEL No Longer needed
 
 # === Local Configuration Sources ===
 # BEs / Editors

@@ -65,16 +65,9 @@ class Fetch_Guides:
 		self.qtype = qtype
 		self.editor_request = editor_request
 		self.be_request = be_request
-		self.clin_report = True
-		self.gene_report = True
 		self.kwargs = kwargs
 		self.editor_lib = editors
 		self.be_lib = base_editors
-
-		if 'gene_report' in kwargs.keys():
-			self.gene_report = kwargs['gene_report']
-		if 'clin_report' in kwargs.keys():
-			self.clin_report = kwargs['clin_report']
 
 		# input paths/folders
 		self.processed_tables = f"{datadir}/processed_tables"  # folder with cleaned clinvar/hpa tabs
@@ -97,8 +90,6 @@ class Fetch_Guides:
 		# configure BE options
 		if self.be_request != 'off':
 			self.BE_search_params = self.set_BE_params()
-		# ---------------Flags--------------------------#
-		self.clininfo_flag = False
 
 		# ---------------Ouputs--------------------------#
 		self.all_variant = pd.DataFrame()
@@ -204,7 +195,9 @@ class Fetch_Guides:
 		'''
 		with open(outfile, 'ab') as sfile:
 			pickle.dump(self.snv_info, sfile)
-
+	def write_not_found(self,outfile):
+		if len(self.not_found.keys()) > 0:
+			pd.DataFrame(self.not_found).to_csv(outfile,index = False )
 	def write_guide_csv(self, guides, outfile):
 		df = pd.DataFrame(guides)
 		if 'On-Target Efficiency Score' in df.columns:
@@ -213,29 +206,19 @@ class Fetch_Guides:
 		df['Guide_ID'] = [y + str(x) for x, y in zip(list(df.index), list(df['Guide_ID']))]
 		df.to_csv(outfile, index=False)
 		return df
+	def add_clinvar(self,gadf):
+		self.all_variant = pd.concat([self.all_variant, gadf])
 
 	def add_clininfo(self, gene_out, variant_out):
-		if not self.clininfo_flag:
-			# TAYLOR: Here we can probably provide something more informative.
-			#   Keeping it as a placeholder
-			self.all_gene.to_csv(gene_out)
-			print("GENES AND VARIANT TABLES ARE UNAVAILABLE")
-			return
-		all_tids = []
-		for ch, data in self.snv_info.items():
-			all_tids += [d[1] for d in data]
-
-			if self.qtype == 'hgvs':
-				tempvar = pd.read_csv(f"{self.processed_tables}/variant_tables/{ch}_variant.txt")
-				tempvar = tempvar.loc[tempvar['HGVS_Simple'].isin(list(self.queries))]
-				self.all_variant = pd.concat([self.all_variant, tempvar])
+		#writes
 		#TODO: The path to gene_tables will ideally be imported as a snakemake variable
-		tempgene = pd.read_csv(f"{self.processed_tables}/gene_tables/gene_tables.csv")
+		all_tids = []
+		for k in self.snv_info.keys():
+			for v in self.snv_info[k]:
+				all_tids.append(v[1])
+
+		tempgene = pd.read_csv(f"{self.processed_tables}/gene_tables/gene_tables.csv.gz")
 		self.all_gene = tempgene.loc[tempgene['TranscriptID'].isin(list(all_tids))]
-
-		# datenow = date.today().strftime('%Y-%m-%d')
-
-		# gene_out = f"{self.resultsfolder}/Gene_Report.csv"
 		print(f"\n READY TO PRINT GENE OUT TO: {gene_out}\n ")
 		self.all_gene.to_csv(gene_out, index=False)
 
@@ -245,19 +228,20 @@ class Fetch_Guides:
 			self.all_variant.to_csv(variant_out, index=False)
 
 	def add_not_found(self,nfqueries,reason):
+		#adds queries that are not found ex: no guides or hgvs not found
 		for nf in nfqueries:
 			self.not_found[nf] = reason
 
 	@staticmethod
 	def extract_seqs(searchseq, pos, alt,window):
-		"""
-		extracts the sequence +/-30bp surrounding a SNV then swaps ref for alt allele
-		"""
+		#extracts the sequence +/windowbp surrounding a SNV then swaps ref for alt allele
 		extracted_seq = str(searchseq[pos -window:pos + window])
 		extracted_seq = Seq(extracted_seq[0:window] + alt + extracted_seq[window + 1:]).upper()
 		return extracted_seq
 
 	def get_chroms(self,queries):
+		#finds unique chromosome for each hgvs
+		#needs to happen in order to select right fasta file
 		hgvs_tab = pd.read_csv(self.HGVSlookup_path)
 		q_prefixes = [x.split(':')[0] for x in queries]
 		chroms = set(hgvs_tab.loc[hgvs_tab['TranscriptID'].isin(q_prefixes), 'Chr'])
@@ -274,6 +258,7 @@ class Fetch_Guides:
 			for ch in chroms:
 				df = pd.read_csv(f"{self.processed_tables}/variant_tables/{ch}_variant.txt", low_memory=False)
 				gadf = df.loc[df['HGVS_Simple'].isin(self.queries)]
+				self.add_clinvar(gadf)
 				self.snv_info[ch] = gadf[['HGVS_Simple', 'PositionVCF', 'RefAlleleVCF', 'AltAlleleVCF']].to_dict('tight')['data']
 			found = []
 			for k in self.snv_info.keys():
@@ -362,8 +347,6 @@ class Fetch_Guides:
 		for q in set(queries):
 			if re.search(rsuffix, q) and re.search(rprefix, q):
 				validated_queries.append(re.search(rprefix, q).groups()[0] + re.search(rsuffix, q).groups()[0])
-			else:
-				print(q)
 		n = len(validated_queries)
 		print(f'{n} out of {len(queries)} HGVS IDs validated')
 		if n == 0:
@@ -416,6 +399,7 @@ class Fetch_Guides:
 					else:
 						for k, v in BEguides.items():
 							self.all_BE[k] += v
+
 				if len(guides['gRNA']) > 0:
 					if len(self.all_guides.keys()) == 0:
 						for k, v in guides.items():
@@ -427,22 +411,25 @@ class Fetch_Guides:
 						print(len((guides['gRNA'])), ' guides found for ', query)
 				else:
 					print(f"No guides found for the query {query}")
+					self.add_not_found([query],'no guides found')
 
 		guidedf, BEdf = None, None
 
 		if len(self.all_guides.keys()) != 0:
 			guidedf = self.write_guide_csv(self.all_guides, outfile_guides)
-			self.clininfo_flag = True
-			# self.add_clininfo()
+		else:
+			print('No Editor Guides found for any queries')
 
 		if len(self.all_BE.keys()) != 0:
 			BEdf = self.write_guide_csv(self.all_BE, outfile_be_guides)
-			self.clininfo_flag = True
+		else:
+			print('No Base Editor Guides found for any queries')
 
 		return {'all_variant': self.all_variant,
 		        'all_gene': self.all_gene,
 		        'guide_table': guidedf,
 		        'BE_table': BEdf}
+
 
 
 def main():

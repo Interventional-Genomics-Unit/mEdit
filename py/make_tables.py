@@ -22,13 +22,17 @@ datadir = "/groups/clinical/projects/editability/tables/"
 # database paths
 raw_tables = f"{datadir}raw_tables/"
 clinvar_summary = f"{raw_tables}clinvar/variant_summary.txt.gz"  # raw clinvar table
+mane_path = f'{raw_tables}clinvar/MANE.GRch38.v1.1.summary.txt.gz'
 HPApath = f"{raw_tables}HPA/proteinatlas.tsv"
-gencode_path = f"{raw_tables}gencode/GENEonly_cleaned_genecode_annotation.csv"  # Genecode Table
+
 
 processed_tables = f"{datadir}processed_tables/"
 simple_tables = f"{processed_tables}guide_acquisition_tables/"
 HGVSlookup_path = f"{processed_tables}HGVSlookup.csv" #Chrom to refID key table
 lastUpdate_file = f"{processed_tables}clinvar_lastUpdate.txt"
+mane_cleaned = f'{processed_tables}MANE.GRch38.summary_cleaned.txt.gz'
+
+
 
 #variables
 chroms = ['1', '2','3', '4', '5', '6', '7', '8', '9', '10', '11','12',
@@ -39,28 +43,48 @@ def process_refseq(raw_tables,processed_tables):
     '''
     ftp : https://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/ncbiRefSeq.txt.gz
 
+    Makes
+    A) a bed file from refseqs = 282,614 lines
+    B) a bed file of the most recent genes = 66688 lines
     '''
+    #in
     mane = pd.read_csv(f'{raw_tables}clinvar/MANE.GRch38.v1.1.summary.txt.gz', sep="\t")
-    mane_ensid = list(mane['Ensembl_nuc'])
-    mane_tid = list(mane['RefSeq_nuc'])
+
+    #out
+    ref_out = gzip.open(f'{processed_tables}ncbiRefSeq.bed.gz', 'wt')
 
     labels = ['bin', 'id', 'chrom', 'strand', 'txStart', 'txEnd',
               'cdsStart', 'cdsEnd', 'exonCount', 'exonStarts', 'exonEnds',
-              'score', 'name', 'cdsStartStat', 'cdsEndStat',
-              'exonFrames']
-    out = gzip.open(f'{processed_tables}ncbiRefSeq.txt.gz', 'wt')
+              'score', 'name', 'cdsStartStat', 'cdsEndStat','exonFrames']
+
+    mane_ensid = list(mane['Ensembl_nuc'])
+    mane_tid = list(mane['RefSeq_nuc'])
+
+    latest_refs = {}
+    cnt = 0
     for line in gzip.open(f'{raw_tables}Refseq/ncbiRefSeq.txt.gz', 'rt'):
         tokens = line.split('\t')
+        tid, chrom, strand,tstart,tend = tokens[1:6]
+        cds_start, cds_end = tokens[6], tokens[7]
+        exons_start, exon_end = tokens[9], tokens[10]
+        gname, frames = tokens[12], tokens[-1].split('\n')[0]
+
         if tokens[2].replace('chr', "") in chroms:
-            if tokens[1].startswith('X') == False:
+            tid = tokens[1]
+            cnt+=1
+            if tid.startswith('X') == False:
                 try:
-                    i = mane_tid.index(tokens[1])
-                    tokens[0] = mane_ensid[i]
+                    i = mane_tid.index(tid)
+                    eid = mane_ensid[i]
                 except:
 
-                    tokens[0] = '-'
-                out.write('\t'.join(tokens[0:8] + tokens[9:11] + [tokens[12]] + [tokens[-1]]))
-    out.close()
+                    eid = '-'
+                line_out = [chrom,tstart,tend,'|'.join([strand,tid,eid,gname,cds_start,cds_end, exons_start,exon_end,frames])]
+                ref_out.write('\t'.join(line_out) + '\n')
+                if cnt < 20:
+                    print('\t'.join(line_out))
+
+    ref_out.close()
 
 
 def process_MANE(raw_tables,processed_tables):
@@ -157,7 +181,6 @@ def add_MANE(processed_tables,chroms):
         joined.to_csv(f"{processed_tables}variant_tables/{ch}_variant.txt", index=False)
     #colreorder = [2,4,16,29,30,31,25,26,0,1,3,5,6,7,8,9,10,11,12,13,14,15,17,18,19,20,21,22,23,24,27,28,32,33,34]
     #joined = joined.iloc[:,colreorder]
-
 
 def extractOMIM(vdf):
     '''
@@ -271,7 +294,6 @@ def make_gene_tables(processed_tables,HPApath):
     joined_df = hpa.join(mane.set_index('Ensembl_Gene'), on='Ensembl_Gene')
     joined_df.to_csv(f'{processed_tables}/gene_tables/gene_tables.csv.gz', index=False,compression='gzip')
 
-
 def make_HGVStable(processed_tables,chroms):
     '''
     Create CSV file of unduplicated HGVS prefix(coding ref name) and Chromosome
@@ -287,7 +309,7 @@ def make_HGVStable(processed_tables,chroms):
     df.to_csv(out_file, index=None)
 
 
-def updateTables(clinvar_ftp,clinvar_summary):
+def updateTables(clinvar_ftp,clinvar_summary,refseq):
     # TODO: add user inquiry to whether they want to init update
     print("updating to latest version of clinvar")
 
