@@ -1,37 +1,54 @@
-import math
+# Native Modules
 from math import exp
+
+# Installed Modules
 import regex as re
-import os
 import pandas as pd
-from sklearn.ensemble import GradientBoostingRegressor
 import pickle
 import numpy as np
+from tensorflow.keras.models import load_model
+
+# Project Modules
 from featurization import featurize_data
 
 
+#### DANEIEL ###  incorporating into snakemake?
+#        vvvvv
+#        vvvvv
+#        vvvvv
+#vvvvvvvvvvvvvvvvvvvvvvv
+#   vvvvvvvvvvvvvvvv
+#        vvvvvv
+#          vv
 def load_model_params(score_name):
     try:
+        #dirname = os.path.dirname(os.path.realpath(__file__)).replace('py/','')
+        dirname = '/home/thudson/projects/editability'
         if score_name == 'cfd':
-            mm_scores = pickle.load(open(os.path.dirname(os.path.realpath(__file__)) + '/pkl/mismatch_score.pkl', 'rb'))
-            pam_scores = pickle.load(open(os.path.dirname(
-                os.path.realpath(__file__)) + '/pkl/PAM_scores.pkl', 'rb'))
+            mm_scores = pickle.load(open( dirname+ '/pkl/mismatch_score.pkl', 'rb'))
+            pam_scores = pickle.load(open(dirname + '/pkl/PAM_scores.pkl', 'rb'))
             return mm_scores, pam_scores
         if score_name == 'azimuth':
-            model = pickle.load(open(os.path.dirname(
-                os.path.realpath(__file__)) + '/pkl/python3_V3_model_no.pos.pickle', 'rb'))
+            model = pickle.load(open(dirname+ '/pkl/python3_V3_model_no.pos.pickle', 'rb'))
             return model
         if score_name == 'doench14':
-            doench14params = pickle.load(open(os.path.dirname(
-                os.path.realpath(__file__)) + '/pkl/doench14params.pkl', 'rb'))
-        return doench14params
+            doench14params = pickle.load(open(dirname + '/pkl/doench14params.pkl', 'rb'))
+            return doench14params
+        if score_name == 'deepcpf1':
+            model1 = load_model(dirname +"/h5/DeepCpf1.h5")
+            model2 = load_model(dirname +"/h5/Seq_deepCpf1.h5")
+            return model1, model2
     except:
-        raise Exception(f"pickle file containing {score_name} could not be opened")
+        raise Exception(f"File containing {score_name} could not be opened")
 
 def revcom(s):
     basecomp = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A','U':'A'}
     letters = list(s[::-1])
     letters = [basecomp[base] for base in letters]
     return ''.join(letters)
+
+
+#### On-target Efficiency Scoring
 
 def doench2014(cas9_sites):
         """
@@ -64,14 +81,14 @@ def doench2014(cas9_sites):
                 subSeq = seq[pos:pos + len(modelSeq)]
                 if subSeq == modelSeq:
                     score += weight
-            scores.append(int(100 * (1.0 / (1.0 + math.exp(-score)))))
+            scores.append(int(100 * (1.0 / (1.0 + exp(-score)))))
 
         return score
 
 def azimuth(cas9_sites):
     '''
     Doench/Fusi 2016 Rule -2 on-target / efficiency score now packaged as 'Azimuth'
-    This script is copied and modified to suit from https://github.com/MicrosoftResearch/Azimuth
+    This script is copied and modified from https://github.com/MicrosoftResearch/Azimuth
     predicts whether a guide exhibits strong or weak cleavage
     Score range 0-100. A score higher than 55% is recommended
     '''
@@ -122,6 +139,40 @@ def azimuth(cas9_sites):
     scores = [(s * 100).round(2) for s in scores]
     return scores
 
+def deepcpf1(cas12_sites):
+    '''
+    Cpf1(cas12) on-target score "kinda"
+    predicts the likelihood of getting a cas12 indel at the desired target
+    This script is copied and modified from https://github.com/MyungjaeSong/Paired-Library
+    Kim, H., Song, M., Lee, J. et al. In vivo high-throughput profiling of CRISPR–Cpf1 activity. Nat Methods 14, 153–159 (2017)
+    '''
+    model1,model2 = load_model_params(score_name='deepcpf1')
+    data_n = len(cas12_sites)
+    #if chromatin_flag != 'ignore':
+     #   CA = np.zeros((data_n, 1), dtype=int)
+
+    SEQ = np.zeros((data_n, 34, 4), dtype=int)
+
+    for l in range(data_n):
+        seq = cas12_sites[l]
+        for i in range(34):
+            if seq[i] in "Aa":
+                SEQ[l, i, 0] = 1
+            elif seq[i] in "Cc":
+                SEQ[l, i, 1] = 1
+            elif seq[i] in "Gg":
+                SEQ[l, i, 2] = 1
+            elif seq[i] in "Tt":
+                SEQ[l, i, 3] = 1
+        #CA[l - 1, 0] = int(chromatin_accessibility) * 100
+
+    scores = model2.predict([SEQ], batch_size=50, verbose=0).tolist()
+
+    return scores
+
+
+
+#### Microhomology Scoring
 
 def oofscore(seq):
     '''
@@ -195,46 +246,43 @@ def oofscore(seq):
 
     return mh_score, oof_score
 
-
-def cfd_score(seq1, seq2,pam,mm_scores,pam_scores):
+#### Off-target Specifity Scoring
+def cfd_score(seq1, seq2):
     '''
     Doench 2016 off-target scoring
     Doench, Fusi, et al.  Nature Biotechnology 34, 184–191 (2016)."
 
     '''
-    score = 1
-    shorter, longer = sorted([seq1, seq2], key=len)
-    for i in range(-len(shorter), 0):
-        if (seq1[i] != seq2[i]):
-            key = 'r' + seq1[i] + ':d' + revcom(seq2[i]) + ',' + str(20 + i + 1)
-            score *= mm_scores[key]
-    score *= pam_scores[pam[-2:]]
-    return score
+    mm_scores, pam_scores = load_model_params(score_name='cfd')
+    pam = seq2[-3:]
+    seq1 = seq1.upper().replace('T', 'U')
+    seq2 = seq2[:-3].upper().replace('T', 'U')
+    m_seq1 = re.search('[^ATCGU\\-]', seq1)
+    m_seq2 = re.search('[^ATCGU\\-]', seq2)
 
-def cfd_multi_score(spacer, off_target_seqs):
+    score =1
+
+    if (m_seq1 is None) and (m_seq2 is None):
+        if seq1 != seq2:
+            shorter, longer = sorted([seq1, seq2], key=len)
+            for i in range(-len(shorter), 0):
+                if (seq1[i] != seq2[i]):
+                    key = 'r' + seq1[i] + ':d' + revcom(seq2[i]) + ',' + str(20 + i + 1)
+                    score *= mm_scores[key]
+
+            score *= pam_scores[pam[-2:]]
+    else:
+        score = -1
+    return round(score,4)
+
+def cfd_spec_score(sum_cfd_scores):
     '''
     on_target_seq is spacer site and off_target includes pam
     '''
-    mm_scores, pam_scores = load_model_params(score_name='cfd')
-    scores = []
-    seq1 = spacer.upper().replace('T', 'U')
-    sum_scores = 0
 
-    for off_target_seq in off_target_seqs:
-        m_off = re.search('[^ATCG]',off_target_seq)
-        if (m_off is None):
-            pam = off_target_seq[-2:]
-            seq2 = off_target_seq[:20].upper().replace('T','U')
-            if off_target_seq != spacer:
-                score = cfd_score(seq1, seq2, pam,mm_scores,pam_scores)
-                sum_scores += score
-            else:
-                score = -1
-        scores.append(round(score,2))
-        guide_cfd_score = 100 / (100+sum_scores)
-        guide_cfd_score = int(round(guide_cfd_score*100))
-    return scores, guide_cfd_score
-
+    guide_cfd_score = 100 / (100+sum_cfd_scores)
+    guide_cfd_score = round(guide_cfd_score*100,2)
+    return guide_cfd_score
 
 
 '''
@@ -253,7 +301,17 @@ print('Microhomology Out-Of-Frame score: ',oofscore(seq = target60mer))
 print('Azimuth on-target score: ',azimuth([target30mer])[0])
 #Ans: 0.38
 
-print('CFD scores, Guide specifity score: ',cfd_multi_score(spacer=spacer, off_target_seqs = off_target_seqs))
-#Ans: [0.12, 0.44], 99
-'''
+print('CFD score ',cfd_score(spacer, off_target_seqs[1]))
+print('CFD score ',cfd_score(spacer, off_target_seqs[0]))
+#0.44, 0.12
 
+print('CFD spec score ',cfd_spec_score(sum([0.44,0.12])))
+#99
+
+seq1, seq2 = 'GTGCGGCTGGCCCAGGACC-T', 'GTGCtGCTacCCCAGGACCCTCGG'
+print('CFD score ',cfd_score(seq1, seq2))
+
+DeepCpf1
+cas12_sites = ['TGACTTTGAATGGAGTCGTGAGCGCAAGAACGCT','GTTATTTGAGCAATGCCACTTAATAAACATGTAA']
+#= [55.437206] [78.50043]
+'''
