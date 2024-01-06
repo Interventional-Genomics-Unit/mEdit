@@ -1,7 +1,7 @@
 from Bio.Seq import Seq
 from Bio import SeqUtils
 from Bio.SeqUtils import seq3
-from scoring import azimuth, oofscore, load_model_params
+import scoring
 
 
 class DataHandler:
@@ -9,7 +9,7 @@ class DataHandler:
     search for guides given a genomic sequence and SNV info
     """
 
-    def __init__(self, query, strand, ref, alt, feature_annotation, extracted_seq, rf, coord):
+    def __init__(self, query, strand, ref, alt, feature_annotation, extracted_seq, rf, coord,gname):
         """
         :param query: ex: 'NM_000532.5(PCCB):c.1316A>G (p.Tyr439Cys)' or 'chr19:136327650A>G'
         :param strand: ex. '-' or '+
@@ -33,6 +33,7 @@ class DataHandler:
         self.annotation = feature_annotation
         self.coord = coord
         self.chrom = coord.split(':')[0].replace('chr', '')
+        self.gname = gname
 
         # search params
         self.pam = str()  # Ex. 'NGG'
@@ -42,11 +43,11 @@ class DataHandler:
         self.guidelen = 20
 
         # outputs
-        self.guides_found = {'QueryTerm': [], 'Editor': [], 'Guide_ID': [], 'Coordinates': [],
+        self.guides_found = {'QueryTerm': [], 'GeneName':[],'Editor': [], 'Guide_ID': [], 'Coordinates': [],
                              'Strand': [], 'gRNA': [], 'Pam': [], 'SNV Position': [],
                              'On-Target Efficiency Score': [], 'OOF Score':[],'Ref>Alt': [], 'Annotation': []}
 
-        self.BEguides_found = {'QueryTerm': [], 'Base Editor': [], 'Guide_ID': [], 'Coordinates': [],
+        self.BEguides_found = {'QueryTerm': [], 'GeneName':[],'Base Editor': [], 'Guide_ID': [], 'Coordinates': [],
                                'Strand': [],'gRNA': [], 'Pam': [], 'SNV Position': [],
                                'Hg38 Reference (Codon>AA)': [], 'Alternate (Codon>AA)': [], 'BE Converted (Codon>AA)': [],
                                'Conversion Type': [], 'Bystander': [], 'Annotation': []}
@@ -170,6 +171,7 @@ class DataHandler:
 
     def add_guides(self, name, guide, pam_found, strand, snvpos, on_score,oof_score,start,end):
         self.guides_found['QueryTerm'].append(self.query)
+        self.guides_found['GeneName'].append(self.gname)
         self.guides_found['Editor'].append(name)
         self.guides_found['Guide_ID'].append(f'{name}_')
         self.guides_found['Coordinates'].append(f'{self.chrom}:{start}-{end}')
@@ -184,6 +186,7 @@ class DataHandler:
 
     def add_BEguides(self, name, guide, pam_found, strand, snvpos, start, end, ref, alt, convert, ctype, bystander):
         self.BEguides_found['QueryTerm'].append(self.query)
+        self.BEguides_found['GeneName'].append(self.gname)
         self.BEguides_found['Guide_ID'].append(f'{name}_')
         self.BEguides_found['Base Editor'].append(name)
         self.BEguides_found['Coordinates'].append(f'{self.chrom}:{start}-{end}')
@@ -235,9 +238,9 @@ class DataHandler:
                         if not BEmode:
                             if pam == 'NGG' and guidelen == 20:
                                 #Azmith only accurate for NGG pams
-                                on_score = azimuth(cas9_sites = [str(search_seq[target_start -3:target_start + sitelen + 4])])[0]
+                                on_score = scoring.azimuth(cas9_sites = [str(search_seq[target_start -3:target_start + sitelen + 4])])[0]
                             #oof_score use only for DSB
-                            mh_score, oof_score = oofscore(str(search_seq[target_start -20:target_start + sitelen + 20]))
+                            mh_score, oof_score = scoring.oofscore(str(search_seq[target_start -20:target_start + sitelen + 20]))
 
                         pam_found = str(search_seq[i:i + pamlen])
 
@@ -245,6 +248,8 @@ class DataHandler:
                         target_start = i + pamlen
                         guide = search_seq[target_start: i + sitelen]
                         pam_found = search_seq[i:target_start]
+                        if 'Cas12a' in name:
+                            on_score = round(scoring.deepcpf1([str(search_seq[i -5:i+sitelen + 4])])[0][0],2)
 
                     snvpos = snv_rel_pos - target_start
                     start = self.SNV_chr_pos - snvpos

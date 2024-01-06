@@ -146,6 +146,7 @@ def deepcpf1(cas12_sites):
     This script is copied and modified from https://github.com/MyungjaeSong/Paired-Library
     Kim, H., Song, M., Lee, J. et al. In vivo high-throughput profiling of CRISPR–Cpf1 activity. Nat Methods 14, 153–159 (2017)
     '''
+    print(cas12_sites)
     model1,model2 = load_model_params(score_name='deepcpf1')
     data_n = len(cas12_sites)
     #if chromatin_flag != 'ignore':

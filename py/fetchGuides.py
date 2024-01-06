@@ -195,13 +195,16 @@ class Fetch_Guides:
 		'''
 		with open(outfile, 'ab') as sfile:
 			pickle.dump(self.snv_info, sfile)
+
 	def write_not_found(self,outfile):
 		if len(self.not_found.keys()) > 0:
 			pd.DataFrame(self.not_found).to_csv(outfile,index = False )
+
 	def write_guide_csv(self, guides, outfile):
 		df = pd.DataFrame(guides)
 		if 'On-Target Efficiency Score' in df.columns:
 			temp = df[df['On-Target Efficiency Score'] != '-'].sort_values(by='On-Target Efficiency Score', ascending=False)
+			temp = temp.sort_values(by='Editor')
 			df = pd.concat([temp, df[df['On-Target Efficiency Score'] == '-']]).reset_index(drop=True)
 		df['Guide_ID'] = [y + str(x) for x, y in zip(list(df.index), list(df['Guide_ID']))]
 		df.to_csv(outfile, index=False)
@@ -308,7 +311,7 @@ class Fetch_Guides:
 				tx = Transcript.transcript(snvcoord)
 
 				if tx == 'intergenic':
-					tid, eid = '-', '-'
+					tid, eid,gname = '-', '-','-'
 					feature_annotation = tx
 					rf, strand = 'None', '+'
 					extracted_seq = self.extract_seqs(searchseq=fasta.seq, pos=snvpos, alt=alt,window = self.window)
@@ -329,7 +332,7 @@ class Fetch_Guides:
 					feature_annotation, rf = tx.feature, tx.rf
 
 				new_data.append(
-					[query, tid, eid, strand, ref, alt, feature_annotation, extracted_seq, rf,
+					[query, tid, eid,gname, strand, ref, alt, feature_annotation, extracted_seq, rf,
 					 f"chr{str(ch)}:{str(snvpos)}"])
 
 				print('Query term & annoation:', query, feature_annotation)
@@ -381,11 +384,11 @@ class Fetch_Guides:
 
 			for d in data:
 				try:
-					query, tid, eid, strand, ref, alt, feature_annotation, extracted_seq, codons, coord = d
+					query, tid, eid, gname,strand, ref, alt, feature_annotation, extracted_seq, codons, coord = d
 				except ValueError:
 					print(f"WARNING: The query below has the wrong number of values to unpack. Needs further investigation:\n{d}")
 					continue
-				dh = DataHandler(query, strand, ref, alt, feature_annotation, extracted_seq, codons, coord)
+				dh = DataHandler(query, strand, ref, alt, feature_annotation, extracted_seq, codons, coord,gname)
 
 				if self.be_request != 'off':
 					guides, BEguides = dh.get_Guides(self.search_params, self.BE_search_params)
