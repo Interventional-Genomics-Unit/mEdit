@@ -146,7 +146,6 @@ def deepcpf1(cas12_sites):
     This script is copied and modified from https://github.com/MyungjaeSong/Paired-Library
     Kim, H., Song, M., Lee, J. et al. In vivo high-throughput profiling of CRISPR–Cpf1 activity. Nat Methods 14, 153–159 (2017)
     '''
-    print(cas12_sites)
     model1,model2 = load_model_params(score_name='deepcpf1')
     data_n = len(cas12_sites)
     #if chromatin_flag != 'ignore':
@@ -171,6 +170,16 @@ def deepcpf1(cas12_sites):
 
     return scores
 
+def deepABE(abesites):
+    '''
+    ABE Efficiency Scoring
+    This script is copied and modified from https://github.com/MyungjaeSong/Paired-Library
+    Zhang, C., Yang, Y., Qi, T. et al. Prediction of base editor off-targets by deep learning.
+    Nat Commun 14, 5358 (2023). https://doi.org/10.1038/s41467-023-41004-3
+    30bp input 30 bp target sequence (4 bp + 20 bp protospacer + PAM + 3 bp)
+    '''
+    pass
+    #model = load_model_params(score_name='deepabe')
 
 
 #### Microhomology Scoring

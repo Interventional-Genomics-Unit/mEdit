@@ -306,36 +306,37 @@ class Fetch_Guides:
 			for d in data:
 
 				query, snvpos, ref, alt = d
-				print(query, ref, alt, snvpos)
-				snvcoord = f'chr{ch}:{d[1]}-{d[1]}'
-				tx = Transcript.transcript(snvcoord)
+				if re.search('[^ATCG]', ref + alt) is None:
+					print(query, ref, alt, snvpos)
+					snvcoord = f'chr{ch}:{d[1]}-{d[1]}'
+					tx = Transcript.transcript(snvcoord)
 
-				if tx == 'intergenic':
-					tid, eid,gname = '-', '-','-'
-					feature_annotation = tx
-					rf, strand = 'None', '+'
-					extracted_seq = self.extract_seqs(searchseq=fasta.seq, pos=snvpos, alt=alt,window = self.window)
+					if tx == 'intergenic':
+						tid, eid,gname = '-', '-','-'
+						feature_annotation = tx
+						rf, strand = 'None', '+'
+						extracted_seq = self.extract_seqs(searchseq=fasta.seq, pos=snvpos, alt=alt,window = self.window)
 
 
-				else:
-					eid, tid, gname, strand, txstart = tx.tx_info()
-					tx_seq = tx.get_tx_seq(fasta)
-					t_snvpos = int(snvpos) - int(txstart)
-					extracted_seq = self.extract_seqs(searchseq=tx_seq, pos=t_snvpos - 1, alt=alt, window=self.window)
+					else:
+						eid, tid, gname, strand, txstart = tx.tx_info()
+						tx_seq = tx.get_tx_seq(fasta)
+						t_snvpos = int(snvpos) - int(txstart)
+						extracted_seq = self.extract_seqs(searchseq=tx_seq, pos=t_snvpos - 1, alt=alt, window=self.window)
 
-					if len(extracted_seq) != self.window * 2:
-						# if flanking or utr the extracted seq needs to come from the chromosome file
-						extracted_seq = self.extract_seqs(searchseq=fasta.seq[snvpos - 100:snvpos + 100], pos=t_snvpos - 1,
-												alt=alt,
-												window=self.window)
+						if len(extracted_seq) != self.window * 2:
+							# if flanking or utr the extracted seq needs to come from the chromosome file
+							extracted_seq = self.extract_seqs(searchseq=fasta.seq[snvpos - 100:snvpos + 100], pos=t_snvpos - 1,
+													alt=alt,
+													window=self.window)
 
-					feature_annotation, rf = tx.feature, tx.rf
+						feature_annotation, rf = tx.feature, tx.rf
 
-				new_data.append(
-					[query, tid, eid,gname, strand, ref, alt, feature_annotation, extracted_seq, rf,
-					 f"chr{str(ch)}:{str(snvpos)}"])
+					new_data.append(
+						[query, tid, eid,gname, strand, ref, alt, feature_annotation, extracted_seq, rf,
+						 f"chr{str(ch)}:{str(snvpos)}"])
 
-				print('Query term & annoation:', query, feature_annotation)
+					print('Query term & annoation:', query, feature_annotation)
 			self.snv_info[ch] = new_data
 
 

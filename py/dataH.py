@@ -67,7 +67,6 @@ class DataHandler:
             adj_rf = 2 - self.rf
             codon = self.extracted_seq[int(snv_rel_pos - adj_rf): int(snv_rel_pos - adj_rf)+3]
             codon = Seq(codon).reverse_complement()
-        print(snv_rel_pos, self.rf, codon, self.strand)
         return codon
 
     @staticmethod
