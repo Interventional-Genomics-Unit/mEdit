@@ -9,6 +9,7 @@ import pytz
 import os
 import re
 import pickle
+from importlib.resources import files
 # == Installed Modules ==
 import yaml
 from Bio import SeqIO
@@ -146,6 +147,13 @@ def prCyan(skk):
 
 def prGreen(skk):
 	print("\033[92m {}\033[00m" .format(skk))
+
+
+def get_project_root(internal_path):
+	paths = files(internal_path)
+	for path in paths.iterdir():
+		actual_path = str(path)  # Convert each path to a string
+		return actual_path  # Or use the path as needed
 
 
 def set_export(outdir: str):

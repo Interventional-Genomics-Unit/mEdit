@@ -9,9 +9,12 @@ import pytz
 import os
 import re
 import pickle
+from importlib.resources import files
 # == Installed Modules ==
 import yaml
 from Bio import SeqIO
+import boto3
+from botocore.exceptions import NoCredentialsError
 # == Project Modules ==
 
 
@@ -40,6 +43,34 @@ def date_tag():
 	formatted_date = f"{current_datetime.strftime('%y%m%d%H%M%S%f')}_{random_str}"
 
 	return formatted_date
+
+
+def download_s3_objects(s3_bucket_name: str, s3_object_name: str, destination_path: str):
+	"""
+	Downloads a file or every file in a given AWS S3 bucket
+	:param s3_bucket_name:
+	:param s3_object_name:
+	:param destination_path:
+	:return:
+	"""
+	s3 = boto3.client('s3')
+	try:
+		response = s3.list_objects_v2(Bucket=s3_bucket_name, Prefix=s3_object_name)
+		content = response.get('Contents', [])
+	except NoCredentialsError:
+		raise "AWS Credentials not available. Please sign in then try again!"
+	for content_idx in range(1, len(content)):
+		key = content[content_idx]['Key']
+		destination_file = os.path.join(destination_path, key)
+		if key != s3_object_name:  # Check if it's a directory
+			destination_dir = os.path.join(destination_path, s3_object_name)
+			print(f"Downloading dir {destination_dir}; File => {destination_file}")
+			os.makedirs(destination_dir, exist_ok=True)
+			s3.download_file(s3_bucket_name, key, destination_file)
+		if key == s3_object_name:
+			print(f"Downloading file {destination_file}")
+			s3.download_file(s3_bucket_name, key, destination_file)
+	print(f"Successfully downloaded S3 objects from s3://{s3_bucket_name}/{s3_object_name} to {destination_path}")
 
 
 def file_exists(file_path):
@@ -72,7 +103,7 @@ def is_gzipped(file_path: str):
 		return f.read(2) == b'\x1f\x8b'
 
 
-def launch_shell_cmd(command: str, verbose: bool):
+def launch_shell_cmd(command: str, verbose=False):
 	prCyan(f"--> Invoking command-line call:\n{command}")
 	result = subprocess.run(command,
 	                        shell=True,
@@ -116,6 +147,10 @@ def prCyan(skk):
 
 def prGreen(skk):
 	print("\033[92m {}\033[00m" .format(skk))
+
+
+def get_project_root(internal_path):
+	return str(files(internal_path))
 
 
 def set_export(outdir: str):
