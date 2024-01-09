@@ -21,7 +21,8 @@ setup(
         'snakemake>=7.32.4',
         'biopython>=1.81',
         'pyyaml>=6.0',
-        'pytz>=2023.3'
+        'pytz>=2023.3',
+        'boto3>=1.28.57'
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',
