@@ -96,6 +96,8 @@ def handle_shell_exception(subprocess_result, shell_command, verbose: bool):
 		if verbose:
 			print(subprocess_result.stderr)
 			prGreen(subprocess_result.stdout)
+		print(f"READY: {shell_command}")
+		subprocess.run(shell_command, shell=True)
 		return
 
 
