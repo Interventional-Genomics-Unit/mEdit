@@ -1,10 +1,9 @@
 # == Native Modules ==
-import os
 # == Installed Modules ==
 # == Project Modules ==
 from prog.guide_prediction import guide_prediction as guide_prediction
 from prog.db_set import dbset as db_set
-from prog.arguments import parse_arguments
+from prog.arguments import parse_arguments as parse_arguments
 from prog.medit_lib import date_tag
 
 

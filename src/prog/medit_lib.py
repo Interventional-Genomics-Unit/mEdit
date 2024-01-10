@@ -16,6 +16,8 @@ from importlib_resources import files
 from Bio import SeqIO
 import boto3
 from botocore.exceptions import NoCredentialsError
+
+
 # == Project Modules ==
 
 
@@ -59,7 +61,8 @@ def download_s3_objects(s3_bucket_name: str, s3_object_name: str, destination_pa
 		response = s3.list_objects_v2(Bucket=s3_bucket_name, Prefix=s3_object_name)
 		content = response.get('Contents', [])
 	except NoCredentialsError:
-		raise "AWS Credentials not available. Please sign in then try again!"
+		prRed("AWS Credentials not available. Please sign in then try again!")
+		exit(0)
 	for content_idx in range(0, len(content)):
 		key = content[content_idx]['Key']
 		# destination_file = os.path.join(destination_path, key)
@@ -96,8 +99,6 @@ def handle_shell_exception(subprocess_result, shell_command, verbose: bool):
 		if verbose:
 			print(subprocess_result.stderr)
 			prGreen(subprocess_result.stdout)
-		print(f"READY: {shell_command}")
-		subprocess.run(shell_command, shell=True)
 		return
 
 
@@ -146,11 +147,15 @@ def pickle_chromosomes(genome_fasta, output_dir):
 
 
 def prCyan(skk):
-	print("\033[96m {}\033[00m" .format(skk))
+	print("\033[96m {}\033[00m".format(skk))
 
 
 def prGreen(skk):
-	print("\033[92m {}\033[00m" .format(skk))
+	print("\033[92m {}\033[00m".format(skk))
+
+
+def prRed(skk):
+	print("\033[0;31;47m {}\033[00m".format(skk))
 
 
 def project_file_path(path_from_toplevel: str, filename: str):
@@ -175,6 +180,6 @@ def set_export(outdir: str):
 
 
 def write_yaml_to_file(py_obj, filename: str):
-	with open(f'{filename}', 'w',) as f:
+	with open(f'{filename}', 'w', ) as f:
 		yaml.safe_dump(py_obj, f, sort_keys=False, default_style='"')
 	print(f'--> Configuration file created: {filename}')

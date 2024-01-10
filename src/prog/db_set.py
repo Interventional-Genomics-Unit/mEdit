@@ -4,17 +4,17 @@ from os.path import abspath
 import yaml
 # == Project Modules ==
 from prog.medit_lib import (download_s3_objects,
-                            project_file_path,
-                            launch_shell_cmd,
-                            list_files_by_extension,
-                            pickle_chromosomes,
-                            set_export,
-                            write_yaml_to_file)
+                                project_file_path,
+                                launch_shell_cmd,
+                                list_files_by_extension,
+                                pickle_chromosomes,
+                                set_export,
+                                write_yaml_to_file)
 
 
 def dbset(args):
 	# === Load template configuration file ===
-	config_path = project_file_path("config", "medit_database.yaml")
+	config_path = project_file_path("smk.config", "medit_database.yaml")
 	with open(config_path, 'r') as config_handle:
 		config_db_template = yaml.safe_load(config_handle)
 
@@ -73,9 +73,8 @@ def dbset(args):
 	# launch_shell_cmd(f"aws s3 cp s3://medit.db/raw_tables.tar.gz {db_path_full}")
 	download_s3_objects("medit.db", "raw_tables.tar.gz", db_path_full)
 	print("Decompressing Databases")
-	launch_shell_cmd(f"pigz -p {threads} -d {db_path_full}/*.gz")
+	launch_shell_cmd(f"gzip -d {db_path_full}/*.gz")
 	launch_shell_cmd(f"tar -xf {db_path_full}/raw_tables.tar --directory={db_path_full}/ && "
 	                 f"rm {db_path_full}/raw_tables.tar")
 	launch_shell_cmd(f"tar -xf {db_path_full}/processed_tables.tar --directory={db_path_full}/ && "
 	                 f"rm {db_path_full}/processed_tables.tar")
-

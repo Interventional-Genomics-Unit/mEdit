@@ -43,7 +43,7 @@ rule consensus_fasta:
 		dump_dir="{meditdb_path}/consensus_refs/downloads",
 		fasta_root_path=config["fasta_root_path"]
 	conda:
-		"envs/samtools.yaml"
+		"../envs/samtools.yaml"
 	# resources:
 	# 	mem_mb=100000
 	message:
@@ -111,7 +111,7 @@ rule predict_guides:
 		be_request = config["be_request"],
 		editor_request = config["editor_request"]
 	conda:
-		"envs/medit.yaml"
+		"../envs/medit.yaml"
 	message:
 		"""
 # === PREDICT GUIDES ON REFERENCE GENOMES === #	
@@ -131,7 +131,7 @@ Wildcards in this rule:
 --> {wildcards}
         """
 	script:
-		"py/fetchGuides.py"
+		"../../py/fetchGuides.py"
 
 # noinspection SmkAvoidTabWhitespace
 rule process_altgenomes:
@@ -150,7 +150,7 @@ rule process_altgenomes:
 	# 	# == Main output path
 	# 	main_out = "{root_dir}/{mode}/jobs/{job_name}/guide_prediction-{sequence_id}/guides_report_{vcf_id}/"
 	conda:
-		"envs/vcf.yaml"
+		"../envs/vcf.yaml"
 	message:
 		"""
 # === PREDICT GUIDES ON ALTERNATIVE GENOMES === #	
@@ -166,4 +166,4 @@ Wildcards in this rule:
 --> {wildcards}
 		"""
 	script:
-		"py/process_genome.py"
+		"../../py/process_genome.py"

@@ -237,9 +237,9 @@ class DataHandler:
                         if not BEmode:
                             if pam == 'NGG' and guidelen == 20:
                                 #Azmith only accurate for NGG pams
-                                on_score = scoring.azimuth(cas9_sites = [str(search_seq[target_start -3:target_start + sitelen + 4])])[0]
+                                on_score = scoring.azimuth(cas9_sites = [str(search_seq[target_start - 3:target_start + sitelen + 4])])[0]
                             #oof_score use only for DSB
-                            mh_score, oof_score = scoring.oofscore(str(search_seq[target_start -20:target_start + sitelen + 20]))
+                            mh_score, oof_score = scoring.oofscore(str(search_seq[target_start - 20:target_start + sitelen + 20]))
 
                         pam_found = str(search_seq[i:i + pamlen])
 
@@ -248,7 +248,7 @@ class DataHandler:
                         guide = search_seq[target_start: i + sitelen]
                         pam_found = search_seq[i:target_start]
                         if 'Cas12a' in name:
-                            on_score = round(scoring.deepcpf1([str(search_seq[i -5:i+sitelen + 4])])[0][0],2)
+                            on_score = round(scoring.deepcpf1([str(search_seq[i - 5:i + sitelen + 4])])[0][0], 2)
 
                     snvpos = snv_rel_pos - target_start
                     start = self.SNV_chr_pos - snvpos

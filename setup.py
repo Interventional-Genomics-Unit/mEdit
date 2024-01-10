@@ -7,7 +7,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='meditability',
-    version='0.1.3.10',
+    version='0.1.3.15',
     description='',
     author='Interventional Genomics Unit',
     author_email='',
@@ -16,9 +16,11 @@ setup(
             "medit = prog:main"
         ]
     },
-    packages=find_packages(),
-    # package_dir={""},
-    package_data={"smk.config": ["*.yaml"], "smk.snakemake": ["*.smk"]},
+    packages=find_packages("src"),
+    package_dir={"": "src"},
+    package_data={"smk.config": ["*.yaml"],
+                  "smk.envs": ["*.yaml"],
+                  "smk.pipelines": ["*.smk"]},
     include_package_data=True,
     install_requires=[
         'snakemake>=7.32.4',
