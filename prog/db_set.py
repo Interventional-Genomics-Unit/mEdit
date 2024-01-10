@@ -4,7 +4,7 @@ from os.path import abspath
 import yaml
 # == Project Modules ==
 from prog.medit_lib import (download_s3_objects,
-                            get_project_root,
+                            project_file_path,
                             launch_shell_cmd,
                             list_files_by_extension,
                             pickle_chromosomes,
@@ -14,8 +14,8 @@ from prog.medit_lib import (download_s3_objects,
 
 def dbset(args):
 	# === Load template configuration file ===
-	config_path = get_project_root("smk.config")
-	with open(f"{config_path}/medit_database.yaml", 'r') as config_handle:
+	config_path = project_file_path("config", "medit_database.yaml")
+	with open(config_path, 'r') as config_handle:
 		config_db_template = yaml.safe_load(config_handle)
 
 	# === Load Database Path ===

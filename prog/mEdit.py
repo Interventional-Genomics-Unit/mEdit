@@ -5,7 +5,7 @@ import os
 from prog.guide_prediction import guide_prediction as guide_prediction
 from prog.db_set import dbset as db_set
 from prog.arguments import parse_arguments
-from prog.medit_lib import (date_tag, get_project_root)
+from prog.medit_lib import date_tag
 
 
 def main():

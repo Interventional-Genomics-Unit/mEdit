@@ -1,1 +1,0 @@
-from .mEdit import main

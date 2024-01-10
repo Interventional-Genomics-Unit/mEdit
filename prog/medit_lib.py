@@ -8,10 +8,11 @@ import string
 import pytz
 import os
 import re
+import pathlib
 import pickle
-from importlib.resources import files
 # == Installed Modules ==
 import yaml
+from importlib_resources import files
 from Bio import SeqIO
 import boto3
 from botocore.exceptions import NoCredentialsError
@@ -59,16 +60,17 @@ def download_s3_objects(s3_bucket_name: str, s3_object_name: str, destination_pa
 		content = response.get('Contents', [])
 	except NoCredentialsError:
 		raise "AWS Credentials not available. Please sign in then try again!"
-	for content_idx in range(1, len(content)):
+	for content_idx in range(0, len(content)):
 		key = content[content_idx]['Key']
-		destination_file = os.path.join(destination_path, key)
-		if key != s3_object_name:  # Check if it's a directory
-			destination_dir = os.path.join(destination_path, s3_object_name)
-			print(f"Downloading dir {destination_dir}; File => {destination_file}")
-			os.makedirs(destination_dir, exist_ok=True)
-			s3.download_file(s3_bucket_name, key, destination_file)
-		if key == s3_object_name:
-			print(f"Downloading file {destination_file}")
+		# destination_file = os.path.join(destination_path, key)
+		if key != f"{s3_object_name}/":  # Skip the S3 object that denotes the parent folder
+			source_file = key.split("/")[-1]
+			destination_file = os.path.join(destination_path, source_file)
+			if file_exists(destination_file):
+				print(f"File already exists, skipping: {destination_file}")
+				continue
+			print(f"Downloading file {key}; From bucket {s3_bucket_name}; File => {destination_file}")
+			pathlib.Path(destination_path).mkdir(parents=True, exist_ok=True)
 			s3.download_file(s3_bucket_name, key, destination_file)
 	print(f"Successfully downloaded S3 objects from s3://{s3_bucket_name}/{s3_object_name} to {destination_path}")
 
@@ -149,11 +151,15 @@ def prGreen(skk):
 	print("\033[92m {}\033[00m" .format(skk))
 
 
-def get_project_root(internal_path):
-	paths = files(internal_path)
-	for path in paths.iterdir():
-		actual_path = str(path)  # Convert each path to a string
-		return actual_path  # Or use the path as needed
+def project_file_path(path_from_toplevel: str, filename: str):
+	"""
+	There are two top-level directories in the current version of mEdit: snakemake and config
+	From either of these paths, the respective *.smk and *.yaml files can be accessed
+	:param path_from_toplevel:
+	:param filename:
+	:return:
+	"""
+	return str(files(path_from_toplevel).joinpath(filename))
 
 
 def set_export(outdir: str):
@@ -162,7 +168,7 @@ def set_export(outdir: str):
 	# Create outdir only if it doesn't exist
 	if not os.path.exists(outdir):
 		print(f'Directory created on: {outdir}')
-		os.makedirs(outdir)
+		pathlib.Path(outdir).mkdir(parents=True, exist_ok=True)
 	return outdir
 
 
