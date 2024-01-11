@@ -1,6 +1,8 @@
+# Installed Modules
 from Bio.Seq import Seq
 from Bio import SeqUtils
 from Bio.SeqUtils import seq3
+# Project Modules
 import scoring
 
 

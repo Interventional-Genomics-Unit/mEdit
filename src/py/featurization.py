@@ -3,13 +3,14 @@
 # was removed to simplify code
 # Azimuth license applies to this file
 
-from math import exp
-from re import findall
-import pandas as pd
-import Bio.Seq as Seq
-import numpy as np
+# Native Modules
 import itertools
+# Installed Modules
+import pandas as pd
+import numpy as np
+
 import Bio.SeqUtils.MeltingTemp as Tm
+
 
 def countGC(s, length_audit=True):
     '''

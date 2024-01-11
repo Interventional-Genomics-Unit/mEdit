@@ -1,0 +1,38 @@
+name: vcf
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - bzip2=1.0.8
+  - ca-certificates=2023.11.17
+  - libblas=3.9.0
+  - libcblas=3.9.0
+  - libcxx=16.0.6
+  - libexpat=2.5.0
+  - libffi=3.4.2
+  - libgfortran=5.0.0
+  - libgfortran5=13.2.0
+  - liblapack=3.9.0
+  - libopenblas=0.3.25
+  - libsqlite=3.44.2
+  - libzlib=1.2.13
+  - llvm-openmp=17.0.6
+  - ncurses=6.4
+  - numpy=1.26.3
+  - openssl=3.2.0
+  - pandas=2.1.4
+  - pip=23.3.2
+  - python=3.11.7
+  - python-dateutil=2.8.2
+  - python-tzdata=2023.4
+  - python_abi=3.11
+  - pytz=2023.3.post1
+  - pyvcf=0.6.8
+  - readline=8.2
+  - setuptools=69.0.3
+  - six=1.16.0
+  - tk=8.6.13
+  - tzdata=2023d
+  - wheel=0.42.0
+  - xz=5.2.6
+prefix: /Users/bellieny/miniconda3/envs/vcf

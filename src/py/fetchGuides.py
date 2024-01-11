@@ -1,8 +1,7 @@
 # Native Modules
 import gzip
 import zlib
-
-# import regex as re
+import pickle
 import os
 import re
 from zlib import error
@@ -10,7 +9,6 @@ from zlib import error
 import pandas as pd
 from Bio import SeqIO, SeqUtils
 from Bio.Seq import Seq
-import pickle
 # Project Modules
 from dataH import DataHandler
 from annotate import Transcript

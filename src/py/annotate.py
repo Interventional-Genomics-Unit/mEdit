@@ -1,7 +1,11 @@
+# Native Modules
 import gzip
-from Bio.Seq import Seq
 from subprocess import Popen, PIPE
 import os
+# Installed Modules
+from Bio.Seq import Seq
+# Project Modules
+
 
 class Transcript:
     tx_lib = {} #tid : []
