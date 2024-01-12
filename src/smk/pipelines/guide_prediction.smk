@@ -131,7 +131,7 @@ Wildcards in this rule:
 --> {wildcards}
         """
 	script:
-		"../../py/fetchGuides.py"
+		"py/fetchGuides.py"
 
 # noinspection SmkAvoidTabWhitespace
 rule process_altgenomes:
@@ -166,4 +166,4 @@ Wildcards in this rule:
 --> {wildcards}
 		"""
 	script:
-		"../../py/process_genome.py"
+		"py/process_genome.py"

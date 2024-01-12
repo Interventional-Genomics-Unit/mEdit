@@ -1,13 +1,13 @@
 # Native Modules
-import gzip
-import zlib
+# import gzip
+# import zlib
 import pickle
 import os
 import re
-from zlib import error
+# from zlib import error
 # Installed Modules
 import pandas as pd
-from Bio import SeqIO, SeqUtils
+# from Bio import SeqIO, SeqUtils
 from Bio.Seq import Seq
 # Project Modules
 from dataH import DataHandler

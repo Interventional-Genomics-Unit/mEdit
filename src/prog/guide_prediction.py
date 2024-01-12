@@ -144,6 +144,7 @@ def guide_prediction(args, jobtag):
 			# --> When cluster submission is switched on,
 			launch_shell_cmd(f"snakemake "
 			                 f"--snakefile {project_file_path('smk.pipelines', 'guide_prediction.smk')} "
+			                 # f"--directory {project_file_path('smk.pipelines', 'guide_prediction.smk')} "
 			                 f"-j {ncores} "
 			                 f"{smk_run_triggers} "
 			                 f"{allowed_rules[smk_setup_idx]} "
