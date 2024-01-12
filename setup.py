@@ -7,7 +7,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='meditability',
-    version='0.1.3.7',
+    version='0.1.3.9',
     description='',
     author='Interventional Genomics Unit',
     author_email='',
@@ -24,7 +24,6 @@ setup(
     include_package_data=True,
     install_requires=[
         'snakemake>=7.32.4',
-        'tensorflow>=2.13',
         'wrapt>=1.15.0',
         'biopython>=1.81',
         'pyyaml>=6.0',
