@@ -2,7 +2,6 @@ name: samtools
 channels:
   - conda-forge
   - bioconda
-  - defaults
 dependencies:
   - bcftools=1.16
   - bzip2=1.0.8
@@ -15,11 +14,8 @@ dependencies:
   - libcblas=3.9.0
   - libcurl=7.87.0
   - libcxx=16.0.6
-  - libdeflate=1.19
   - libedit=3.1.20191231
   - libev=4.33
-  - libgfortran=5.0.0
-  - libgfortran5=13.2.0
   - libnghttp2=1.51.0
   - libopenblas=0.3.25
   - libssh2=1.10.0
