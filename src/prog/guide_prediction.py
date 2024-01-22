@@ -123,7 +123,7 @@ def guide_prediction(args, jobtag):
 			loop_tag = f"{jobtag}_{count_tag}"
 			vcf_filename = f"{loop_tag}.vcf"
 			tagged_genomes.append(loop_tag)
-			if not file_exists(f"{vcf_dir_path}/{vcf_filename}"):
+			if not file_exists(f"{vcf_dir_path}/{vcf_filename}") or not file_exists(f"{vcf_dir_path}/{vcf_filename}.gz"):
 				#   => Create a copy of the VCF in the internal mEdit directory
 				launch_shell_cmd(f"cp {private_genome} {vcf_dir_path}/{vcf_filename}", True)
 				#   => Check VCF file compression and compress if necessary

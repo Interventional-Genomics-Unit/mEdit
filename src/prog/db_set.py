@@ -71,6 +71,7 @@ def dbset(args):
 	print("Downloading Pre-Processed Background Data Sets")
 	download_s3_objects("medit.db", "processed_tables.tar.gz", db_path_full)
 	download_s3_objects("medit.db", "raw_tables.tar.gz", db_path_full)
+	download_s3_objects("medit.db", "pkl.tar.gz", db_path_full)
 	#   == Decompress tar.gz files in the database
 	print("Decompressing Databases")
 	launch_shell_cmd(f"gzip -d {db_path_full}/*.gz")
