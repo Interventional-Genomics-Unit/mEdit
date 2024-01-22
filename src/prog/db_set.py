@@ -35,6 +35,9 @@ def dbset(args):
 	#   == Assign jobtag and Fasta root path ==
 	fasta_root_path = f"{db_path_full}/{config_db_template['fasta_root_path']}"
 	config_db_template['fasta_root_path'] = fasta_root_path
+	#   == Assign Editor pickles path ==
+	config_db_template["editors"] = f"{db_path_full}/{config_db_template['editors']}"
+	config_db_template["base_editors"] = f"{db_path_full}/{config_db_template['base_editors']}"
 	#   == Parse the Processed Tables folder and its contents ==
 	processed_tables = f"{db_path_full}/{config_db_template['processed_tables']}"
 	config_db_template["processed_tables"] = f"{processed_tables}"
@@ -56,7 +59,6 @@ def dbset(args):
 	# === Download Data ===
 	#   == SeqRecord Pickles
 	print("Downloading Database of Genomic References")
-	# launch_shell_cmd(f"aws s3 cp --recursive s3://medit.db/genome_pkl {fasta_root_path}")
 	download_s3_objects("medit.db", "genome_pkl", fasta_root_path)
 	print("Processing FASTA reference assembly")
 	#   == Only one file is expected in this directory. Hence, the 1st item of the list
@@ -64,17 +66,18 @@ def dbset(args):
 	launch_shell_cmd(f"bgzip -c -@ {threads} -d {reference_fasta_path} > {fasta_root_path}/tmp_hg38.fa")
 	pickle_chromosomes(f"{fasta_root_path}/tmp_hg38.fa", fasta_root_path)
 	#   == HPRC VCF files Setup
-	# launch_shell_cmd(f"aws s3 cp --recursive s3://medit.db/hprc/ {vcf_dir_path}")
 	download_s3_objects("medit.db", "hprc", vcf_dir_path)
 	#   == Processed Tables and Raw Tables
 	print("Downloading Pre-Processed Background Data Sets")
-	# launch_shell_cmd(f"aws s3 cp s3://medit.db/processed_tables.tar.gz {db_path_full}")
 	download_s3_objects("medit.db", "processed_tables.tar.gz", db_path_full)
-	# launch_shell_cmd(f"aws s3 cp s3://medit.db/raw_tables.tar.gz {db_path_full}")
 	download_s3_objects("medit.db", "raw_tables.tar.gz", db_path_full)
+	download_s3_objects("medit.db", "pkl.tar.gz", db_path_full)
+	#   == Decompress tar.gz files in the database
 	print("Decompressing Databases")
 	launch_shell_cmd(f"gzip -d {db_path_full}/*.gz")
 	launch_shell_cmd(f"tar -xf {db_path_full}/raw_tables.tar --directory={db_path_full}/ && "
 	                 f"rm {db_path_full}/raw_tables.tar")
 	launch_shell_cmd(f"tar -xf {db_path_full}/processed_tables.tar --directory={db_path_full}/ && "
 	                 f"rm {db_path_full}/processed_tables.tar")
+	launch_shell_cmd(f"tar -xf {db_path_full}/pkl.tar --directory={db_path_full}/ && "
+	                 f"rm {db_path_full}/pkl.tar")
