@@ -38,6 +38,7 @@ def dbset(args):
 	#   == Assign Editor pickles path ==
 	config_db_template["editors"] = f"{db_path_full}/{config_db_template['editors']}"
 	config_db_template["base_editors"] = f"{db_path_full}/{config_db_template['base_editors']}"
+	config_db_template["models_path"] = f"{db_path_full}/{config_db_template['models_path']}"
 	#   == Parse the Processed Tables folder and its contents ==
 	processed_tables = f"{db_path_full}/{config_db_template['processed_tables']}"
 	config_db_template["processed_tables"] = f"{processed_tables}"

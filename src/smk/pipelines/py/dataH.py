@@ -11,7 +11,7 @@ class DataHandler:
     search for guides given a genomic sequence and SNV info
     """
 
-    def __init__(self, query, strand, ref, alt, feature_annotation, extracted_seq, rf, coord,gname):
+    def __init__(self, query, strand, ref, alt, feature_annotation, models_dir, extracted_seq, rf, coord,gname):
         """
         :param query: ex: 'NM_000532.5(PCCB):c.1316A>G (p.Tyr439Cys)' or 'chr19:136327650A>G'
         :param strand: ex. '-' or '+
@@ -33,6 +33,7 @@ class DataHandler:
         self.rf = rf
         self.extracted_seq = str(extracted_seq)
         self.annotation = feature_annotation
+        self.models_dir = models_dir
         self.coord = coord
         self.chrom = coord.split(':')[0].replace('chr', '')
         self.gname = gname
@@ -239,7 +240,8 @@ class DataHandler:
                         if not BEmode:
                             if pam == 'NGG' and guidelen == 20:
                                 #Azmith only accurate for NGG pams
-                                on_score = scoring.azimuth(cas9_sites = [str(search_seq[target_start - 3:target_start + sitelen + 4])])[0]
+                                on_score = scoring.azimuth([str(search_seq[target_start - 3:target_start + sitelen + 4])],
+                                                           self.models_dir)[0]
                             #oof_score use only for DSB
                             mh_score, oof_score = scoring.oofscore(str(search_seq[target_start - 20:target_start + sitelen + 20]))
 
@@ -250,7 +252,8 @@ class DataHandler:
                         guide = search_seq[target_start: i + sitelen]
                         pam_found = search_seq[i:target_start]
                         if 'Cas12a' in name:
-                            on_score = round(scoring.deepcpf1([str(search_seq[i - 5:i + sitelen + 4])])[0][0], 2)
+                            on_score = round(scoring.deepcpf1([str(search_seq[i - 5:i + sitelen + 4])],
+                                                              self.models_dir)[0][0], 2)
 
                     snvpos = snv_rel_pos - target_start
                     start = self.SNV_chr_pos - snvpos

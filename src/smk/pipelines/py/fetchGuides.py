@@ -374,11 +374,11 @@ class Fetch_Guides:
 			print('Query are not in the correct Coordinate + allele Format')
 		return validated_queries
 
-	def run_FetchGuides(self, outfile_guides, outfile_be_guides):
+	def run_FetchGuides(self, outfile_guides, outfile_be_guides, models_dir):
 		global dh, query
 		self.fetch_query_info()
 		self.find_transcript_info()
-		print('Finding Guides.....')
+		print('Finding Guides')
 		for ch, data in self.snv_info.items():
 
 			for d in data:
@@ -387,7 +387,7 @@ class Fetch_Guides:
 				except ValueError:
 					print(f"WARNING: The query below has the wrong number of values to unpack. Needs further investigation:\n{d}")
 					continue
-				dh = DataHandler(query, strand, ref, alt, feature_annotation, extracted_seq, codons, coord,gname)
+				dh = DataHandler(query, strand, ref, alt, feature_annotation, models_dir, extracted_seq, codons, coord, gname)
 
 				if self.be_request != 'off':
 					guides, BEguides = dh.get_Guides(self.search_params, self.BE_search_params)
@@ -433,7 +433,6 @@ class Fetch_Guides:
 		        'BE_table': BEdf}
 
 
-
 def main():
 	# SNAKEMAKE IMPORTS
 	# === Inputs ===
@@ -454,6 +453,7 @@ def main():
 	# == Editor Parameters
 	editors_path = str(snakemake.params.editors)
 	base_editors_path = str(snakemake.params.base_editors)
+	models_path = str(snakemake.params.models_path)
 	#   == Run Parameters ==
 	qtype = str(snakemake.params.qtype)
 	be_request = str(snakemake.params.be_request)
@@ -502,7 +502,7 @@ def main():
 	                  annote_path
 	                  )
 	# == Set up object and run core methods ==
-	exports = fg.run_FetchGuides(guides_report, be_report)
+	exports = fg.run_FetchGuides(guides_report, be_report, models_path)
 
 	# == Export Intermediate files ==
 	fg.write_snv_site_info(snv_site_info_path)

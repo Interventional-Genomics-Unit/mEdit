@@ -29,3 +29,4 @@ gencode: "GENEonly_cleaned_genecode_annotation.csv" ####DANIEL No Longer needed
 # BEs / Editors
 editors: "pkl/editors.pkl"
 base_editors: "pkl/base_editors.pkl"
+models_path: "pkl/models"

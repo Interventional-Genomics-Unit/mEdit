@@ -10,34 +10,27 @@ from tensorflow.keras.models import load_model
 from featurization import featurize_data
 
 
-#### DANEIEL ###  incorporating into snakemake?
-#        vvvvv
-#        vvvvv
-#        vvvvv
-#vvvvvvvvvvvvvvvvvvvvvvv
-#   vvvvvvvvvvvvvvvv
-#        vvvvvv
-#          vv
-def load_model_params(score_name):
+def load_model_params(score_name: str, models_dir: str):
     try:
-        #dirname = os.path.dirname(os.path.realpath(__file__)).replace('py/','')
+        # dirname = os.path.dirname(os.path.realpath(__file__)).replace('py/','')
         dirname = '/home/thudson/projects/editability'
         if score_name == 'cfd':
-            mm_scores = pickle.load(open( dirname+ '/pkl/mismatch_score.pkl', 'rb'))
-            pam_scores = pickle.load(open(dirname + '/pkl/PAM_scores.pkl', 'rb'))
+            mm_scores = pickle.load(open(models_dir + '/mismatch_score.pkl', 'rb'))
+            pam_scores = pickle.load(open(models_dir + '/PAM_scores.pkl', 'rb'))
             return mm_scores, pam_scores
         if score_name == 'azimuth':
-            model = pickle.load(open(dirname+ '/pkl/python3_V3_model_no.pos.pickle', 'rb'))
+            model = pickle.load(open(models_dir + '/python3_V3_model_no.pos.pickle', 'rb'))
             return model
         if score_name == 'doench14':
-            doench14params = pickle.load(open(dirname + '/pkl/doench14params.pkl', 'rb'))
+            doench14params = pickle.load(open(models_dir + '/doench14params.pkl', 'rb'))
             return doench14params
         if score_name == 'deepcpf1':
-            model1 = load_model(dirname +"/h5/DeepCpf1.h5")
-            model2 = load_model(dirname +"/h5/Seq_deepCpf1.h5")
+            model1 = load_model(models_dir + "/DeepCpf1.h5")
+            model2 = load_model(models_dir + "/Seq_deepCpf1.h5")
             return model1, model2
-    except:
+    except FileNotFoundError:
         raise Exception(f"File containing {score_name} could not be opened")
+
 
 def revcom(s):
     basecomp = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A','U':'A'}
@@ -46,16 +39,15 @@ def revcom(s):
     return ''.join(letters)
 
 
-#### On-target Efficiency Scoring
-
-def doench2014(cas9_sites):
+# === On-target Efficiency Scoring ===
+def doench2014(cas9_sites, models_dir):
         """
         Doench 2014 'on-target score'
         Input is a 30mer: 4bp 5', 20bp guide, 3bp PAM, 3bp 5'
         Doench et al, Nat Biotech 2014, PMID 25184501, http://www.broadinstitute.org/rnai/public/analysis-tools/sgrna-design
         Code from crispor - https://github.com/maximilianh/crisporWebsite
         """
-        doench2014params = load_model_params(score_name = 'doench14')
+        doench2014params = load_model_params('doench14', models_dir)
         scores = []
         global gcWeight
         intercept = 0.59763615
@@ -81,9 +73,10 @@ def doench2014(cas9_sites):
                     score += weight
             scores.append(int(100 * (1.0 / (1.0 + exp(-score)))))
 
-        return score
+        return scores
 
-def azimuth(cas9_sites):
+
+def azimuth(cas9_sites, models_dir):
     '''
     Doench/Fusi 2016 Rule -2 on-target / efficiency score now packaged as 'Azimuth'
     This script is copied and modified from https://github.com/MicrosoftResearch/Azimuth
@@ -92,7 +85,7 @@ def azimuth(cas9_sites):
     '''
     #Doench/Fusi 2016 Rule -2 'on-target score'
     # This script is copied and modified to suit from https://github.com/MicrosoftResearch/Azimuth
-    model = load_model_params(score_name='azimuth')
+    model = load_model_params('azimuth', models_dir)
     model, learn_options = model
 
     res = []
@@ -137,14 +130,15 @@ def azimuth(cas9_sites):
     scores = [(s * 100).round(2) for s in scores]
     return scores
 
-def deepcpf1(cas12_sites):
+
+def deepcpf1(cas12_sites, models_dir):
     '''
     Cpf1(cas12) on-target score "kinda"
     predicts the likelihood of getting a cas12 indel at the desired target
     This script is copied and modified from https://github.com/MyungjaeSong/Paired-Library
     Kim, H., Song, M., Lee, J. et al. In vivo high-throughput profiling of CRISPR–Cpf1 activity. Nat Methods 14, 153–159 (2017)
     '''
-    model1,model2 = load_model_params(score_name='deepcpf1')
+    model1,model2 = load_model_params('deepcpf1', models_dir)
     data_n = len(cas12_sites)
     #if chromatin_flag != 'ignore':
      #   CA = np.zeros((data_n, 1), dtype=int)
@@ -168,6 +162,7 @@ def deepcpf1(cas12_sites):
 
     return scores
 
+
 def deepABE(abesites):
     '''
     ABE Efficiency Scoring
@@ -180,8 +175,7 @@ def deepABE(abesites):
     #model = load_model_params(score_name='deepabe')
 
 
-#### Microhomology Scoring
-
+# === Microhomology Scoring ===
 def oofscore(seq):
     '''
     copied and adapted code from Bae et al. https://www.nature.com/articles/nmeth.3015
@@ -254,14 +248,15 @@ def oofscore(seq):
 
     return mh_score, oof_score
 
-#### Off-target Specifity Scoring
-def cfd_score(seq1, seq2):
+
+# === Off-target Specifity Scoring ===
+def cfd_score(seq1, seq2, models_dir):
     '''
     Doench 2016 off-target scoring
     Doench, Fusi, et al.  Nature Biotechnology 34, 184–191 (2016)."
 
     '''
-    mm_scores, pam_scores = load_model_params(score_name='cfd')
+    mm_scores, pam_scores = load_model_params('cfd', models_dir)
     pam = seq2[-3:]
     seq1 = seq1.upper().replace('T', 'U')
     seq2 = seq2[:-3].upper().replace('T', 'U')
@@ -282,6 +277,7 @@ def cfd_score(seq1, seq2):
     else:
         score = -1
     return round(score,4)
+
 
 def cfd_spec_score(sum_cfd_scores):
     '''

@@ -106,6 +106,7 @@ rule predict_guides:
 		# == Editor Parameters
 		editors = config["editors"],
 		base_editors = config["base_editors"],
+		models_path= config["models_path"],
 		# == Run Parameters ==
 		qtype = config["qtype"],
 		be_request = config["be_request"],
