@@ -85,4 +85,4 @@ def dbset(args):
 	                 f"rm {db_path_full}/processed_tables.tar")
 	launch_shell_cmd(f"tar -xf {db_path_full}/pkl.tar --directory={db_path_full}/ && "
 	                 f"rm {db_path_full}/pkl.tar")
-	launch_shell_cmd(f"gzip -d {config_db_template['refseq_table']}")
+	launch_shell_cmd(f"gzip -d {config_db_template['refseq_table']}.gz")

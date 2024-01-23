@@ -15,7 +15,7 @@ processed_tables: "processed_tables"
 simple_tables: "guide_acquisition_tables"####DANIEL No Longer needed
 hgvs_lookup: "HGVSlookup.csv"
 clinvar_update: "clinvar_lastUpdate.txt"
-refseq_table: "ncbiRefSeq.bed.gz" ####DANIEL CHANGE TO "ncbiRefSeq.bed.gz"
+refseq_table: "ncbiRefSeq.bed" ####DANIEL CHANGE TO "ncbiRefSeq.bed.gz"
 
 # == RAW TABLES ==
 # Main path for raw tables
