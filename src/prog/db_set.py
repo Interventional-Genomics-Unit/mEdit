@@ -61,17 +61,20 @@ def dbset(args):
 	print("Downloading Database of Genomic References")
 	download_s3_objects("medit.db", "genome_pkl", fasta_root_path)
 	print("Processing FASTA reference assembly")
+
 	#   == Only one file is expected in this directory. Hence, the 1st item of the list
 	reference_fasta_path = list_files_by_extension(fasta_root_path, 'fa.gz')[0]
 	launch_shell_cmd(f"bgzip -c -@ {threads} -d {reference_fasta_path} > {fasta_root_path}/tmp_hg38.fa")
 	pickle_chromosomes(f"{fasta_root_path}/tmp_hg38.fa", fasta_root_path)
 	#   == HPRC VCF files Setup
 	download_s3_objects("medit.db", "hprc", vcf_dir_path)
+
 	#   == Processed Tables and Raw Tables
 	print("Downloading Pre-Processed Background Data Sets")
 	download_s3_objects("medit.db", "processed_tables.tar.gz", db_path_full)
 	download_s3_objects("medit.db", "raw_tables.tar.gz", db_path_full)
 	download_s3_objects("medit.db", "pkl.tar.gz", db_path_full)
+
 	#   == Decompress tar.gz files in the database
 	print("Decompressing Databases")
 	launch_shell_cmd(f"gzip -d {db_path_full}/*.gz")
@@ -81,3 +84,4 @@ def dbset(args):
 	                 f"rm {db_path_full}/processed_tables.tar")
 	launch_shell_cmd(f"tar -xf {db_path_full}/pkl.tar --directory={db_path_full}/ && "
 	                 f"rm {db_path_full}/pkl.tar")
+	launch_shell_cmd(f"gzip -d {config_db_template['refseq_table']}")
