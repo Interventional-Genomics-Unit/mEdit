@@ -12,6 +12,7 @@ class Transcript:
     coord2tid = {}
     labels = ['chrom', 'txStart', 'txEnd', 'strand', 'tid', 'eid', 'name',
               'cdsStart', 'cdsEnd', 'exonStarts', 'exonEnds', 'exonFrames']
+
     def __init__(self,entry):
         '''
         :param entry: NCBI Transcript Entry
@@ -36,10 +37,10 @@ class Transcript:
         self.txseq = None
 
     @classmethod
-    def transcript(cls,snvcoord):
+    def transcript(cls, snvcoord):
         if snvcoord in cls.coord2tid.keys():
             tid = cls.coord2tid[snvcoord]
-            start,end =snvcoord.split(':')[1].split('-')
+            start, end = snvcoord.split(':')[1].split('-')
             pos = int((int(start) + int(end)) /2)
             obj = cls.tx_lib[tid]
             obj.find_feature(pos)
@@ -49,68 +50,65 @@ class Transcript:
 
     @classmethod
     def load_transcripts(cls, annote_path,snvcoords):
-        print('DANIEL WE MIGHT NEED TO MAKE A TEMP FOLDER')
-        print('SEE load_transcripts in annotate.py')
-        temp_bedfname = "temp_in.bed.gz"
-        entries = None
+        # print('DANIEL WE MIGHT NEED TO MAKE A TEMP FOLDER')
+        # print('SEE load_transcripts in annotate.py')
+        temp_bedfname = "temp_in.bed"
+        bed_entries = None
 
         #reset dict
         cls.coord2tid = {}
         cls.tx_lib = {}
 
-        with gzip.open(temp_bedfname, 'wt') as out:
-            for c in snvcoords:
-                x = c.split(':')
-                chrom = x[0]
-                start = x[1].split('-')[0]
-                end = x[1].split('-')[1]
-                line = "\t".join([chrom,start,end])
-                out.writelines(line + "\n")
+        with open(temp_bedfname, 'w') as tempbed:
+            for coord in snvcoords:
+                coord_field = coord.split(':')
+                chrom = coord_field[0]
+                start = coord_field[1].split('-')[0]
+                end = coord_field[1].split('-')[1]
+                line = "\t".join([chrom, start, end])
+                tempbed.writelines(line + "\n")
 
         cmd = 'bedtools window -w 50 -a ' + temp_bedfname + ' -b ' + annote_path
-        p = Popen(cmd, shell=True, stdout=PIPE, text=True)
-        out = p.communicate()[0]
-        ret = p.wait()
+        bed_popen = Popen(cmd, shell=True, stdout=PIPE, text=True)
+        bedtools_out = bed_popen.communicate()[0]
+        ret = bed_popen.wait()
         if ret != 0:
             print("Bedtools process was interrupted!")
-        if out != '':
-            entries = out.split('\n')[:-1]
+        if bedtools_out != '':
+            bed_entries = bedtools_out.split('\n')[:-1]
 
-        for x in entries:
-            tokens = x.split('\t')
-            tokens= tokens[:-1] + tokens[-1].split('|')
-            snvcoord = f'{tokens[0]}:{tokens[1]}-{tokens[2]}'
-            entry = dict(zip(cls.labels, tokens[-12:]))
-            #print(snvcoord)
-            #print(entry)
-            if entry['chrom'] != '.':
-                if snvcoord not in cls.coord2tid.keys():
-                    cls.coord2tid[snvcoord] = entry['tid']
-                    cls.tx_lib[entry['tid']] = cls(entry)
+            for bed_entry in bed_entries:
+                tokens = bed_entry.split('\t')
+                tokens = tokens[:-1] + tokens[-1].split('|')
+                snvcoord = f'{tokens[0]}:{tokens[1]}-{tokens[2]}'
+                entry = dict(zip(cls.labels, tokens[-12:]))
 
-                else: #adjusting for overlaps to retrieve the most up to date transcript
-                    new_tid = entry['tid']
-                    oldtid = cls.coord2tid[snvcoord]
-                    #print('OVERLAP')
-                    #print(oldtid,new_tid)
+                if entry['chrom'] != '.':
+                    if snvcoord not in cls.coord2tid.keys():
+                        cls.coord2tid[snvcoord] = entry['tid']
+                        cls.tx_lib[entry['tid']] = cls(entry)
+                    # adjusting for overlaps to retrieve the most up to date transcript
+                    else:
+                        new_tid = entry['tid']
+                        oldtid = cls.coord2tid[snvcoord]
 
-                    if new_tid.startswith('NR') and oldtid.startswith('NM'):
-                        pass
+                        if new_tid.startswith('NR') and oldtid.startswith('NM'):
+                            pass
 
-                    elif new_tid[0:2] == oldtid[0:2]:
-                        if entry['eid'] != '-' or (float(oldtid.split('_')[-1]) < float(new_tid.split('_')[-1])):
+                        elif new_tid[0:2] == oldtid[0:2]:
+                            if entry['eid'] != '-' or (float(oldtid.split('_')[-1]) < float(new_tid.split('_')[-1])):
+                                cls.coord2tid[snvcoord] = new_tid
+                                obj = cls(entry)
+                                obj.overlapping_transcripts.append(oldtid)
+                                cls.tx_lib[entry['tid']] = obj
+                        else:
                             cls.coord2tid[snvcoord] = new_tid
                             obj = cls(entry)
                             obj.overlapping_transcripts.append(oldtid)
                             cls.tx_lib[entry['tid']] = obj
-                    else:
-                        cls.coord2tid[snvcoord] = new_tid
-                        obj = cls(entry)
-                        obj.overlapping_transcripts.append(oldtid)
-                        cls.tx_lib[entry['tid']] = obj
 
-            else:
-                cls.coord2tid[snvcoord] = 'intergenic'
+                else:
+                    cls.coord2tid[snvcoord] = 'intergenic'
         os.remove(temp_bedfname)
     def __dict__(self):
         return self.entry
