@@ -214,6 +214,8 @@ def cas_offinder_bulge(input_filename, output_filename,cas_off_expath,bulge):
 def score_ot(crrna,otseq,editor):
     score = '.'
     if 'spCas9' in editor:
+        # TODO: NEEDS
+        raise Exception("The function scoring.cfd_score requires a path to the model files")
         score = scoring.cfd_score(crrna[:-3], otseq[:-4])
     return score
 
