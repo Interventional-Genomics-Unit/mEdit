@@ -96,7 +96,6 @@ class Fetch_Guides:
 		self.all_BE = {}
 		self.not_found = {}
 
-
 	def configure_search_params(self):
 		"""
 		set paramteres for the selected editor or editors(not BE editors)
@@ -112,8 +111,13 @@ class Fetch_Guides:
 		# TODO: The guide_prediction.py needs to ingest this correctly
 		elif type(self.editor_request) is list:
 			search_params = {}
-			for e in self.editor_request:
-				search_params[e] = self.editor_lib[e]
+			for editor in self.editor_request:
+				try:
+					search_params[editor] = self.editor_lib['user_request'][editor]
+				except KeyError:
+					print(f"Please list one or more editors available at the current version's list:"
+					      f" \n{self.editor_lib['user_request'].keys()}")
+					raise Exception(f"The editor {editor} isn't available in the currently version of mEdit")
 
 		# else use single set parameters
 		else:
@@ -175,7 +179,8 @@ class Fetch_Guides:
 
 					if len(v) == 3:
 						if self.be_request in v[2][-1]:
-							self.BE_search_params = {self.be_request: self.be_lib['all'][k][0] + self.be_lib['all'][k][2]}
+							self.BE_search_params = {
+								self.be_request: self.be_lib['all'][k][0] + self.be_lib['all'][k][2]}
 
 		return self.BE_search_params
 
@@ -185,7 +190,6 @@ class Fetch_Guides:
 		with open(outfile, 'ab') as gfile:
 			pickle.dump(self.search_params, gfile)
 
-
 	def write_snv_site_info(self, outfile):
 		'''
 		#writes pickle of SNV site info for later use in process genome
@@ -194,25 +198,27 @@ class Fetch_Guides:
 		with open(outfile, 'ab') as sfile:
 			pickle.dump(self.snv_info, sfile)
 
-	def write_not_found(self,outfile):
+	def write_not_found(self, outfile):
 		if len(self.not_found.keys()) > 0:
-			pd.DataFrame(self.not_found).to_csv(outfile,index = False )
+			pd.DataFrame(self.not_found).to_csv(outfile, index=False)
 
 	def write_guide_csv(self, guides, outfile):
 		df = pd.DataFrame(guides)
 		if 'On-Target Efficiency Score' in df.columns:
-			temp = df[df['On-Target Efficiency Score'] != '-'].sort_values(by='On-Target Efficiency Score', ascending=False)
+			temp = df[df['On-Target Efficiency Score'] != '-'].sort_values(by='On-Target Efficiency Score',
+			                                                               ascending=False)
 			temp = temp.sort_values(by='Editor')
 			df = pd.concat([temp, df[df['On-Target Efficiency Score'] == '-']]).reset_index(drop=True)
 		df['Guide_ID'] = [y + str(x) for x, y in zip(list(df.index), list(df['Guide_ID']))]
 		df.to_csv(outfile, index=False)
 		return df
-	def add_clinvar(self,gadf):
+
+	def add_clinvar(self, gadf):
 		self.all_variant = pd.concat([self.all_variant, gadf])
 
 	def add_clininfo(self, gene_out, variant_out):
-		#writes
-		#TODO: The path to gene_tables will ideally be imported as a snakemake variable
+		# writes
+		# TODO: The path to gene_tables will ideally be imported as a snakemake variable
 		all_tids = []
 		for k in self.snv_info.keys():
 			for v in self.snv_info[k]:
@@ -228,21 +234,21 @@ class Fetch_Guides:
 			print(f"\nREADY TO PRINT VARIANT OUT TO: {variant_out}\n")
 			self.all_variant.to_csv(variant_out, index=False)
 
-	def add_not_found(self,nfqueries,reason):
-		#adds queries that are not found ex: no guides or hgvs not found
+	def add_not_found(self, nfqueries, reason):
+		# adds queries that are not found ex: no guides or hgvs not found
 		for nf in nfqueries:
 			self.not_found[nf] = reason
 
 	@staticmethod
-	def extract_seqs(searchseq, pos, alt,window):
-		#extracts the sequence +/windowbp surrounding a SNV then swaps ref for alt allele
-		extracted_seq = str(searchseq[pos -window:pos + window])
+	def extract_seqs(searchseq, pos, alt, window):
+		# extracts the sequence +/windowbp surrounding a SNV then swaps ref for alt allele
+		extracted_seq = str(searchseq[pos - window:pos + window])
 		extracted_seq = Seq(extracted_seq[0:window] + alt + extracted_seq[window + 1:]).upper()
 		return extracted_seq
 
-	def get_chroms(self,queries):
-		#finds unique chromosome for each hgvs
-		#needs to happen in order to select right fasta file
+	def get_chroms(self, queries):
+		# finds unique chromosome for each hgvs
+		# needs to happen in order to select right fasta file
 		hgvs_tab = pd.read_csv(self.HGVSlookup_path)
 		q_prefixes = [x.split(':')[0] for x in queries]
 		chroms = set(hgvs_tab.loc[hgvs_tab['TranscriptID'].isin(q_prefixes), 'Chr'])
@@ -260,7 +266,8 @@ class Fetch_Guides:
 				df = pd.read_csv(f"{self.processed_tables}/variant_tables/{ch}_variant.txt", low_memory=False)
 				gadf = df.loc[df['HGVS_Simple'].isin(self.queries)]
 				self.add_clinvar(gadf)
-				self.snv_info[ch] = gadf[['HGVS_Simple', 'PositionVCF', 'RefAlleleVCF', 'AltAlleleVCF']].to_dict('tight')['data']
+				self.snv_info[ch] = \
+				gadf[['HGVS_Simple', 'PositionVCF', 'RefAlleleVCF', 'AltAlleleVCF']].to_dict('tight')['data']
 			found = []
 			for k in self.snv_info.keys():
 				for v in self.snv_info[k]:
@@ -295,7 +302,8 @@ class Fetch_Guides:
 				with open(chr_fasta_path, 'rb') as pfile:
 					fasta = pickle.load(pfile)
 			except FileNotFoundError:
-				print(f"The file {chr_fasta_path} was not found. Please regenerate background data and check the target directory")
+				print(
+					f"The file {chr_fasta_path} was not found. Please regenerate background data and check the target directory")
 				continue
 			except pickle.UnpicklingError:
 				print(f"The file {chr_fasta_path} is not in the correct format. Please regenerate background data")
@@ -310,33 +318,34 @@ class Fetch_Guides:
 					tx = Transcript.transcript(snvcoord)
 
 					if tx == 'intergenic':
-						tid, eid,gname = '-', '-','-'
+						tid, eid, gname = '-', '-', '-'
 						feature_annotation = tx
 						rf, strand = 'None', '+'
-						extracted_seq = self.extract_seqs(searchseq=fasta.seq, pos=snvpos, alt=alt,window = self.window)
+						extracted_seq = self.extract_seqs(searchseq=fasta.seq, pos=snvpos, alt=alt, window=self.window)
 
 
 					else:
 						eid, tid, gname, strand, txstart = tx.tx_info()
 						tx_seq = tx.get_tx_seq(fasta)
 						t_snvpos = int(snvpos) - int(txstart)
-						extracted_seq = self.extract_seqs(searchseq=tx_seq, pos=t_snvpos - 1, alt=alt, window=self.window)
+						extracted_seq = self.extract_seqs(searchseq=tx_seq, pos=t_snvpos - 1, alt=alt,
+						                                  window=self.window)
 
 						if len(extracted_seq) != self.window * 2:
 							# if flanking or utr the extracted seq needs to come from the chromosome file
-							extracted_seq = self.extract_seqs(searchseq=fasta.seq[snvpos - 100:snvpos + 100], pos=t_snvpos - 1,
-													alt=alt,
-													window=self.window)
+							extracted_seq = self.extract_seqs(searchseq=fasta.seq[snvpos - 100:snvpos + 100],
+							                                  pos=t_snvpos - 1,
+							                                  alt=alt,
+							                                  window=self.window)
 
 						feature_annotation, rf = tx.feature, tx.rf
 
 					new_data.append(
-						[query, tid, eid,gname, strand, ref, alt, feature_annotation, extracted_seq, rf,
+						[query, tid, eid, gname, strand, ref, alt, feature_annotation, extracted_seq, rf,
 						 f"chr{str(ch)}:{str(snvpos)}"])
 
 					print('Query term & annoation:', query, feature_annotation)
 			self.snv_info[ch] = new_data
-
 
 	@staticmethod
 	def validate_hgvs(queries):
@@ -383,11 +392,13 @@ class Fetch_Guides:
 
 			for d in data:
 				try:
-					query, tid, eid, gname,strand, ref, alt, feature_annotation, extracted_seq, codons, coord = d
+					query, tid, eid, gname, strand, ref, alt, feature_annotation, extracted_seq, codons, coord = d
 				except ValueError:
-					print(f"WARNING: The query below has the wrong number of values to unpack. Needs further investigation:\n{d}")
+					print(
+						f"WARNING: The query below has the wrong number of values to unpack. Needs further investigation:\n{d}")
 					continue
-				dh = DataHandler(query, strand, ref, alt, feature_annotation, models_dir, extracted_seq, codons, coord, gname)
+				dh = DataHandler(query, strand, ref, alt, feature_annotation, models_dir, extracted_seq, codons, coord,
+				                 gname)
 
 				if self.be_request != 'off':
 					guides, BEguides = dh.get_Guides(self.search_params, self.BE_search_params)
@@ -413,7 +424,7 @@ class Fetch_Guides:
 						print(len((guides['gRNA'])), ' guides found for ', query)
 				else:
 					print(f"No guides found for the query {query}")
-					self.add_not_found([query],'no guides found')
+					self.add_not_found([query], 'no guides found')
 
 		guidedf, BEdf = None, None
 
