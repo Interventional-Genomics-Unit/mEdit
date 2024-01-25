@@ -76,7 +76,7 @@ def extract_variant_info(record, hg38extracted_seq, hg38coord):
     return record.REF, alt.sequence, zyg, vt, new_seq
 
 
-def find_overlapping_variants(vcf_fname,altgenome_name, hg38_snvinfo, search_params):
+def find_overlapping_variants(vcf_fname, altgenome_name, models_path, hg38_snvinfo, search_params):
 
     new_guides = {}
     v_info = [[],[],[],[],[],[],[]]
@@ -85,14 +85,15 @@ def find_overlapping_variants(vcf_fname,altgenome_name, hg38_snvinfo, search_par
             try:
                 query, tid, eid, strand, hgref, hgalt, feature_annotation, hg38extracted_seq, codons, hg38coord = d
             except ValueError:
-                print(f"WARNING: The query below has the wrong number of values to unpack. Needs further investigation:\n{d}")
+                print(f"WARNING: The query below has the wrong number of values to unpack. "
+                      f"Needs further investigation:\n{d}")
                 continue
 
-            #Check VCF if variant exsists in hg38 extracted_seq
+            # Check VCF if variant exsists in hg38 extracted_seq
             records_found = extract_vcf_record(snv_coord=hg38coord, vcf_fname = vcf_fname, window=30)
 
             if len(records_found) > 0:
-                #Create new variant incorporated extracted seq
+                # Create new variant incorporated extracted seq
                 for rec in records_found:
                     ref, alt, zyg, vtype, var_seq = extract_variant_info(rec,str(hg38extracted_seq),hg38coord)
                     v_info[0].append(query)
@@ -193,7 +194,7 @@ def write_results(hg38guide_results, variants_found, new_guides_dict, altgenome_
         df.to_csv(outfile, index=False)
 
 
-def fetch_ALT_guides(vcf_fname, ref_guide_report, searchp_path, sitep_path, diffguides_report, altgenome_name, refgenome_name):
+def fetch_ALT_guides(vcf_fname, ref_guide_report, searchp_path, models_path, sitep_path, diffguides_report, altgenome_name, refgenome_name):
 
     # Get search parameters and the results from the reference assembly
     hg38guide_results = ref_guide_report
@@ -201,7 +202,7 @@ def fetch_ALT_guides(vcf_fname, ref_guide_report, searchp_path, sitep_path, diff
     # get hg38_snv_info (60bp extracted sequence, translation info, hg38_coordinates etc.
     hg38_snvinfo = pickle.load(open(sitep_path, 'rb'))
 
-    variants_found, new_guides_dict = find_overlapping_variants(vcf_fname, altgenome_name, hg38_snvinfo, search_params)
+    variants_found, new_guides_dict = find_overlapping_variants(vcf_fname, altgenome_name, models_path, hg38_snvinfo, search_params)
 
     if len(variants_found['QueryTerm']) > 0:
         write_results(hg38guide_results,
@@ -227,6 +228,9 @@ def main():
     diffguides_out = str(snakemake.output.diff_guides)
     # === Params ===
     idx_filtered_vcf = str(snakemake.params.idx_filtered_vcf)
+    # ==* The models_path ideally should not be here.
+    #       Once the DataHandler class is properly instantiated this can be removed
+    models_path = str(snakemake.params.models_path)
     # === Wildcards ===
     altgenome_name = str(snakemake.wildcards.vcf_id)
     refgenome_name = str(snakemake.wildcards.sequence_id)
@@ -243,6 +247,7 @@ def main():
     fetch_ALT_guides(filtered_vcf,
                      guides_report,
                      guide_search_params,
+                     models_path,
                      snv_site_info,
                      diffguides_out,
                      altgenome_name,
