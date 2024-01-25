@@ -2,13 +2,15 @@
 from argparse import ArgumentParser as argp
 from argparse import RawTextHelpFormatter
 import textwrap
+# == Installed Modules ==
+from importlib.metadata import version
 
 
 def parse_arguments():
 	# -> === Launch argparse parser === <-
 	parser = argp(
 		prog='mEdit',
-		description='',
+		description=f'version {version("meditability")}',
 		# epilog="mEdit is pretty cool, huh? :)",
 		usage='%(prog)s [options]',
 		formatter_class=RawTextHelpFormatter
@@ -43,6 +45,37 @@ def parse_arguments():
 	                          Provide the number of cores for parallel decompression
 	                          of mEdit databases.
 	                          '''))
+
+	# === Editors List ===
+	list_parser = programs.add_parser(
+		'list',
+		help=textwrap.dedent('''
+				Prints the current set of editors available on mEdit'''),
+		formatter_class=RawTextHelpFormatter
+	)
+	editors_list = list_parser.add_argument_group("== Available Editors and BEs ==")
+	editors_list.add_argument('-d',
+	                          dest='db_path',
+	                          default='.',
+	                          help=textwrap.dedent('''
+	                          Provide the path where the "mEdit_database"
+	                          directory was created ahead of the analysis
+	                          using the "db_set" program.
+	                          [default: ./mEdit_database]''')
+	                          )
+	editors_list.add_argument('-e',
+	                          dest='editors',
+	                          action='store_true',
+	                          help=textwrap.dedent('''
+	                          Provides the current list of available editors on mEdit
+	                           '''))
+	editors_list.add_argument('-b',
+	                          dest='base_editors',
+	                          action='store_true',
+	                          help=textwrap.dedent('''
+	                          Provides the current list of available base editors on mEdit 
+	                          '''))
+
 	# === Guide Prediction Program ===
 	fguides_parser = programs.add_parser(
 		'guide_prediction',
@@ -98,8 +131,8 @@ def parse_arguments():
 			[1-] "standard": will find and process guides based on a 
 			reference human genome assembly along with a diverse set of 
 			pangenomes from HPRC.
-			[2-] "private": requires a private VCF file and use it to 
-			process and find guides.''')
+			[2-] "private": requires a private VCF file that will be 
+			 processed for guide prediction.''')
 	)
 	run_params.add_argument(
 		'-g',
@@ -129,9 +162,9 @@ def parse_arguments():
 		default='clinical',
 		choices=['clinical', 'custom', 'user defined list'],
 		help=textwrap.dedent('''
-			Pick which set of editors will be used in the mEdit run. 
+			Delimits the set of editors to be used by mEdit. 
 			[default = "clinical"]
-			Use medit.py list to access the arrays of editors currently 
+			Use the "medit list" prompt to access the arrays of editors currently 
 			supported in each category.
 			[1-] "clinical": a short list of clinically relevant editors 
 			that are either in pre-clinical or clinical trials.

@@ -3,6 +3,7 @@
 # == Project Modules ==
 from prog.guide_prediction import guide_prediction as guide_prediction
 from prog.db_set import dbset as db_set
+from prog.list_editors import ls_editors as list
 from prog.arguments import parse_arguments as parse_arguments
 from prog.medit_lib import date_tag
 
@@ -21,13 +22,17 @@ def main():
 	except AttributeError:
 		jobtag = date_tag()
 		args.user_jobtag = False
-	# Run mEdit Programs
-	if program == "guide_prediction":
-		guide_prediction(args, jobtag)
 
 	# == Database Parameters
 	if program == "db_set":
 		db_set(args)
+	# == Editors List
+	if program == "list":
+		list(args)
+	# Run mEdit Programs
+	if program == "guide_prediction":
+		guide_prediction(args, jobtag)
+
 
 
 if __name__ == "__main__":

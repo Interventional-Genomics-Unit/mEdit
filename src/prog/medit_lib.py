@@ -16,8 +16,6 @@ from importlib_resources import files
 from Bio import SeqIO
 import boto3
 from botocore.exceptions import NoCredentialsError
-
-
 # == Project Modules ==
 
 
