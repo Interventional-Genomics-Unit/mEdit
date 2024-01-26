@@ -67,6 +67,7 @@ def dbset(args):
 	reference_fasta_path = list_files_by_extension(fasta_root_path, 'fa.gz')[0]
 	launch_shell_cmd(f"bgzip -c -@ {threads} -d {reference_fasta_path} > {fasta_root_path}/tmp_hg38.fa")
 	pickle_chromosomes(f"{fasta_root_path}/tmp_hg38.fa", fasta_root_path)
+
 	#   == HPRC VCF files Setup
 	download_s3_objects("medit.db", "hprc", vcf_dir_path)
 

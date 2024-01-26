@@ -1,30 +1,60 @@
 # mEdit
 
-## Getting started
-### Dependencies
-- PIP vX.XX
+<!-- Badges -->
+![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/Interventional-Genomics-Unit/mEdit/total?logo=github)
+![GitHub last commit (branch)](https://img.shields.io/github/last-commit/Interventional-Genomics-Unit/mEdit/main?logo=github)
+![GitHub commit activity](https://img.shields.io/github/commit-activity/m/Interventional-Genomics-Unit/mEdit?logo=github)
+![GitHub top language](https://img.shields.io/github/languages/top/Interventional-Genomics-Unit/mEdit?logo=github)
+![PyPI - Version](https://img.shields.io/pypi/v/meditability)
+![GitHub License](https://img.shields.io/github/license/Interventional-Genomics-Unit/mEdit)
+
+<!-- Table of Contents -->
+# Table of Contents
+
+- [What is mEdit?](#what-is-medit)
+  * [Program Structure](#program-structure)
+  * [Features](#features)
+- [Getting Started](#getting-started)
+  * [Prerequisites](#prerequisites)
+  * [Installation](#installation)
+  * [Running Tests](#running-tests)
+- [Usage](#usage)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [FAQ](#faq)
+- [License](#license)
+- [Contact](#contact)
+
+## What is mEdit?
+## Program Structure (unfinished)
+<div align="center"> 
+  <img src="src/infographics/mEdit_graphical_overview.png" alt="screenshot" />
+</div>
+
+## Getting Started
+### Prerequisites
+#### PIP
   - Make sure `gcc` is installed
-    - `sudo apt install gcc`
-
-  - Keep your pip up to date
-    - `python -m pip install --upgrade pip`
-    - or: `apt install python3-pip`
-
-- Anaconda vX.XX
+    * `sudo apt install gcc`
+  - Make sure your pip up to date
+    * `python -m pip install --upgrade pip`
+    * or: `apt install python3-pip`
+#### Anaconda
   - Install Miniconda:
-    - Download the installer: https://docs.conda.io/projects/miniconda/en/latest/
-    - `bash bash Miniconda3-latest-<your-OS>.sh`
+    * Download the installer: https://docs.conda.io/projects/miniconda/en/latest/
+    * `bash bash Miniconda3-latest-<your-OS>.sh`
   - Set up your conda environment:
-    - `conda update --all`
-    - `conda config --set channel_priority strict`
-- Mamba vX.XX
+    * `conda update --all`
+    * `conda config --set channel_priority strict`
+    * 
+#### Mamba
   - The officially supported way of installing Mamba is through Miniforge.
-    - Important:
-      - The supported way of using Mamba requires that no other packages are installed on the `base` conda environment
-    - More information on: https://github.com/conda-forge/miniforge
-      - `wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge-pypy3-<your-OS>.sh`
-      - `bash Miniforge-pypy3-<your-OS>.sh`
-- AWS CLI vX.XX
+    * Important:
+      * The supported way of using Mamba requires that no other packages are installed on the `base` conda environment
+    * More information on: https://github.com/conda-forge/miniforge
+      * `wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge-pypy3-<your-OS>.sh`
+      * `bash Miniforge-pypy3-<your-OS>.sh`
+#### AWS CLI
   - Make sure you are signed in with your AWS credentials:
   - More information: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
     ```
@@ -32,4 +62,20 @@
     unzip awscliv2.zip
     sudo ./aws/install 
     ```
-    - 
+
+### Installation
+mEdit is compatible with UNIX-based systems running on Intel processors and it's conveniently available via pyPI:
+  * `pip install meditability`
+
+### Running Tests
+
+### Usage
+  - `db_set`
+  - `list`
+  - `guide_prediction`
+  - `offtargets`
+### Roadmap
+### Contributing
+### FAQ
+### License
+### Contact
