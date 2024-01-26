@@ -33,6 +33,12 @@
 ### Features
 ## Getting Started
 ### Prerequisites
+ * The current version has 4 prerequisites:
+   * [PIP](#pip)
+   * [Anaconda](#anaconda)
+   * [Mamba](#mamba)
+   * [AWS-CLI](#aws-cli)
+   
 #### PIP
   - Make sure `gcc` is installed
     ```
@@ -54,7 +60,7 @@
     ```
   - Set up your conda environment: 
     ```
-    conda update --all```
+    conda update --all
     conda config --set channel_priority strict
     ```
  
