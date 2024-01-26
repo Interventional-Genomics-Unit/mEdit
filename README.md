@@ -25,11 +25,12 @@
 - [Contact](#contact)
 
 ## What is mEdit?
-## Program Structure (unfinished)
+### Program Structure
 <div align="center"> 
   <img src="src/infographics/mEdit_graphical_overview.png" alt="screenshot" />
 </div>
 
+### Features
 ## Getting Started
 ### Prerequisites
 #### PIP
@@ -68,13 +69,13 @@ mEdit is compatible with UNIX-based systems running on Intel processors and it's
 
 ### Running Tests
 
-### Usage
+## Usage
   - `db_set`
   - `list`
   - `guide_prediction`
   - `offtargets`
-### Roadmap
-### Contributing
-### FAQ
-### License
-### Contact
+## Roadmap
+## Contributing
+## FAQ
+## License
+## Contact
