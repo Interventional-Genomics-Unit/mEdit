@@ -35,25 +35,38 @@
 ### Prerequisites
 #### PIP
   - Make sure `gcc` is installed
-    * ```sudo apt install gcc```
+    ```
+    sudo apt install gcc
+    ```
   - Make sure your pip up to date
-    * ```python -m pip install --upgrade pip```
-    * or: ```apt install python3-pip```
+    ```
+    python -m pip install --upgrade pip
+    ```
+    * or: 
+    ```
+    apt install python3-pip
+    ```
 #### Anaconda
   - Install Miniconda:
-    * Download the installer: https://docs.conda.io/projects/miniconda/en/latest/
-    * ```bash bash Miniconda3-latest-<your-OS>.sh```
-  - Set up your conda environment:
-    * ```conda update --all```
-    * ```conda config --set channel_priority strict```
-    * 
+    * Download the installer at: https://docs.conda.io/projects/miniconda/en/latest/ 
+    ```
+    bash Miniconda3-latest-<your-OS>.sh
+    ```
+  - Set up your conda environment: 
+    ```
+    conda update --all```
+    conda config --set channel_priority strict
+    ```
+ 
 #### Mamba
   - The officially supported way of installing Mamba is through Miniforge.
     * Important:
       * The supported way of using Mamba requires that no other packages are installed on the `base` conda environment
     * More information on: https://github.com/conda-forge/miniforge
-      * ```wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge-pypy3-<your-OS>.sh```
-      * ```bash Miniforge-pypy3-<your-OS>.sh```
+      ```
+      wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge-pypy3-<your-OS>.sh
+      bash Miniforge-pypy3-<your-OS>.sh
+      ```
 #### AWS CLI
   - Make sure you are signed in with your AWS credentials:
   - More information: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
@@ -62,10 +75,11 @@
     unzip awscliv2.zip
     sudo ./aws/install 
     ```
-
 ### Installation
 mEdit is compatible with UNIX-based systems running on Intel processors and it's conveniently available via pyPI:
-  * ```pip install meditability```
+```
+pip install meditability
+```
 
 ### Running Tests
 
