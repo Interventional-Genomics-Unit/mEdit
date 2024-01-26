@@ -1,1 +1,2 @@
 *.smk linguist-detectable=true
+*.smk linguist-language=Snakemake
