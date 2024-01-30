@@ -11,6 +11,7 @@ import re
 import pathlib
 import pickle
 # == Installed Modules ==
+import bgzip
 import yaml
 from importlib_resources import files
 from Bio import SeqIO
@@ -134,14 +135,14 @@ def parse_editor_request(request):
 	return processed_request
 
 
-def pickle_chromosomes(genome_fasta, output_dir):
-	records = SeqIO.parse(open(genome_fasta, 'rt'), "fasta")
-	for record in records:
-		if re.search(r"chr\w{0,2}$", record.id):
-			outfile = f"{output_dir}/{record.id}.pkl"
-			with open(outfile, 'ab') as gfile:
-				print(f"Serializing chromosome {record.id}")
-				pickle.dump(record, gfile)
+# def pickle_chromosomes(genome_fasta, output_dir):
+# 	records = SeqIO.parse(open(genome_fasta, 'rt'), "fasta")
+# 	for record in records:
+# 		if re.search(r"chr\w{0,2}$", record.id):
+# 			outfile = f"{output_dir}/{record.id}.pkl"
+# 			with open(outfile, 'ab') as gfile:
+# 				print(f"Serializing chromosome {record.id}")
+# 				pickle.dump(record, gfile)
 
 
 def prCyan(skk):
