@@ -7,7 +7,6 @@ from prog.medit_lib import (download_s3_objects,
                                 project_file_path,
                                 launch_shell_cmd,
                                 list_files_by_extension,
-                                pickle_chromosomes,
                                 set_export,
                                 write_yaml_to_file)
 
