@@ -89,7 +89,7 @@ def download_s3_objects(s3_bucket_name: str, s3_object_name: str, destination_pa
 			source_file = key.split("/")[-1]
 			destination_file = os.path.join(destination_path, source_file)
 			if file_exists(destination_file):
-				print(f"File already exists, skipping: {destination_file}")
+				print(f"Skipping existing file: {destination_file}")
 				continue
 			pathlib.Path(destination_path).mkdir(parents=True, exist_ok=True)
 			s3.download_file(s3_bucket_name, key, destination_file)

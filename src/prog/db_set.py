@@ -60,10 +60,8 @@ def dbset(args):
 
 	# === Download Data ===
 	#   == SeqRecord Pickles
-	print("Downloading Database of Genomic References")
+	print("# ---*--- Database of Genomic References ---*---")
 	download_s3_objects("medit.db", "genome_pkl", fasta_root_path)
-	print("Processing FASTA reference assembly")
-
 	# == Download the latest human reference genome by request
 	if latest_genome_download:
 		download_s3_objects("medit.db", "latest_genome_ref", fasta_root_path)
@@ -81,13 +79,13 @@ def dbset(args):
 	download_s3_objects("medit.db", "hprc", vcf_dir_path)
 
 	#   == Processed Tables and Raw Tables
-	print("Downloading Pre-Processed Background Data Sets")
+	print("# ---*--- Pre-Processed Background Data Sets ---*---")
 	download_s3_objects("medit.db", "processed_tables.tar.gz", db_path_full)
 	download_s3_objects("medit.db", "raw_tables.tar.gz", db_path_full)
 	download_s3_objects("medit.db", "pkl.tar.gz", db_path_full)
 
 	#   == Decompress tar.gz files in the database
-	print("Decompressing Databases")
+	print("# ---*--- Unpacking Background Data ---*---")
 	launch_shell_cmd(f"gzip -d {db_path_full}/*.gz")
 	launch_shell_cmd(f"tar -xf {db_path_full}/raw_tables.tar --directory={db_path_full}/ && "
 	                 f"rm {db_path_full}/raw_tables.tar")
