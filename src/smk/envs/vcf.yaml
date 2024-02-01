@@ -86,6 +86,7 @@ dependencies:
   - pycparser=2.21
   - pyjwt=2.8.0
   - pyopenssl=23.3.0
+#TODO: add pysam=0.22.0 and pray for the gods
   - pysocks=1.7.1
   - python=3.11.7
   - python-dateutil=2.8.2

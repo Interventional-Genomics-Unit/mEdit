@@ -31,17 +31,32 @@ def parse_arguments():
 	)
 	ref_db_parse = dbset_parser.add_argument_group("== Reference Database Pre-Processing ==")
 	ref_db_parse.add_argument('-d',
-	                          dest='db_path',
-	                          default='.',
-	                          help=textwrap.dedent('''
+							  dest='db_path',
+							  default='.',
+							  help=textwrap.dedent('''
 	                          Provide the path where the "mEdit_database" 
 	                          directory will be created ahead of the analysis.
 	                          Requires ~6.5GB in-disk storage 
 	                          [default: ./mEdit_database]'''))
+	ref_db_parse.add_argument('-l',
+							  dest='latest_reference',
+							  action='store_true',
+							  help=textwrap.dedent('''
+							  Request the latest human genome reference as part
+							  of mEdit database unpacking. This is especially 
+							  recommended when running predictions on private 
+							  genome assemblies. [default: False]'''))
+	ref_db_parse.add_argument('-c',
+							  dest='custom_reference',
+							  help=textwrap.dedent('''
+							  Provide the path to a custom human reference genome 
+							  in FASTA format; or a bgzip compressed FASTA.
+							   ***Chromosome annotation is expected to follow a
+							    ">chrN" format (case sensitive)'''))
 	ref_db_parse.add_argument('-p',
-	                          dest='threads',
-	                          default='1',
-	                          help=textwrap.dedent('''
+							  dest='threads',
+							  default='1',
+							  help=textwrap.dedent('''
 	                          Provide the number of cores for parallel decompression
 	                          of mEdit databases.
 	                          '''))
@@ -55,24 +70,24 @@ def parse_arguments():
 	)
 	editors_list = list_parser.add_argument_group("== Available Editors and BEs ==")
 	editors_list.add_argument('-d',
-	                          dest='db_path',
-	                          default='.',
-	                          help=textwrap.dedent('''
+							  dest='db_path',
+							  default='.',
+							  help=textwrap.dedent('''
 	                          Provide the path where the "mEdit_database"
 	                          directory was created ahead of the analysis
 	                          using the "db_set" program.
 	                          [default: ./mEdit_database]''')
-	                          )
+							  )
 	editors_list.add_argument('-e',
-	                          dest='editors',
-	                          action='store_true',
-	                          help=textwrap.dedent('''
+							  dest='editors',
+							  action='store_true',
+							  help=textwrap.dedent('''
 	                          Provides the current list of available editors on mEdit
 	                           '''))
 	editors_list.add_argument('-b',
-	                          dest='base_editors',
-	                          action='store_true',
-	                          help=textwrap.dedent('''
+							  dest='base_editors',
+							  action='store_true',
+							  help=textwrap.dedent('''
 	                          Provides the current list of available base editors on mEdit 
 	                          '''))
 
@@ -105,20 +120,20 @@ def parse_arguments():
 			[default: mEdit_analysis_<jobtag>/]''')
 	)
 	in_out.add_argument('-d',
-	                    dest='db_path',
-	                    default='.',
-	                    help=textwrap.dedent('''
+						dest='db_path',
+						default='.',
+						help=textwrap.dedent('''
 	                    Provide the path where the "mEdit_database" 
 	                    directory was created ahead of the analysis 
 	                    using the "db_set" program. 
 	                    [default: ./mEdit_database]''')
-	                    )
+						)
 	in_out.add_argument('-j',
-	                    dest='jobtag',
-	                    help=textwrap.dedent('''
+						dest='jobtag',
+						help=textwrap.dedent('''
 	                    Provide the tag associated with the current mEdit job.
 	                    mEdit will generate a random jobtag by default''')
-	                    )
+						)
 	run_params = fguides_parser.add_argument_group("== mEdit Core Parameters ==")
 	run_params.add_argument(
 		'-m',

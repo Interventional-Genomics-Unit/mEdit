@@ -20,7 +20,17 @@ from botocore.exceptions import NoCredentialsError
 # == Project Modules ==
 
 
-def compress_file(file_path: str):
+def compress_file(file_path: str, **kwargs):
+	bgzip = kwargs.get('bgzip', False)
+	if bgzip:
+		if is_gzipped(file_path):
+			raise Exception("Please provide the reference genome either as an"
+							"uncompressed FASTA, or a Bgzip compressed FASTA")
+		if is_bgzipped(file_path):
+			print("This file is already compressed with bgzip.")
+			return
+		launch_shell_cmd(f"bgzip {file_path}")
+		print(f"File '{file_path}' bgzipped successfully.")
 	if not is_gzipped(file_path):
 		# If not gzipped, compress the file
 		with open(file_path, 'rb') as f_in, gzip.open(file_path + '.gz', 'wb') as f_out:
@@ -29,8 +39,8 @@ def compress_file(file_path: str):
 	if is_gzipped(file_path):
 		cmd_rename = f"mv {file_path} {file_path}.gz"
 		subprocess.run(cmd_rename, shell=True)
-		print("This VCF file is already compressed.")
-		print(f"Created a copy of the VCF file input on: {file_path}.gz")
+		print("This file is already compressed.")
+		print(f"Created a copy of the file input on: {file_path}.gz")
 
 
 def date_tag():
@@ -99,6 +109,13 @@ def handle_shell_exception(subprocess_result, shell_command, verbose: bool):
 			print(subprocess_result.stderr)
 			prGreen(subprocess_result.stdout)
 		return
+
+
+def is_bgzipped(file_path: str) -> bool:
+	with open(file_path, 'rb') as f:
+		# Check if the file starts with the bgzip magic bytes
+		# BGZF magic bytes: 1f 8b 08 04
+		return f.read(4) == b'\x1f\x8b\x08\x04'
 
 
 def is_gzipped(file_path: str):

@@ -5,6 +5,11 @@ meditdb_path: ""
 # === Remote Configuration Sources ===
 # == Canonical storage folder for FASTA References
 fasta_root_path: "genome_pkl"
+# == Informs mEdit whether the latest reference genome available was
+#   included in the database unpacking
+latest_reference: "False"
+# ==
+custom_reference: ""
 # == Current hg38 assembly accession
 assembly_acc: "GCF_000001405.40"
 

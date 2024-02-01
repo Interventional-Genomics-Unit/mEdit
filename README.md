@@ -31,6 +31,11 @@
 </div>
 
 ### Features
+ * Reference Human Genome
+   * mEdit has three different options for loading reference genomes:
+   * 1- The latest compatible reference used by the HPRC on human pangenome assemblies
+   * 2- The latest RefSeq human genome reference
+   * 3- Custom version provided by the user
 ## Getting Started
 ### Prerequisites
  * The current version has 4 prerequisites:
@@ -38,6 +43,7 @@
    * [Anaconda](#anaconda)
    * [Mamba](#mamba)
    * [AWS-CLI](#aws-cli)
+   * [Tabix](#tabix)
    
 #### PIP
   - Make sure `gcc` is installed
@@ -68,7 +74,8 @@
   - The officially supported way of installing Mamba is through Miniforge.
     * Important:
       * The supported way of using Mamba requires that no other packages are installed on the `base` conda environment
-    * More information on: https://github.com/conda-forge/miniforge
+    * More information about miniforge: https://github.com/conda-forge/miniforge
+    * Details on how to correctly install Mamba: https://mamba.readthedocs.io/en/latest/installation/mamba-installation.html
       ```
       wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge-pypy3-<your-OS>.sh
       bash Miniforge-pypy3-<your-OS>.sh
@@ -81,6 +88,11 @@
     unzip awscliv2.zip
     sudo ./aws/install 
     ```
+#### Tabix
+ * This allows mEdit to use bgzip for file compression
+ * ```
+   apt install tabix
+   ```
 ### Installation
 mEdit is compatible with UNIX-based systems running on Intel processors and it's conveniently available via pyPI:
 ```

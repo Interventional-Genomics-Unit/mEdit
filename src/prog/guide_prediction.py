@@ -114,7 +114,13 @@ def guide_prediction(args, jobtag):
 		# == Create a private VCF directory when a private run is issued
 		vcf_dir_path = f"{config_db['meditdb_path']}/{mode}/source_vcfs"
 		set_export(vcf_dir_path)
-
+		# == Check the config_db file for instructions on which human genome version should be used
+		latest_reference = bool(config_db["latest_reference"])
+		custom_reference = config_db["custom_reference"]
+		if latest_reference:
+			config_template['sequence_id'] = ["latest_hg38"]
+		if custom_reference:
+			config_template['sequence_id'] = ["custom_reference"]
 		# == VCF ID adjustment for private vcf run ==
 		#   => Import VCF file prefix information to config file
 		tagged_genomes = []
