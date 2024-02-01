@@ -23,8 +23,6 @@ def dbset(args):
 	config_db_dir_path = f"{db_path_full}/config_db"
 
 	threads = args.threads
-	latest_genome_download = args.latest_reference
-	custom_reference = args.custom_reference
 
 	vcf_dir_path = f"{db_path_full}/standard/source_vcfs"
 	config_db_path = f"{config_db_dir_path}/config_db.yaml"
@@ -65,34 +63,26 @@ def dbset(args):
 	download_s3_objects("medit.db", "genome_pkl", fasta_root_path)
 	print("Processing FASTA reference assembly")
 
-	# == Download the latest human reference genome by request
-	if latest_genome_download:
-		download_s3_objects("medit.db", "latest_genome_ref", fasta_root_path)
-		config_db_template["latest_reference"] = "True"
-	if custom_reference:
-		local_custom_ref_path = f"{fasta_root_path}/custom_reference.fa"
-		launch_shell_cmd(f"cp {custom_reference} {local_custom_ref_path}", True)
-		compress_file(f"{local_custom_ref_path}", bgzip=True)
 	#   == Only one file is expected in this directory. Hence, the 1st item of the list
-	# reference_fasta_path = list_files_by_extension(fasta_root_path, 'fa.gz')[0]
-	# launch_shell_cmd(f"bgzip -c -@ {threads} -d {reference_fasta_path} > {fasta_root_path}/tmp_hg38.fa")
+	reference_fasta_path = list_files_by_extension(fasta_root_path, 'fa.gz')[0]
+	launch_shell_cmd(f"bgzip -c -@ {threads} -d {reference_fasta_path} > {fasta_root_path}/tmp_hg38.fa")
 
-	# == HPRC VCF files Setup
+	#   == HPRC VCF files Setup
 	download_s3_objects("medit.db", "hprc", vcf_dir_path)
 
-	# == Processed Tables and Raw Tables
+	#   == Processed Tables and Raw Tables
 	print("Downloading Pre-Processed Background Data Sets")
 	download_s3_objects("medit.db", "processed_tables.tar.gz", db_path_full)
 	download_s3_objects("medit.db", "raw_tables.tar.gz", db_path_full)
 	download_s3_objects("medit.db", "pkl.tar.gz", db_path_full)
 
-	# == Decompress tar.gz files in the database
+	#   == Decompress tar.gz files in the database
 	print("Decompressing Databases")
 	launch_shell_cmd(f"gzip -d {db_path_full}/*.gz")
 	launch_shell_cmd(f"tar -xf {db_path_full}/raw_tables.tar --directory={db_path_full}/ && "
-					 f"rm {db_path_full}/raw_tables.tar")
+	                 f"rm {db_path_full}/raw_tables.tar")
 	launch_shell_cmd(f"tar -xf {db_path_full}/processed_tables.tar --directory={db_path_full}/ && "
-					 f"rm {db_path_full}/processed_tables.tar")
+	                 f"rm {db_path_full}/processed_tables.tar")
 	launch_shell_cmd(f"tar -xf {db_path_full}/pkl.tar --directory={db_path_full}/ && "
-					 f"rm {db_path_full}/pkl.tar")
+	                 f"rm {db_path_full}/pkl.tar")
 	launch_shell_cmd(f"gzip -d {config_db_template['refseq_table']}.gz")
