@@ -11,6 +11,7 @@ import re
 import pathlib
 import pickle
 # == Installed Modules ==
+from alive_progress import alive_bar
 import bgzip
 import yaml
 from importlib_resources import files
@@ -43,6 +44,15 @@ def compress_file(file_path: str, **kwargs):
 		print(f"Created a copy of the file input on: {file_path}.gz")
 
 
+def consolidate_s3_download(content, parent_folder):
+	consolidated_downloadable = []
+	for content_idx in range(0, len(content)):
+		key = content[content_idx]['Key']
+		if key != f"{parent_folder}/":
+			consolidated_downloadable.append(content[content_idx])
+	return consolidated_downloadable
+
+
 def date_tag():
 	# Create a random string of 20 characters
 	random_str = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(10))
@@ -69,22 +79,21 @@ def download_s3_objects(s3_bucket_name: str, s3_object_name: str, destination_pa
 	try:
 		response = s3.list_objects_v2(Bucket=s3_bucket_name, Prefix=s3_object_name)
 		content = response.get('Contents', [])
+		clean_content = consolidate_s3_download(content, s3_object_name)  # Skip the S3 object that denotes the parent folder
 	except NoCredentialsError:
 		prRed("AWS Credentials not available. Please sign in then try again!")
 		exit(0)
-	for content_idx in range(0, len(content)):
-		key = content[content_idx]['Key']
-		# destination_file = os.path.join(destination_path, key)
-		if key != f"{s3_object_name}/":  # Skip the S3 object that denotes the parent folder
+	with alive_bar(len(clean_content), title=f'Downloading s3://{s3_bucket_name}/{s3_object_name}') as bar:
+		for content_idx in range(0, len(clean_content)):
+			key = clean_content[content_idx]['Key']
 			source_file = key.split("/")[-1]
 			destination_file = os.path.join(destination_path, source_file)
 			if file_exists(destination_file):
 				print(f"File already exists, skipping: {destination_file}")
 				continue
-			print(f"Downloading file {key}; From bucket {s3_bucket_name}; File => {destination_file}")
 			pathlib.Path(destination_path).mkdir(parents=True, exist_ok=True)
 			s3.download_file(s3_bucket_name, key, destination_file)
-	print(f"Successfully downloaded S3 objects from s3://{s3_bucket_name}/{s3_object_name} to {destination_path}")
+			bar()
 
 
 def file_exists(file_path):

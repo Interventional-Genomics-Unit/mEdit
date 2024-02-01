@@ -7,7 +7,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='meditability',
-    version='0.1.6.1',
+    version='0.1.6.10',
     description='',
     author='Interventional Genomics Unit',
     author_email='',
@@ -30,7 +30,8 @@ setup(
         'pyyaml>=6.0',
         'importlib-resources>=6.1.1',
         'pytz>=2023.3',
-        'boto3>=1.28.57'
+        'boto3>=1.28.57',
+        'alive-progress>=3.1.5'
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',

@@ -7,7 +7,6 @@ from prog.medit_lib import (compress_file,
 							download_s3_objects,
 							project_file_path,
 							launch_shell_cmd,
-							list_files_by_extension,
 							set_export,
 							write_yaml_to_file)
 
@@ -21,8 +20,10 @@ def dbset(args):
 	# === Load Database Path ===
 	db_path_full = f"{abspath(args.db_path)}/medit_database"
 	config_db_dir_path = f"{db_path_full}/config_db"
-
+	# == Load args
 	threads = args.threads
+	latest_genome_download = args.latest_reference
+	custom_reference = args.custom_reference
 
 	vcf_dir_path = f"{db_path_full}/standard/source_vcfs"
 	config_db_path = f"{config_db_dir_path}/config_db.yaml"
@@ -63,9 +64,18 @@ def dbset(args):
 	download_s3_objects("medit.db", "genome_pkl", fasta_root_path)
 	print("Processing FASTA reference assembly")
 
+	# == Download the latest human reference genome by request
+	if latest_genome_download:
+		download_s3_objects("medit.db", "latest_genome_ref", fasta_root_path)
+		config_db_template["latest_reference"] = "True"
+	if custom_reference:
+		local_custom_ref_path = f"{fasta_root_path}/custom_reference.fa"
+		launch_shell_cmd(f"cp {custom_reference} {local_custom_ref_path}", True)
+		compress_file(f"{local_custom_ref_path}", bgzip=True)
 	#   == Only one file is expected in this directory. Hence, the 1st item of the list
-	reference_fasta_path = list_files_by_extension(fasta_root_path, 'fa.gz')[0]
-	launch_shell_cmd(f"bgzip -c -@ {threads} -d {reference_fasta_path} > {fasta_root_path}/tmp_hg38.fa")
+	# reference_fasta_path = list_files_by_extension(fasta_root_path, 'fa.gz')[0]
+	# launch_shell_cmd(f"bgzip -c -@ {threads} -d {reference_fasta_path} > {fasta_root_path}/tmp_hg38.fa")
+
 
 	#   == HPRC VCF files Setup
 	download_s3_objects("medit.db", "hprc", vcf_dir_path)
