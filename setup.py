@@ -7,7 +7,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='meditability',
-    version='0.1.6.10',
+    version='0.1.6.11',
     description='',
     author='Interventional Genomics Unit',
     author_email='',
