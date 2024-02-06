@@ -14,20 +14,25 @@ import xmltodict
 def parse_arguments():
 	#  Launch argparse parser
 	parser = argp(
-		prog='omim2hgvs',
+		prog='ncbi_cross_database',
 		description='',
 		usage='%(prog)s [options]')
 	# Define arguments
-	parser.add_argument('omim_list',
-	                    help='Path to a plain txt containing a column of omim entries')  # positional argument
+	parser.add_argument('input_list',
+	                    help='Path to a plain txt containing a column of NCBI ID entries')  # positional argument
 	parser.add_argument('-o', default='hgvs_list.txt',
 	                    dest='outfile',
 	                    help='Path to output the list of HGVSs')
-	parser.add_argument('-d',
+	parser.add_argument('-f',
 	                    dest='db_from',
 	                    default='clinvar',
-	                    choices=['clinvar', 'gene','snp'],
+	                    choices=['clinvar', 'pubmed', 'gene', 'snp'],
 	                    help='The NCBI database where the IDs in the input list will be matched against')
+	parser.add_argument('-t',
+						dest='db_to',
+						default='gene',
+						choices=['clinvar', 'pubmed', 'gene', 'snp'],
+						help='The target NCBI database where the IDs in the input list will be linked to')
 	parser.add_argument('-l',
 	                    dest='login_email',
 	                    default='thedoudnalab@gmail.com',
@@ -38,7 +43,7 @@ def parse_arguments():
 	return arguments
 
 
-def elink_routine(db, hit_uid):
+def elink_routine(dbfrom, dbto, hit_uid):
 	dup_check = []
 	not_found = ""
 	linked = ""
@@ -46,7 +51,7 @@ def elink_routine(db, hit_uid):
 	handle = None
 	server_attempts = 0
 	try:
-		handle = Entrez.elink(dbfrom=f"{db}", db='clinvar', id=f"{hit_uid}")
+		handle = Entrez.elink(dbfrom=f"{dbfrom}", db=dbto, id=f"{hit_uid}")
 	except urllib.error.HTTPError as err:
 		if err.code == 500:
 			print(f'An internal server error occurred while handling the accession {hit_uid}')
@@ -71,7 +76,7 @@ def elink_routine(db, hit_uid):
 	return linked, hit_uid, not_found, link_record
 
 
-def cross_db_search(query_list, db_name):
+def cross_db_search(query_list, db_from, dbto):
 	progress = 0
 	source2target = {}
 	not_found_list = []
@@ -80,7 +85,7 @@ def cross_db_search(query_list, db_name):
 		progress += 1
 		dup_check = []
 		# Standardize identifiers to NCBI UIDs through ESearch
-		handle = Entrez.esearch(db=f"{db_name}", term=f"{hit}", idtype="acc")
+		handle = Entrez.esearch(db=f"{db_from}", term=f"{hit}", idtype="acc")
 		search_record = Entrez.read(handle)
 		try:
 			uid = search_record['IdList'][0]
@@ -91,7 +96,7 @@ def cross_db_search(query_list, db_name):
 		# Loop through databases (found in config) and grab Nuccore UIDs
 		if uid in set(dup_check):
 			continue
-		link_list, loop_nuc_acc, not_found_hit, full_record = elink_routine(db_name, uid)
+		link_list, loop_nuc_acc, not_found_hit, full_record = elink_routine(db_from, dbto, uid)
 		if not_found_hit:
 			not_found_list.append(not_found_hit)
 			continue
@@ -133,17 +138,20 @@ def fetch_hgvs_list(query_list, db_name):
 def main():
 	# DEBUG
 	# queries = ["264300", "610006", "616034", "246450", "605911"]
-	# in_path = "/groups/doudna/projects/daniel_projects/editability/metadata/omim_test.txt"
+	# in_path = "/groups/doudna/projects/daniel_projects/editability/hgvs_input.csv"
+	# entrez_login = 'thedoudnalab@gmail.com'
 
 	args = parse_arguments()
-	in_path = args.omim_list
+	in_path = args.input_list
+	out_path = args.outfile
 	db_from = args.db_from
+	dbto = args.db_to
 	entrez_login = args.login_email
 	queries_df = pd.read_csv(in_path, low_memory=False, header=None)
 	queries = queries_df.iloc[:, 0].tolist()
 	#
 	# # Load config file
-	# with open("/groups/doudna/projects/daniel_projects/editability/config/id_convert.yaml", "r") as f:
+	# with open("/groups/doudna/projects/daniel_projects/editability/src/smk/config/id_convert.yaml", "r") as f:
 	# 	config = yaml.load(f, Loader=yaml.FullLoader)
 
 	# Entrez authentication
@@ -151,12 +159,16 @@ def main():
 
 	# Query NCBI to get nuccore UIDs associated with the protein hits using ESearch/ELink
 	print("Linking protein hit ids to Nuccore entries")
-	hit_to_link, hits_not_found, record = cross_db_search(queries, db_from)
+	hit_to_link, hits_not_found, record = cross_db_search(queries, db_from, dbto)
 
-	# for key in hit_to_links
-	hgvs_list = []
-	for input_id in hit_to_link:
-		hgvs_list.extend(fetch_hgvs_list(hit_to_link[input_id], 'clinvar'))
+	if dbto == 'clinvar':
+		hgvs_list = []
+		for input_id in hit_to_link:
+			hgvs_list.extend(fetch_hgvs_list(hit_to_link[input_id], dbto))
+
+# 	Format output table
+	df_linked = pd.DataFrame.from_dict(hit_to_link, orient='index').reset_index(names=str(db_from))
+	df_linked.to_csv(out_path)
 
 
 if __name__ == "__main__":

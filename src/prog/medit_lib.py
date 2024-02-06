@@ -7,6 +7,7 @@ import secrets
 import string
 import pytz
 import os
+import os.path
 import re
 import pathlib
 import pickle
@@ -21,17 +22,7 @@ from botocore.exceptions import NoCredentialsError
 # == Project Modules ==
 
 
-def compress_file(file_path: str, **kwargs):
-	bgzip = kwargs.get('bgzip', False)
-	if bgzip:
-		if is_gzipped(file_path):
-			raise Exception("Please provide the reference genome either as an"
-							"uncompressed FASTA, or a Bgzip compressed FASTA")
-		if is_bgzipped(file_path):
-			print("This file is already compressed with bgzip.")
-			return
-		launch_shell_cmd(f"bgzip {file_path}")
-		print(f"File '{file_path}' bgzipped successfully.")
+def compress_file(file_path: str):
 	if not is_gzipped(file_path):
 		# If not gzipped, compress the file
 		with open(file_path, 'rb') as f_in, gzip.open(file_path + '.gz', 'wb') as f_out:
@@ -90,6 +81,7 @@ def download_s3_objects(s3_bucket_name: str, s3_object_name: str, destination_pa
 			destination_file = os.path.join(destination_path, source_file)
 			if file_exists(destination_file):
 				print(f"Skipping existing file: {destination_file}")
+				bar()
 				continue
 			pathlib.Path(destination_path).mkdir(parents=True, exist_ok=True)
 			s3.download_file(s3_bucket_name, key, destination_file)
@@ -133,8 +125,19 @@ def is_gzipped(file_path: str):
 		return f.read(2) == b'\x1f\x8b'
 
 
-def launch_shell_cmd(command: str, verbose=False):
-	prCyan(f"--> Invoking command-line call:\n{command}")
+def launch_shell_cmd(command: str, verbose=False, **kwargs):
+	message = kwargs.get('message', False)
+	check_exist = kwargs.get('check_exist', False)
+	if message:
+		verbose = False
+		print(message)
+	if check_exist:
+		if os.path.isfile(check_exist):
+			print(f"File {check_exist} exists. Skipping process.")
+			return
+	if verbose:
+		prCyan(f"--> Invoking command-line call:\n{command}")
+
 	result = subprocess.run(command,
 	                        shell=True,
 	                        stderr=subprocess.PIPE,
@@ -161,14 +164,15 @@ def parse_editor_request(request):
 	return processed_request
 
 
-# def pickle_chromosomes(genome_fasta, output_dir):
-# 	records = SeqIO.parse(open(genome_fasta, 'rt'), "fasta")
-# 	for record in records:
-# 		if re.search(r"chr\w{0,2}$", record.id):
-# 			outfile = f"{output_dir}/{record.id}.pkl"
-# 			with open(outfile, 'ab') as gfile:
-# 				print(f"Serializing chromosome {record.id}")
-# 				pickle.dump(record, gfile)
+def pickle_chromosomes(genome_fasta, output_dir):
+	records = SeqIO.parse(open(genome_fasta, 'rt'), "fasta")
+	with alive_bar(25, title=f'Serializing human chromosomes') as bar:
+		for record in records:
+			if re.search(r"chr\w{0,2}$", record.id, re.IGNORECASE):
+				outfile = f"{output_dir}/{record.id}.pkl"
+				with open(outfile, 'ab') as gfile:
+					pickle.dump(record, gfile)
+					bar()
 
 
 def prCyan(skk):

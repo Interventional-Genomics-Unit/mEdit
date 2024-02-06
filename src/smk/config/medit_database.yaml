@@ -7,8 +7,8 @@ meditdb_path: ""
 fasta_root_path: "genome_pkl"
 # == Informs mEdit whether the latest reference genome available was
 #   included in the database unpacking
-latest_reference: "False"
-# ==
+latest_reference: ""
+# == Informs mEdit whether the user has provided a custom reference or not
 custom_reference: ""
 # == Current hg38 assembly accession
 assembly_acc: "GCF_000001405.40"
@@ -17,18 +17,18 @@ assembly_acc: "GCF_000001405.40"
 # Main path for processed tables
 processed_tables: "processed_tables"
 # Processed filepaths
-simple_tables: "guide_acquisition_tables"####DANIEL No Longer needed
+#simple_tables: "guide_acquisition_tables"####DANIEL No Longer needed
 hgvs_lookup: "HGVSlookup.csv"
-clinvar_update: "clinvar_lastUpdate.txt"
+#clinvar_update: "clinvar_lastUpdate.txt"
 refseq_table: "ncbiRefSeq.bed"
 
 # == RAW TABLES ==
 # Main path for raw tables
-raw_tables: "raw_tables"
+#raw_tables: "raw_tables"
 # Raw filepaths
-clinvar_summary: "variant_summary.txt.gz"
-hpa: "proteinatlas.tsv"
-gencode: "GENEonly_cleaned_genecode_annotation.csv" ####DANIEL No Longer needed
+#clinvar_summary: "variant_summary.txt.gz"
+#hpa: "proteinatlas.tsv"
+#gencode: "GENEonly_cleaned_genecode_annotation.csv" ####DANIEL No Longer needed
 
 # === Local Configuration Sources ===
 # BEs / Editors

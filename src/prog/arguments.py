@@ -50,8 +50,7 @@ def parse_arguments():
 							  dest='custom_reference',
 							  help=textwrap.dedent('''
 							  Provide the path to a custom human reference genome 
-							  in FASTA format; or a bgzip compressed FASTA.
-							   ***Chromosome annotation is expected to follow a
+							  in FASTA format. ***Chromosome annotation must follow a
 							    ">chrN" format (case sensitive)'''))
 	ref_db_parse.add_argument('-p',
 							  dest='threads',
