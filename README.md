@@ -89,10 +89,16 @@
     sudo ./aws/install 
     ```
 #### Tabix
- * This allows mEdit to use bgzip for file compression
- * ```
-   apt install tabix
-   ```
+ * This allows mEdit to use bgzip for file compression.
+   * In linux systems, install `tabix`.
+      ```
+        apt install tabix
+     ```
+   * On macOS machines, intall `htslib`.
+      ```
+        brew install htslib
+     ```
+
 ### Installation
 mEdit is compatible with UNIX-based systems running on Intel processors and it's conveniently available via pyPI:
 ```

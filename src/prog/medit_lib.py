@@ -13,7 +13,6 @@ import pathlib
 import pickle
 # == Installed Modules ==
 from alive_progress import alive_bar
-import bgzip
 import yaml
 from importlib_resources import files
 from Bio import SeqIO

@@ -36,7 +36,7 @@ def parse_arguments():
 							  help=textwrap.dedent('''
 	                          Provide the path where the "mEdit_database" 
 	                          directory will be created ahead of the analysis.
-	                          Requires ~6.5GB in-disk storage 
+	                          Requires ~3.2GB in-disk storage 
 	                          [default: ./mEdit_database]'''))
 	ref_db_parse.add_argument('-l',
 							  dest='latest_reference',
@@ -52,7 +52,7 @@ def parse_arguments():
 							  Provide the path to a custom human reference genome 
 							  in FASTA format. ***Chromosome annotation must follow a
 							    ">chrN" format (case sensitive)'''))
-	ref_db_parse.add_argument('-p',
+	ref_db_parse.add_argument('-t',
 							  dest='threads',
 							  default='1',
 							  help=textwrap.dedent('''
