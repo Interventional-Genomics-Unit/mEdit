@@ -5,6 +5,7 @@ import re
 # Installed Modules
 import pandas as pd
 import numpy as np
+import tensorflow.compat.v1 as tf1
 from tensorflow.keras.models import load_model
 # Project Modules
 from featurization import featurize_data
@@ -28,6 +29,10 @@ def load_model_params(score_name: str, models_dir: str):
             model1 = load_model(models_dir + "/DeepCpf1.h5")
             model2 = load_model(models_dir + "/Seq_deepCpf1.h5")
             return model1, model2
+        if score_name == 'deepspcas9':
+            model = pickle.load(open(models_dir + '/DeepCas9.pkl', 'rb'))
+            sess_path = f"{models_dir}/DeepCas9_Final/PreTrain-Final-False-3-5-7-100-70-40-0.001-550-True-80-60"
+            return model, sess_path
     except FileNotFoundError:
         raise Exception(f"File containing {score_name} could not be opened")
 
@@ -37,6 +42,62 @@ def revcom(s):
     letters = list(s[::-1])
     letters = [basecomp[base] for base in letters]
     return ''.join(letters)
+
+def preprocess_seq(data):
+    length = 30
+    DATA_X = np.zeros((len(data), 1, length, 4), dtype=int)
+    print(np.shape(data), len(data), length)
+    for l in range(len(data)):
+        for i in range(length):
+            try:
+                data[l][i]
+            except:
+                print(data[l], i, length, len(data))
+
+            if data[l][i] in "Aa":
+                DATA_X[l, 0, i, 0] = 1
+            elif data[l][i] in "Cc":
+                DATA_X[l, 0, i, 1] = 1
+            elif data[l][i] in "Gg":
+                DATA_X[l, 0, i, 2] = 1
+            elif data[l][i] in "Tt":
+                DATA_X[l, 0, i, 3] = 1
+            else:
+                pass
+    return DATA_X
+
+def deepspcas9(cas9_sites:list, model,sess_path):
+    '''
+    spCas9 on-target score "kinda"
+    predicts the likelihood of getting a spCas9 indel at the desired target
+    This script is copied and modified from https://github.com/MyungjaeSong/Paired-Library
+    '''
+    tf1.disable_eager_execution()
+    scores = []
+
+    processed_seqs = preprocess_seq(cas9_sites)
+
+    # TensorFlow config
+    conf = tf1.ConfigProto()
+    conf.gpu_options.allow_growth = True
+    filter_size = [100, 70, 40]
+    filter_num = [3, 5, 7]
+    l_rate, load_episode = 0.001, 550
+    node_1, node_2 = 80, 60
+    tf1.reset_default_graph()
+    scores = np.zeros((processed_seqs.shape[0], 1), dtype=float)
+    test_batch = 500
+    with tf1.Session(config=conf) as sess:
+        sess.run(tf1.global_variables_initializer())
+        model = model(filter_size, filter_num, node_1, node_2, l_rate)
+        saver = tf1.train.Saver()
+        saver.restore(sess, sess_path)
+        optimizer = model.optimizer
+        for i in range(int(np.ceil(float(processed_seqs.shape[0]) / float(test_batch)))):
+            Dict = {model.inputs: processed_seqs[i * test_batch:(i + 1) * test_batch], model.is_training: False}
+            scores[i * test_batch:(i + 1) * test_batch] = sess.run([model.outputs], feed_dict=Dict)[0]
+    return scores
+
 
 
 # === On-target Efficiency Scoring ===
