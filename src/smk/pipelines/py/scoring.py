@@ -46,7 +46,6 @@ def revcom(s):
 def preprocess_seq(data):
     length = 30
     DATA_X = np.zeros((len(data), 1, length, 4), dtype=int)
-    print(np.shape(data), len(data), length)
     for l in range(len(data)):
         for i in range(length):
             try:
@@ -66,27 +65,35 @@ def preprocess_seq(data):
                 pass
     return DATA_X
 
-def deepspcas9(cas9_sites:list, model,sess_path):
+
+##########
+##
+##                   DANIEL MAKE TENSORFLOR STOP YELLING AT ME!!!!
+##   it's giving me some warning about keras conv. layers but still runs
+##
+##########
+
+def deepspcas9(cas9_sites, models_dir):
     '''
-    spCas9 on-target score "kinda"
+    Hui Kwon Kim et al. ,SpCas9 activity prediction by DeepSpCas9,
+    a deep learning–based model with high generalization performance.Sci. Adv.5,eaax9249(2019).
     predicts the likelihood of getting a spCas9 indel at the desired target
     This script is copied and modified from https://github.com/MyungjaeSong/Paired-Library
     '''
-    tf1.disable_eager_execution()
-    scores = []
-
+    model, sess_path = load_model_params('deepspcas9', models_dir)
     processed_seqs = preprocess_seq(cas9_sites)
 
     # TensorFlow config
     conf = tf1.ConfigProto()
     conf.gpu_options.allow_growth = True
-    filter_size = [100, 70, 40]
-    filter_num = [3, 5, 7]
+    filter_size = [3, 5, 7]
+    filter_num = [100, 70, 40]
     l_rate, load_episode = 0.001, 550
     node_1, node_2 = 80, 60
     tf1.reset_default_graph()
     scores = np.zeros((processed_seqs.shape[0], 1), dtype=float)
     test_batch = 500
+    tf1.logging.set_verbosity(tf1.logging.ERROR)
     with tf1.Session(config=conf) as sess:
         sess.run(tf1.global_variables_initializer())
         model = model(filter_size, filter_num, node_1, node_2, l_rate)
@@ -379,4 +386,9 @@ print('CFD score ',cfd_score(seq1, seq2))
 DeepCpf1
 cas12_sites = ['TGACTTTGAATGGAGTCGTGAGCGCAAGAACGCT','GTTATTTGAGCAATGCCACTTAATAAACATGTAA']
 #= [55.437206] [78.50043]
+
+DeepCas9
+cas9_sites = ['TAAGAGAGTGGTAATAGAAGTGCCAGGTAT', 'CCCTCATGGTGCAGCTAAAGGCCCAGGAGC']
+print(deepspcas9(cas9_sites, models_dir))
+#[[67.55651855][56.93091202]]
 '''

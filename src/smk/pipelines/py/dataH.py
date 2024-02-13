@@ -47,11 +47,13 @@ class DataHandler:
 
         # outputs
         self.guides_found = {'QueryTerm': [], 'GeneName':[],'Editor': [], 'Guide_ID': [], 'Coordinates': [],
-                             'Strand': [], 'gRNA': [], 'Pam': [], 'SNV Position': [],
-                             'On-Target Efficiency Score': [], 'OOF Score':[],'Ref>Alt': [], 'Annotation': []}
+                             'Strand': [], 'gRNA': [], 'Pam': [], 'SNV Position': [], 'Extended Guide Site': [],
+                             'Azimuth Score': [], 'DeepCas9 Score':[],'DeepCpf1 Score':[],
+                             'OOF Score':[],'Ref>Alt': [], 'Annotation': []}
 
         self.BEguides_found = {'QueryTerm': [], 'GeneName':[],'Base Editor': [], 'Guide_ID': [], 'Coordinates': [],
-                               'Strand': [],'gRNA': [], 'Pam': [], 'SNV Position': [],
+                               'Strand': [],'gRNA': [], 'Pam': [], 'SNV Position': [],'Extended Guide Site': [],
+                               'ABE score':[], 'CBE Score':[],
                                'Hg38 Reference (Codon>AA)': [], 'Alternate (Codon>AA)': [], 'BE Converted (Codon>AA)': [],
                                'Conversion Type': [], 'Bystander': [], 'Annotation': []}
 
@@ -104,17 +106,19 @@ class DataHandler:
         """
         Finds codon level SNV and determines if the Base Editor Conversion can work
         """
-        coding_strand = self.strand
         snv_rel_pos = len(self.extracted_seq) / 2
 
         for i in range(len(guides)):
-            editor, guide, pam_found, guide_strand, snvpos, on_score, oof_score, start, end = guides[i]
+            scores = {'abe': '-',
+                      'cbe': '-'}
+            editor, guide, pam_found, guide_strand, snvpos, editor_scores,extended_guide, start, end = guides[i]
 
             target_bases = Seq(guide[win_size[0] - 1:win_size[1] + 1])  # Bases inside 4-8 window
 
             # Converted case
             convert = str(conversion[1])
             bystander = target_bases.count(conversion[0]) - 1
+
             if self.annotation not in ['exon','start_codon','stop_codon']:
                 ctype = 'NA'
                 self.add_BEguides(name,
@@ -122,6 +126,8 @@ class DataHandler:
                                   pam_found,
                                   guide_strand,
                                   snvpos,
+                                  scores,
+                                  extended_guide,
                                   start,
                                   end,
                                   self.NM_ref_allele,
@@ -163,6 +169,8 @@ class DataHandler:
                                   pam_found,
                                   guide_strand,
                                   snvpos,
+                                  scores,
+                                  extended_guide,
                                   start,
                                   end,
                                   ref,
@@ -171,14 +179,17 @@ class DataHandler:
                                   ctype,
                                   bystander)
 
-    def add_guides(self, name, guide, pam_found, strand, snvpos, on_score,oof_score,start,end):
+    def add_guides(self, name, guide, pam_found, strand, snvpos,scores,extended_guide,start,end):
         self.guides_found['QueryTerm'].append(self.query)
         self.guides_found['GeneName'].append(self.gname)
         self.guides_found['Editor'].append(name)
         self.guides_found['Guide_ID'].append(f'{name}_')
         self.guides_found['Coordinates'].append(f'{self.chrom}:{start}-{end}')
-        self.guides_found['On-Target Efficiency Score'].append(on_score)
-        self.guides_found['OOF Score'].append(oof_score)
+        self.guides_found['Azimuth Score'].append(scores['azimuth'])
+        self.guides_found['DeepCas9 Score'].append(scores['deepcas9'])
+        self.guides_found['DeepCpf1 Score'].append(scores['deepcpf1'])
+        self.guides_found['OOF Score'].append(scores['oof'])
+        self.guides_found['Extended Guide Site'].append(extended_guide)
         self.guides_found['Strand'].append(strand)
         self.guides_found['Pam'].append(str(pam_found))
         self.guides_found['gRNA'].append(str(guide))
@@ -186,7 +197,7 @@ class DataHandler:
         self.guides_found['SNV Position'].append(snvpos)
         self.guides_found['Annotation'].append(self.annotation)
 
-    def add_BEguides(self, name, guide, pam_found, strand, snvpos, start, end, ref, alt, convert, ctype, bystander):
+    def add_BEguides(self, name, guide, pam_found, strand, snvpos, scores,extended_guide,start, end, ref, alt, convert, ctype, bystander):
         self.BEguides_found['QueryTerm'].append(self.query)
         self.BEguides_found['GeneName'].append(self.gname)
         self.BEguides_found['Guide_ID'].append(f'{name}_')
@@ -195,7 +206,10 @@ class DataHandler:
         self.BEguides_found['gRNA'].append(str(guide))
         self.BEguides_found['Pam'].append(str(pam_found))
         self.BEguides_found['SNV Position'].append(snvpos)
+        self.BEguides_found['ABE score'].append(scores['abe']),
+        self.BEguides_found['CBE Score'].append(scores['cbe']),
         self.BEguides_found['Strand'].append(strand)
+        self.BEguides_found['Extended Guide Site'].append(extended_guide)
         self.BEguides_found['Hg38 Reference (Codon>AA)'].append(ref)
         self.BEguides_found['Alternate (Codon>AA)'].append(alt)
         self.BEguides_found['BE Converted (Codon>AA)'].append(convert)
@@ -217,7 +231,11 @@ class DataHandler:
         pamlen = len(pam)
         sitelen = guidelen + pamlen
         snv_rel_pos = int(len(self.extracted_seq)/2)
-        on_score, oof_score = '-','-'
+        extended_guide = '-'
+        scores = {'azimuth':'-',
+                  'deepcas9':'-',
+                  'deepcpf1':'-',
+                  'oof':'-'}
         if BEmode:
             win_size = [win_size[0] - guidelen -1,win_size[1] -guidelen-1]
 
@@ -233,17 +251,24 @@ class DataHandler:
 
             for i in pam_index:
                 if i in range(pam_min, pam_max + 1):
-
+                    extended_guide = '-'
+                    scores = {'azimuth': '-',
+                              'deepcas9': '-',
+                              'deepcpf1': '-',
+                              'oof': '-'}
                     if not pamISfirst:  # 3' PAM
                         target_start = i - guidelen
                         guide = search_seq[i - guidelen:i]
+                        extended_guide = str(search_seq[target_start - 3:target_start + sitelen + 4])
                         if not BEmode:
                             if pam == 'NGG' and guidelen == 20:
                                 #Azmith only accurate for NGG pams
-                                on_score = scoring.azimuth([str(search_seq[target_start - 3:target_start + sitelen + 4])],
+                                scores['azimuth'] = scoring.azimuth([extended_guide],
                                                            self.models_dir)[0]
+                                scores['deepcas9'] = round(scoring.deepspcas9([extended_guide],
+                                                           self.models_dir)[0][0],2)
                             #oof_score use only for DSB
-                            mh_score, oof_score = scoring.oofscore(str(search_seq[target_start - 20:target_start + sitelen + 20]))
+                            mh_score, scores['oof'] = scoring.oofscore(str(search_seq[target_start - 20:target_start + sitelen + 20]))
 
                         pam_found = str(search_seq[i:i + pamlen])
 
@@ -251,18 +276,19 @@ class DataHandler:
                         target_start = i + pamlen
                         guide = search_seq[target_start: i + sitelen]
                         pam_found = search_seq[i:target_start]
+                        extended_guide = str(search_seq[i - 5:i + sitelen + 4])
                         if 'Cas12a' in name:
-                            on_score = round(scoring.deepcpf1([str(search_seq[i - 5:i + sitelen + 4])],
+                            scores['deepcpf1'] = round(scoring.deepcpf1([extended_guide],
                                                               self.models_dir)[0][0], 2)
 
                     snvpos = snv_rel_pos - target_start
                     start = self.SNV_chr_pos - snvpos
                     end = start + sitelen
 
-                    guides.append([name, guide, pam_found, search_strand, snvpos, on_score, oof_score, start, end])
+                    guides.append([name, guide, pam_found, search_strand, snvpos, scores,extended_guide, start, end])
 
                     if not BEmode:
-                        self.add_guides(name, guide, pam_found, search_strand, snvpos, on_score, oof_score, start, end)
+                        self.add_guides(name, guide, pam_found, search_strand, snvpos, scores ,extended_guide, start, end)
         return guides
 
     def get_Guides(self, search_params, BEsearch_params=None):
