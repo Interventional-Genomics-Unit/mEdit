@@ -22,6 +22,7 @@ Usage: cas-offinder {input_filename|-} {C|G|A}[device_id(s)] {output_filename|-}
 (C: using CPUs, G: using GPUs, A: using accelerators)
 '''
 
+# INPUT LEG
 def make_casoffinder_input(infile,fasta_fname,pam, pamISfirst, guidelen,guides,gnames,casoff_params):
     ## create input file for cas-offinder
     mm, RNAbb, DNAbb, PU = casoff_params
@@ -45,6 +46,7 @@ def make_casoffinder_input(infile,fasta_fname,pam, pamISfirst, guidelen,guides,g
 
 
 
+# INPUT/OUTPUT LEG
 def cas_offinder_bulge(input_filename, output_filename,cas_off_expath,bulge):
     '''
      The cas-offinder off-line package contains a bug that doesn't allow bulges
@@ -52,7 +54,7 @@ def cas_offinder_bulge(input_filename, output_filename,cas_off_expath,bulge):
      created by...
     https://github.com/hyugel/cas-offinder-bulge
     '''
-
+    # INPUT LEG
     fnhead = input_filename.replace("_input.txt", "")
     id_dict = {}
     if bulge == True:
@@ -120,6 +122,7 @@ def cas_offinder_bulge(input_filename, output_filename,cas_off_expath,bulge):
             for tgt, mismatch in bg_tgts.items():
                 f.write(tgt + ' ' + str(max(mismatch)) + ' ' + '\n')
                 cnt+=1
+        # THIS FILE PATH IS SUPPLIED TO CASOFF-FINDER
         casin = fnhead + '_bulge.txt'
     else:
         nobulge_dict = {}
@@ -132,8 +135,11 @@ def cas_offinder_bulge(input_filename, output_filename,cas_off_expath,bulge):
         casin = input_filename
 
     print("Created temporary file (%s)." % (casin))
+    # THIS FILE PATH IS SUPPLIED TO CASOFF-FINDER
     outfn = fnhead + '_temp.txt'
     print("Running Cas-OFFinder (output file: %s)..." % outfn)
+
+
     p = Popen([cas_off_expath, casin, 'C', outfn])
     ret = p.wait()
     if ret != 0:
@@ -141,6 +147,7 @@ def cas_offinder_bulge(input_filename, output_filename,cas_off_expath,bulge):
         exit(ret)
     print("Processing output file...")
 
+    # OUTPUT LEG
     with open(outfn) as fi, open(output_filename, 'w') as fo:
         fo.write('Coordinates\tDirection\tGuide_ID\tBulge type\tcrRNA\tDNA\tMismatches\tBulge Size\n')\
         #fo.write('Guide_ID\tBulge type\tcrRNA\tDNA\tChromosome\tPosition\tDirection\tMismatches\tBulge Size\n')
@@ -293,7 +300,7 @@ def agg_results(lines,mmco):
         ots_dict[gid][(btype,int(mm))] += 1
     return ots_dict
 
-
+# OUTPUT LEG
 def write_out_res(ots,gdf,casoff_params,resultsfolder,guide_tab_fname):
     '''
     Adds two new columns to guides found table

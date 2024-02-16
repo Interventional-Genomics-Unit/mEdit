@@ -231,7 +231,7 @@ def parse_arguments():
 
 	# === Off Target Effect Program ===
 	casoff_parser = programs.add_parser(
-		'offtargets',
+		'offtarget',
 		help=textwrap.dedent('''
 			Predict off-target effect for the guides found'''),
 		formatter_class=RawTextHelpFormatter
