@@ -75,7 +75,7 @@ class Fetch_Guides:
 		self.window = 50
 
 		# other variables
-		self.snv_info = {}  # {chrom: (id,snv_pos,ref,alt)}
+		self.snv_info = {}  # {chrom: (queryterm,tid,eid,gene,strand,ref,alt,feature,extracted_seq,rf,coord)}
 
 		##---------------libraries and keys--------------------##
 		self.editor_choices = list(editors.keys())
@@ -201,6 +201,20 @@ class Fetch_Guides:
 	def write_not_found(self, outfile):
 		if len(self.not_found.keys()) > 0:
 			pd.DataFrame(self.not_found).to_csv(outfile, index=False)
+
+	def write_extracted_sequences(self,extracted_seq_outfile):
+		'''
+		writes tab-deliminated file of 100-mer sequence in which each
+		each variant was found.
+		'''
+		if len(self.snv_info.keys()) > 0:
+			with open(extracted_seq_outfile,"w") as out:
+				for chrom, snv_info in self.snv_info.items():
+					for value in snv_info:
+						query = value[0]
+						extracted_seq = str(value[8])
+						print(query+"\t"+extracted_seq,file=out)
+
 
 	def write_guide_csv(self, guides, outfile):
 		df = pd.DataFrame(guides)
