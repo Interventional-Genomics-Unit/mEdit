@@ -5,6 +5,99 @@ import pandas as pd
 # == Project Modules
 
 
+def cas_offinder_bulge(input_filename, output_filename,cas_off_expath,bulge):
+    '''
+     The cas-offinder off-line package contains a bug that doesn't allow bulges
+    This script is partially a wrapper for cas-offinder to fix this bug
+     created by...
+    https://github.com/hyugel/cas-offinder-bulge
+    '''
+    # INPUT LEG
+    fnhead = input_filename.replace("_input.txt", "")
+    id_dict = {}
+    if bulge == True:
+        with open(input_filename) as f:
+            chrom_path = f.readline()
+            pattern, bulge_dna, bulge_rna = f.readline().strip().split()
+            isreversed = False
+            for i in range(int(len(pattern) / 2)):
+                if pattern[i] == 'N' and pattern[len(pattern) - i - 1] != 'N':
+                    isreversed = False
+                    break
+                elif pattern[i] != 'N' and pattern[len(pattern) - i - 1] == 'N':
+                    isreversed = True
+                    break
+            bulge_dna, bulge_rna = int(bulge_dna), int(bulge_rna)
+            targets = [line.strip().split() for line in f]
+            rnabulge_dic = defaultdict(lambda: [])
+            bg_tgts = defaultdict(lambda: set())
+            for raw_target, mismatch, gid in targets:
+                if isreversed:
+                    target = raw_target.lstrip('N')
+                    len_pam = len(raw_target) - len(target)
+                    bg_tgts['N' * len_pam + target + 'N' * bulge_dna].add(mismatch)
+                    id_dict['N' * len_pam + target + 'N' * bulge_dna] = gid
+                    for bulge_size in range(1, bulge_dna+1):
+                        for i in range(1, len(target)):
+                            bg_tgt = 'N' * len_pam + target[:i] + 'N' * bulge_size + target[i:] + 'N' * (bulge_dna - bulge_size)
+                            bg_tgts[bg_tgt].add(mismatch)
+                            id_dict[bg_tgt] = gid
+
+                    for bulge_size in range(1, bulge_rna+1):
+                        for i in range(1, len(target)-bulge_size):
+                            bg_tgt = 'N' * len_pam + target[:i] + target[i+bulge_size:] + 'N' * (bulge_dna + bulge_size)
+                            bg_tgts[bg_tgt].add(mismatch)
+                            rnabulge_dic[bg_tgt].append((i, int(mismatch), target[i:i+bulge_size]))
+                            id_dict[bg_tgt] = gid
+                else:
+                    target = raw_target.rstrip('N')
+                    len_pam = len(raw_target) - len(target)
+                    bg_tgts['N' * bulge_dna + target + 'N' * len_pam].add(mismatch)
+                    id_dict['N' * bulge_dna + target + 'N' * len_pam] = gid
+                    for bulge_size in range(1, bulge_dna+1):
+                        for i in range(1, len(target)):
+                            bg_tgt = 'N' * (bulge_dna - bulge_size) + target[:i] + 'N' * bulge_size + target[i:] + 'N' * len_pam
+                            bg_tgts[bg_tgt].add(mismatch)
+                            id_dict[bg_tgt] = gid
+
+                    for bulge_size in range(1, bulge_rna+1):
+                        for i in range(1, len(target)-bulge_size):
+                            bg_tgt = 'N' * (bulge_dna + bulge_size) + target[:i] + target[i+bulge_size:] + 'N' * len_pam
+                            bg_tgts[bg_tgt].add(mismatch)
+                            rnabulge_dic[bg_tgt].append( (i, int(mismatch), target[i:i+bulge_size]) )
+                            id_dict[bg_tgt] = gid
+            if isreversed:
+                seq_pam = pattern[:len_pam]
+            else:
+                seq_pam = pattern[-len_pam:]
+        with open(fnhead + '_bulge.txt', 'w') as f:
+            f.write(chrom_path)
+            if isreversed:
+                f.write(pattern + bulge_dna*'N' + '\n')
+            else:
+                f.write(bulge_dna*'N' + pattern + '\n')
+            cnt = 0
+            for tgt, mismatch in bg_tgts.items():
+                f.write(tgt + ' ' + str(max(mismatch)) + ' ' + '\n')
+                cnt+=1
+        # THIS FILE PATH IS SUPPLIED TO CASOFF-FINDER
+        casin = fnhead + '_bulge.txt'
+    else:
+        nobulge_dict = {}
+        with open(input_filename) as inf:
+            for line in inf:
+                entry = line.strip().split(' ')
+                if len(entry) > 2 and len(entry[-1]) > 3:
+                    seq, mm, gid = entry
+                    nobulge_dict[seq] = [gid, mm]
+        casin = input_filename
+
+    print("Created temporary file (%s)." % (casin))
+    # THIS FILE PATH IS SUPPLIED TO CASOFF-FINDER
+    outfn = fnhead + '_temp.txt'
+    print("Running Cas-OFFinder (output file: %s)..." % outfn)
+
+
 def run_casoffinder(resultsfolder,
 					fasta_fname,
 					guide_tab_fname,
@@ -40,6 +133,8 @@ def run_casoffinder(resultsfolder,
 
 		output_filename = infile.replace('_input.txt', '_output.txt')
 		# cas_offinder_bulge FUNCTION STARTS HERE
+		cas_offinder_bulge(infile, output_filename, cas_off_expath, bulge)
+
 
 def main():
 	'''
