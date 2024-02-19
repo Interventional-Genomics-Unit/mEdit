@@ -51,7 +51,7 @@ class DataHandler:
                              'Azimuth Score': [], 'DeepCas9 Score':[],'DeepCpf1 Score':[],
                              'OOF Score':[],'Ref>Alt': [], 'Annotation': []}
 
-        self.BEguides_found = {'QueryTerm': [], 'GeneName':[],'Base Editor': [], 'Guide_ID': [], 'Coordinates': [],
+        self.BEguides_found = {'QueryTerm': [], 'GeneName':[],'Editor': [], 'Guide_ID': [], 'Coordinates': [],
                                'Strand': [],'gRNA': [], 'Pam': [], 'SNV Position': [],'Extended Guide Site': [],
                                'ABE score':[], 'CBE Score':[],
                                'Hg38 Reference (Codon>AA)': [], 'Alternate (Codon>AA)': [], 'BE Converted (Codon>AA)': [],
@@ -201,7 +201,7 @@ class DataHandler:
         self.BEguides_found['QueryTerm'].append(self.query)
         self.BEguides_found['GeneName'].append(self.gname)
         self.BEguides_found['Guide_ID'].append(f'{name}_')
-        self.BEguides_found['Base Editor'].append(name)
+        self.BEguides_found['Editor'].append(name)
         self.BEguides_found['Coordinates'].append(f'{self.chrom}:{start}-{end}')
         self.BEguides_found['gRNA'].append(str(guide))
         self.BEguides_found['Pam'].append(str(pam_found))
