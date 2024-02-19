@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="medit_aws (2)" remoteFilesAllowedToDisappearOnAutoupload="false" showNewOnSourceInSync="false" showNewOnTargetInSync="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="medit_aws (3)" remoteFilesAllowedToDisappearOnAutoupload="false" showNewOnSourceInSync="false" showNewOnTargetInSync="false">
     <serverData>
       <paths name="biotite">
         <serverdata>
@@ -41,6 +41,13 @@
         <serverdata>
           <mappings>
             <mapping deploy="mEdit" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="medit_aws (3)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/ubuntu/projects/mEdit" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>

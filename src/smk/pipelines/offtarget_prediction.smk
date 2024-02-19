@@ -18,7 +18,7 @@ rule all:
 		expand("",),
 
 # noinspection SmkAvoidTabWhitespace
-rule:
+rule casoff_input_formatting:
 	input:
 		guides_report_out = ""
 	output:
@@ -26,6 +26,44 @@ rule:
 	params:
 		tmp_casoff = ""
 	conda:
-	threads:
+		"envs/"
 	message:
+		"""
+		"""
+	script:
+		"py/"
+
+# noinspection SmkAvoidTabWhitespace
+rule casoff_run:
+	input:
+		guides_report_out = ""
+	output:
+		casoff_out = ""
+	params:
+		tmp_casoff = ""
+	conda:
+		"envs/"
+	threads:
+		config["threads"]
+	message:
+		"""
+		"""
 	shell:
+		"""
+		"""
+
+rule casoff_output_formatting:
+	input:
+		guides_report_out=""
+	output:
+		casoff_out = ""
+	params:
+		tmp_casoff = ""
+	conda:
+		"envs/"
+	message:
+		"""
+		"""
+	script:
+		"py/"
+

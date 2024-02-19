@@ -2,6 +2,7 @@
 # == Installed Modules ==
 # == Project Modules ==
 from prog.guide_prediction import guide_prediction as guide_prediction
+from prog.offtarget_prediction import offtarget_prediction as offtarget
 from prog.db_set import dbset as db_set
 from prog.list_editors import ls_editors as list
 from prog.arguments import parse_arguments as parse_arguments
@@ -33,6 +34,8 @@ def main():
 	if program == "guide_prediction":
 		guide_prediction(args, jobtag)
 
+	if program == "offtarget":
+		offtarget(args, jobtag)
 
 
 if __name__ == "__main__":

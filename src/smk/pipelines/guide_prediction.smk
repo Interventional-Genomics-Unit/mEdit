@@ -20,13 +20,13 @@ rule all:
 			meditdb_path=config["meditdb_path"],mode=config["processing_mode"],
 			vcf_id=config["vcf_id"],sequence_id=config["sequence_id"]),
 		# Predicted guides using the most recent human genome assembly
-		expand("{root_dir}/{mode}/jobs/{job_name}/guide_prediction-{sequence_id}/guides_report_ref/Guides_found.csv",
+		expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/Guides_found.csv",
 			root_dir=config["output_directory"], mode=config["processing_mode"],
-			job_name=config["run_name"], sequence_id=config["sequence_id"]),
+			run_name=config["run_name"], sequence_id=config["sequence_id"]),
 		# Predicted guides on alternative genomes based on the reference listed above
-		expand("{root_dir}/{mode}/jobs/{job_name}/guide_prediction-{sequence_id}/guides_report_{vcf_id}/Guide_differences.csv",
+		expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_{vcf_id}/Guide_differences.csv",
 			root_dir=config["output_directory"],mode=config["processing_mode"],
-			job_name=config["run_name"],sequence_id=config["sequence_id"],
+			run_name=config["run_name"],sequence_id=config["sequence_id"],
 			vcf_id=config["vcf_id"])
 
 # noinspection SmkAvoidTabWhitespace
@@ -90,12 +90,12 @@ rule predict_guides:
 		assembly_path = lambda wildcards: glob.glob("{fasta_root_path}".format(
 			fasta_root_path=config["fasta_root_path"]))
 	output:
-		guides_report_out = "{root_dir}/{mode}/jobs/{job_name}/guide_prediction-{sequence_id}/guides_report_ref/Guides_found.csv",
-		guide_search_params = "{root_dir}/{mode}/jobs/{job_name}/guide_prediction-{sequence_id}/dynamic_params/guide_search_params.pkl",
-		snv_site_info = "{root_dir}/{mode}/jobs/{job_name}/guide_prediction-{sequence_id}/dynamic_params/snv_site_info.pkl"
+		guides_report_out = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/Guides_found.csv",
+		guide_search_params = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params/guide_search_params.pkl",
+		snv_site_info = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params/snv_site_info.pkl"
 	params:
 		# == Main output path
-		main_out = "{root_dir}/{mode}/jobs/{job_name}/guide_prediction-{sequence_id}/guides_report_ref",
+		main_out = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref",
 		# == Main output filenames
 		gene_report = config["gene_report"],
 		variant_report = config["variant_report"],
@@ -141,16 +141,16 @@ rule process_altgenomes:
 			meditdb_path=config["meditdb_path"],mode=wildcards.mode,
 			vcf_id=wildcards.vcf_id,sequence_id=wildcards.sequence_id
 		)),
-		guides_report_out= "{root_dir}/{mode}/jobs/{job_name}/guide_prediction-{sequence_id}/guides_report_ref/Guides_found.csv",
-		guide_search_params= "{root_dir}/{mode}/jobs/{job_name}/guide_prediction-{sequence_id}/dynamic_params/guide_search_params.pkl",
-		snv_site_info= "{root_dir}/{mode}/jobs/{job_name}/guide_prediction-{sequence_id}/dynamic_params/snv_site_info.pkl"
+		guides_report_out= "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/Guides_found.csv",
+		guide_search_params= "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params/guide_search_params.pkl",
+		snv_site_info= "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params/snv_site_info.pkl"
 	output:
-		diff_guides = "{root_dir}/{mode}/jobs/{job_name}/guide_prediction-{sequence_id}/guides_report_{vcf_id}/Guide_differences.csv",
+		diff_guides = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_{vcf_id}/Guide_differences.csv",
 	params:
 		idx_filtered_vcf = "{root_dir}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.filtered.vcf.gz.tbi",
 		models_path= config["models_path"]
 	# 	# == Main output path
-	# 	main_out = "{root_dir}/{mode}/jobs/{job_name}/guide_prediction-{sequence_id}/guides_report_{vcf_id}/"
+	# 	main_out = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_{vcf_id}/"
 	conda:
 		"../envs/vcf.yaml"
 	message:
