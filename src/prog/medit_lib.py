@@ -88,11 +88,19 @@ def download_s3_objects(s3_bucket_name: str, s3_object_name: str, destination_pa
 			bar()
 
 
+def export_guides_by_editor(guide_df_by_editor_dict: dict, output_dir: pathlib.Path):
+	for editor in guide_df_by_editor_dict:
+		guide_df = guide_df_by_editor_dict[editor]
+		filepath = f"{output_dir}/{editor}.pkl"
+		with open(filepath, 'wb') as guide_df_handle:
+			pickle.dump(guide_df, guide_df_handle)
+
+
 def file_exists(file_path):
 	return os.path.exists(file_path)
 
 
-def group_guide_table(guide_table_path):
+def group_guide_table(guide_table_path: pathlib.Path):
 	guides_df = pd.read_csv(guide_table_path)
 	grouped_guides_df = guides_df.groupby('Editor')
 	editor_expanded_dictionary = {}

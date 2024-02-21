@@ -1,10 +1,12 @@
 # == Native Modules
 from os.path import abspath
 import pickle
+from pathlib import Path
 # == Installed Modules
 import yaml
 # == Project Modules
-from prog.medit_lib import group_guide_table
+from prog.medit_lib import (group_guide_table,
+							export_guides_by_editor)
 
 
 def offtarget_prediction(args, jobtag):
@@ -28,17 +30,18 @@ def offtarget_prediction(args, jobtag):
 	sequence_id = config_template['sequence_id']
 
 	# == Set output paths ==
-	guides_per_editor_path = f"{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params/guides_per_editor.pkl"
+	guides_per_editor_path = Path(f"{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params")
 
-	# === Recover Guide Prediction filepath
-	guides_report_path = (f"{root_dir}/{mode}/jobs/{run_name}/"
-						 f"guide_prediction-{sequence_id}/guides_report_ref/Guides_found.csv"),
-	guide_search_params = (f"{root_dir}/{mode}/jobs/{run_name}/"
-						   f"guide_prediction-{sequence_id}/dynamic_params/guide_search_params.pkl")
+	# === Recover Guide Prediction filepath ===
+	guides_report_path = Path(f"{root_dir}/{mode}/jobs/{run_name}/"
+							  f"guide_prediction-{sequence_id}/guides_report_ref/Guides_found.csv")
+	guide_search_params = Path(f"{root_dir}/{mode}/jobs/{run_name}/"
+							   f"guide_prediction-{sequence_id}/dynamic_params/guide_search_params.pkl")
 
+	# == Group guides by editor and export DF as pickles by editor
 	grouped_guide_dict = group_guide_table(guides_report_path)
-	with open(guides_per_editor_path, 'ab') as guides_per_editor_handle:
-		pickle.dump(grouped_guide_dict, guides_per_editor_handle)
+	export_guides_by_editor(grouped_guide_dict, guides_per_editor_path)
+
 
 
 if __name__ == "__main__":

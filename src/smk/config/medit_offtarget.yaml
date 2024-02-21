@@ -1,0 +1,4 @@
+#
+# === Offtarget Analysis Paths
+#   == Parent output directory where files should be stored after processing ==
+guides_per_editor_path: ""
