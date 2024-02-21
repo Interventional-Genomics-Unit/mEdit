@@ -9,6 +9,7 @@ import tensorflow.compat.v1 as tf1
 from tensorflow.keras.models import load_model
 # Project Modules
 from featurization import featurize_data
+from deepcas_models import DeepCas9
 
 
 def load_model_params(score_name: str, models_dir: str):
@@ -30,7 +31,8 @@ def load_model_params(score_name: str, models_dir: str):
             model2 = load_model(models_dir + "/Seq_deepCpf1.h5")
             return model1, model2
         if score_name == 'deepspcas9':
-            model = pickle.load(open(models_dir + '/DeepCas9.pkl', 'rb'))
+            model = DeepCas9
+            #model = pickle.load(open(models_dir + '/DeepCas9.pkl', 'rb'))
             sess_path = f"{models_dir}/DeepCas9_Final/PreTrain-Final-False-3-5-7-100-70-40-0.001-550-True-80-60"
             return model, sess_path
     except FileNotFoundError:

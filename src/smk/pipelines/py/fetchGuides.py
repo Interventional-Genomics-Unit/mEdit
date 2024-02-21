@@ -200,7 +200,7 @@ class Fetch_Guides:
 
 	def write_not_found(self, outfile):
 		if len(self.not_found.keys()) > 0:
-			pd.DataFrame(self.not_found).to_csv(outfile, index=False)
+			pd.Series(data=self.not_found.values(), index=self.not_found.keys()).to_csv(outfile)
 
 	def write_extracted_sequences(self,extracted_seq_outfile):
 		'''
@@ -348,7 +348,7 @@ class Fetch_Guides:
 						if len(extracted_seq) != self.window * 2:
 							# if flanking or utr the extracted seq needs to come from the chromosome file
 							extracted_seq = self.extract_seqs(searchseq=fasta.seq[snvpos - 100:snvpos + 100],
-							                                  pos=t_snvpos - 1,
+							                                  pos=self.window,
 							                                  alt=alt,
 							                                  window=self.window)
 
