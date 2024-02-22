@@ -89,11 +89,14 @@ def download_s3_objects(s3_bucket_name: str, s3_object_name: str, destination_pa
 
 
 def export_guides_by_editor(guide_df_by_editor_dict: dict, output_dir: pathlib.Path):
+	editors_list = []
 	for editor in guide_df_by_editor_dict:
+		editors_list.append(editor)
 		guide_df = guide_df_by_editor_dict[editor]
 		filepath = f"{output_dir}/{editor}.pkl"
 		with open(filepath, 'wb') as guide_df_handle:
 			pickle.dump(guide_df, guide_df_handle)
+	return editors_list
 
 
 def file_exists(file_path):

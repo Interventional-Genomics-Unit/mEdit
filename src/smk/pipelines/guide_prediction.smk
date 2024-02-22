@@ -87,7 +87,7 @@ rule predict_guides:
 	input:
 		query_manifest = lambda wildcards: glob.glob("{variant_query_dir}".format(
 			variant_query_dir=config["variant_query_dir"])),
-		assembly_path = lambda wildcards: glob.glob("{fasta_root_path}".format(
+		assembly_dir_path = lambda wildcards: glob.glob("{fasta_root_path}".format(
 			fasta_root_path=config["fasta_root_path"]))
 	output:
 		guides_report_out = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/Guides_found.csv",
@@ -118,7 +118,7 @@ rule predict_guides:
 # === PREDICT GUIDES ON REFERENCE GENOMES === #	
 Inputs used:
 --> Take variants from:\n {input.query_manifest}
---> Use reference assembly:\n {input.assembly_path}
+--> Use reference assembly:\n {input.assembly_dir_path}
 --> Support tables from:\n {params.support_tables}
 
 Run parameters:

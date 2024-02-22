@@ -462,7 +462,7 @@ def main():
 	# SNAKEMAKE IMPORTS
 	# === Inputs ===
 	input_file = str(snakemake.input.query_manifest)
-	fasta_path = str(snakemake.input.assembly_path)
+	fasta_path = str(snakemake.input.assembly_dir_path)
 	# === Outputs ===
 	guides_report = str(snakemake.output.guides_report_out)
 	guide_search_params_path = str(snakemake.output.guide_search_params)

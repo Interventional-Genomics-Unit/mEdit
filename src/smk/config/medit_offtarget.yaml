@@ -2,3 +2,12 @@
 # === Offtarget Analysis Paths
 #   == Parent output directory where files should be stored after processing ==
 guides_per_editor_path: ""
+
+# RNA bulge, a deletion in the off-target
+RNAbb: 0
+# DNA bulge, an insertion in the off-target
+DNAbb: 1
+# Maximum allowable mismatch
+mm: 3
+# G = GPU C = CPU A = Accelerators
+PU: "C"
