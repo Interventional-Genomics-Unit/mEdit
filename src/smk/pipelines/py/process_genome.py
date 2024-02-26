@@ -24,6 +24,7 @@ def extract_vcf_record(snv_coord, vcf_fname, window=30):
     #extracted_seq = 'ATCCCCAAAGGACTCAAAGAACCTCTGGGTTCAAGGGTAGACCACCAGCAGCCTAAGGGT'
     ch, pos = snv_coord.split(':')
     records_found = []
+    print(ch,pos)
 
     vcf_reader = vcf.Reader(filename = vcf_fname, compressed = True)
     for record in vcf_reader.fetch(ch, int(pos) - window, int(pos) + window):
@@ -236,9 +237,13 @@ def main():
     refgenome_name = str(snakemake.wildcards.sequence_id)
 
     # resultsfolder = "/groups/clinical/projects/editability/medit_queries/medit_test/test_out/"
-    # vcf_fname = "/groups/clinical/projects/editability/tables/raw_tables/VCFs/HG02257.filtered.vcf.gz"
-    # altgenome_name = 'HG02257'
-    # refgenome_name = 'HG38'
+    # datadir = "/groups/clinical/projects/editability/tables/"
+    # filtered_vcf = f"{datadir}raw_tables/VCFs/HG02257.filtered.vcf.gz"
+    # models_path = "/home/thudson/projects/editability/scr/pkl/models/"
+    # snv_site_info, guide_search_params  = f'{resultsfolder}snv_site_info.pkl',f'{resultsfolder}guide_search_params.pkl'
+    # guides_report = f'{resultsfolder}hg38_Guides_found.csv'
+    # altgenome_name,refgenome_name  = 'HG02257','HG38'
+    # diffguides_out = f'{resultsfolder}HG02257_guide_differences.csv'
 
     # Generate vcf index with tabix
     print(f"Generate tabix file on:\n {idx_filtered_vcf}")
