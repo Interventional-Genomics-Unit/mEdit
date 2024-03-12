@@ -16,6 +16,7 @@ clinvar_ftp = "https://ftp.ncbi.nlm.nih.gov/pub/clinvar/tab_delimited/variant_su
 clinvar_vcf = ' https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/clinvar.vcf.gz'
 clinvar_index = ' https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/clinvar.vcf.gz.tbi'
 refseq = "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/ncbiRefSeq.txt.gz"
+var_citations = "https://ftp.ncbi.nlm.nih.gov/pub/clinvar/tab_delimited/var_citations.txt"
 '''
 datadir = "/groups/clinical/projects/editability/tables/"
 
@@ -31,8 +32,6 @@ simple_tables = f"{processed_tables}guide_acquisition_tables/"
 HGVSlookup_path = f"{processed_tables}HGVSlookup.csv" #Chrom to refID key table
 lastUpdate_file = f"{processed_tables}clinvar_lastUpdate.txt"
 mane_cleaned = f'{processed_tables}MANE.GRch38.summary_cleaned.txt.gz'
-
-
 
 #variables
 chroms = ['1', '2','3', '4', '5', '6', '7', '8', '9', '10', '11','12',
@@ -86,6 +85,29 @@ def process_refseq(raw_tables,processed_tables):
 
     ref_out.close()
 
+def process_citations(raw_tables):
+    citations = pd.read_csv(f"{raw_tables}var_citations.txt", sep = "\t")
+    citations = citations[['#AlleleID', 'citation_source', 'citation_id']].rename(
+        columns={'#AlleleID': 'AlleleID'})
+    alids = []
+    for ch in chroms:
+        alids +=list(pd.read_csv(f"{processed_tables}variant_tables/{ch}_variant.txt")['AlleleID'].astype('int'))
+    grp = citations.groupby('AlleleID')
+    new_citations = {'AlleleID':[],
+                     'citation_source':[],
+                     'citation_id':[]
+                     }
+    for g in grp:
+        new_citations['AlleleID'].append(g[0])
+        new_citations['citation_source'].append('|'.join(list(set(g[1].citation_source))))
+        new_citations['citation_id'].append('|'.join(list(set(g[1].citation_id))))
+
+
+    citations = pd.DataFrame(new_citations)
+    citations = citations[citations['AlleleID'].isin(alids)]
+    citations.to_csv(f"{processed_tables}var_citations.csv",index = False)
+
+
 
 def process_MANE(raw_tables,processed_tables):
     '''
@@ -108,8 +130,9 @@ def process_clinvarVCF(processed_tables):
     '''
     clinvarvcf has molecular consequences
     '''
-    mc = pd.read_csv('/groups/clinical/projects/editability/tables/raw_tables/clinvar/clinvar.vcf'
+    mc = pd.read_csv('/groups/clinical/projects/editability/tables/raw_tables/clinvar/clinvar.vcf.gz'
                      , comment='#', sep='\t', names=['Chr', 'PositionVCF', '?', 'REF', 'ALT', 'x', 'x1','attributes'])
+    mc = mc.drop(columns = ['?','x','x1'])
     mc['chrHGVS_ID'] = mc['attributes'].str.extract(r'CLNHGVS=([^;]*)', expand=False)
     mc['MC'] = mc['attributes'].str.extract(r'MC=([^;]*)', expand=False)
     mc['AlleleID'] = mc['attributes'].str.extract(r'ALLELEID=([^;]*)', expand=False)
@@ -120,7 +143,6 @@ def process_clinvarVCF(processed_tables):
             x = ','.join([y for y in x.split('|') if 'SO' not in y])
         con.append(x)
     mc['MC'] = con
-
     mc = mc.drop(columns=['x1', 'x', 'attributes'])
     mc.to_csv(f'{processed_tables}clinvarvcf2txt.txt', index=False)
 
@@ -129,7 +151,7 @@ def add_molecular_consequences(chroms,processed_tables):
     '''
     add molecular consequences
     '''
-    for ch in chroms[10:]:
+    for ch in chroms:
         df = pd.read_csv(f"{processed_tables}variant_tables/{ch}_variant.txt")
         mc = pd.read_csv(f'{processed_tables}clinvarvcf2txt.txt')
         mc['Chr'] = mc['Chr'].astype('str')
@@ -158,7 +180,7 @@ def extract_tid_from_hgvs(vdf):
             tids.append(tid)
             simple_ids.append(suf)
         else:
-            print(h)
+            print(' Removed-None conforming HGVSID format; ', h)
             tids.append('-')
             simple_ids.append('-')
 
@@ -240,11 +262,20 @@ def clean_clinvar(clinvar_summary,chroms):
             if line[18] == str(ch):
                 if line[16] != "GRCh37": # Remove hg19 data
                     line[-1] = line[-1].replace("\n", "")
-                    if 'single nucleotide variant' in line:
+                    if 'single nucleotide variant' in line or 'Deletion' in line:
+                        line = [line[i] for i in cols]
+                        lines.append(line)
+                    elif 'Indel' in line or 'Insertion' in line or 'Duplication ':
                         line = [line[i] for i in cols]
                         lines.append(line)
 
         vdf = pd.DataFrame(lines, columns = [allcols[i] for i in cols])
+        vdf = vdf[vdf.RefAlleleVCF != 'na']
+        vdf = vdf[vdf.AltAlleleVCF != 'na']
+
+        vdf = vdf[vdf.RefAlleleVCF.str.len()<100] #Deletion under 100
+        vdf = vdf[vdf.AltAlleleVCF.str.len()<10]
+
         vdf['HGNC_ID'] = vdf['HGNC_ID'].apply(lambda x: x.replace("HGNC:",""))
         vdf['PositionVCF'] = vdf['PositionVCF'].astype('int')
         vdf = vdf[vdf['PositionVCF']>1]
@@ -270,6 +301,7 @@ def clean_clinvar(clinvar_summary,chroms):
 
 def make_var_table(clinvar_summary,chroms):
     clean_clinvar(clinvar_summary, chroms)
+    process_MANE(raw_tables, processed_tables)
     add_MANE(processed_tables, chroms)
     add_molecular_consequences(chroms,processed_tables)
 
@@ -306,7 +338,7 @@ def make_HGVStable(processed_tables,chroms):
 
     df = pd.DataFrame({"TranscriptID": names, "Chr": chrs}).drop_duplicates()
     out_file = f"{processed_tables}HGVSlookup.csv"
-    df.to_csv(out_file, index=None)
+    df.to_csv(out_file, index=False)
 
 
 def updateTables(clinvar_ftp,clinvar_summary,refseq):
@@ -329,10 +361,15 @@ def updateTables(clinvar_ftp,clinvar_summary,refseq):
                        capture_output=True)
     print(p)
 
-    # cmd = f"wget {clinvar_vcf} -O {raw_tables}clinvar/clinvar.vcf.gz"
-    # p = subprocess.run(cmd, shell=True,
-    #                    capture_output=True)
-    # print(p)
+    cmd = f"wget {clinvar_vcf} -O {raw_tables}clinvar/clinvar.vcf.gz"
+    p = subprocess.run(cmd, shell=True,
+                        capture_output=True)
+    print(p)
+
+    cmd = f"wget {var_citations} -O {raw_tables}var_citations.txt"
+    p = subprocess.run(cmd, shell=True,
+                       capture_output=True)
+    print(p)
     # cmd = f"wget {clinvar_index} -O {raw_tables}clinvar/clinvar.vcf.gz.tbi"
     # p = subprocess.run(cmd, shell=True,
     #                    capture_output=True)
@@ -344,6 +381,7 @@ def updateTables(clinvar_ftp,clinvar_summary,refseq):
     print("Cleaning and Splitting Clinvar.....")
     clean_clinvar(clinvar_summary, chroms)
     print("Adding Ensembl Identifiers....")
+    process_MANE(raw_tables, processed_tables)
     add_MANE(processed_tables, chroms)
     print("Adding Molecular Consequences....")
     add_molecular_consequences(chroms, processed_tables)
@@ -371,3 +409,5 @@ def check_updates(lastUpdate_file):
     else:
         print('You are using the latest clinvar data')
         print(f"Last updated {lastdate}")
+
+

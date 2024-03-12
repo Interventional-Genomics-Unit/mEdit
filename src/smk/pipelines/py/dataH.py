@@ -11,7 +11,7 @@ class DataHandler:
     search for guides given a genomic sequence and SNV info
     """
 
-    def __init__(self, query, strand, ref, alt, feature_annotation, models_dir, extracted_seq, rf, coord,gname):
+    def __init__(self, query, strand, ref, alt, feature_annotation, models_dir, extracted_seq, rf, coord,gname,dist_from_cutsite = 7):
         """
         :param query: ex: 'NM_000532.5(PCCB):c.1316A>G (p.Tyr439Cys)' or 'chr19:136327650A>G'
         :param strand: ex. '-' or '+
@@ -37,6 +37,7 @@ class DataHandler:
         self.coord = coord
         self.chrom = coord.split(':')[0].replace('chr', '')
         self.gname = gname
+        self.dist_from_cutsite = dist_from_cutsite
 
         # search params
         self.pam = str()  # Ex. 'NGG'
@@ -227,6 +228,7 @@ class DataHandler:
         :param guidelen: guide without pam length
         :return: Guide Dictionary
         """
+
         guides = []
         pamlen = len(pam)
         sitelen = guidelen + pamlen
@@ -292,14 +294,13 @@ class DataHandler:
         return guides
 
     def get_Guides(self, search_params, BEsearch_params=None):
-
         for name, params, in search_params.items():
             pam, pamISfirst, guidelen, dsb_loc = params[0:4]
-            win_size = [int(dsb_loc)-7, int(dsb_loc)+7]
+            win_size = [int(dsb_loc)-self.dist_from_cutsite, int(dsb_loc)+self.dist_from_cutsite]
             guides = self.get_guide_set(name, pam, pamISfirst,win_size, guidelen, BEmode=False)
 
         # if BE mode is on
-        if BEsearch_params is not None:
+        if BEsearch_params is not None and len(self.NC_ref_allele + self.NC_alt_allele) ==2:
             for k, params, in BEsearch_params.items():
                 pam, pamISfirst, guidelen, win_size = params[0][0], params[0][1], params[0][2], params[0][3]
                 bguides = self.get_guide_set(k, pam, pamISfirst, win_size, guidelen, BEmode=True)

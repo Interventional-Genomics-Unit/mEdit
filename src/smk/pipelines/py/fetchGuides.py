@@ -73,6 +73,7 @@ class Fetch_Guides:
 		self.fasta_path = fasta_path
 		self.annote_path = annote_path
 		self.window = 50
+		self.dist_from_cutsite = 7
 
 		# other variables
 		self.snv_info = {}  # {chrom: (queryterm,tid,eid,gene,strand,ref,alt,feature,extracted_seq,rf,coord)}
@@ -95,6 +96,21 @@ class Fetch_Guides:
 		self.all_guides = {}
 		self.all_BE = {}
 		self.not_found = {}
+
+
+	#########          ####       ##      ##     ##  #########   ##
+	#       ##        ##  ##      ####    ##     ##  ##          ##
+	#       ###      ##    ##     ## ##   ##     ##  ##          ##
+	#       ##      ##########    ##  ##  ##     ##  #######     ##
+	#       #      ##        ##   ##   ## ##     ##  ##          ##
+	########      ##          ##  ##    ####     ##  #########   ############
+
+	#################### Add distance from cutsite an optional paremeter? $#########
+
+	def set_distance_from_cutsite(self,dist_from_cutsite):
+		## Default is 7 which corresponds to HDR paremeters
+		# this is how farway the cutsite may be from the start of the variant position
+		self.dist_from_cutsite = dist_from_cutsite
 
 	def configure_search_params(self):
 		"""
@@ -254,11 +270,27 @@ class Fetch_Guides:
 			self.not_found[nf] = reason
 
 	@staticmethod
-	def extract_seqs(searchseq, pos, alt, window):
+	def extract_seqs(searchseq, pos, ref,alt, window):
 		# extracts the sequence +/windowbp surrounding a SNV then swaps ref for alt allele
-		extracted_seq = str(searchseq[pos - window:pos + window])
-		extracted_seq = Seq(extracted_seq[0:window] + alt + extracted_seq[window + 1:]).upper()
-		return extracted_seq
+
+		if len(ref) == len(alt):  ## substitution
+			extracted_seq = str(searchseq[pos - window:pos + window])
+			variant_seq = Seq(extracted_seq[0:window] + alt + extracted_seq[window + 1:]).upper()
+
+		elif len(ref) > len(alt):  # deletion
+			extracted_seq = str(searchseq[pos - window:pos + window + (len(ref)-1)])
+			variant_seq = extracted_seq[0:window] + alt+ extracted_seq[window+len(ref):]
+
+
+		elif len(ref) < len(alt):  # insertion
+			extracted_seq = str(searchseq[pos - window:pos + window - (len(alt))])
+			variant_seq = extracted_seq[0:window] + alt + extracted_seq[window:]
+		# print(new_seq)
+
+		else:
+			pass
+
+		return variant_seq
 
 	def get_chroms(self, queries):
 		# finds unique chromosome for each hgvs
@@ -287,12 +319,13 @@ class Fetch_Guides:
 				for v in self.snv_info[k]:
 					found.append(v[0])
 			notfound = list(set(self.queries).difference(set(found)))
-			self.add_not_found(notfound, 'hgvs not found in clinvar')
+			self.add_not_found(notfound, 'hgvs not found in medit variant database')
 
 		# Else All information is given to find transcript info
 		else:
 
-			coord_fmt = r'chr[0-9MTXY]*:(\d*)([ATCG]{1})\>([ATCG]{1})'
+			#coord_fmt = r'chr[0-9MTXY]*:(\d*)([ATCG]{1})\>([ATCG]{1})'
+			coord_fmt = r'chr[0-9MTXY]*:(\d*)([ATCG]{1,10})\>([ATCG]{1,10})'
 			for query in self.queries:
 				ch = query.split(':')[0].replace('chr', '')
 				if ch not in self.snv_info.keys():
@@ -316,8 +349,7 @@ class Fetch_Guides:
 				with open(chr_fasta_path, 'rb') as pfile:
 					fasta = pickle.load(pfile)
 			except FileNotFoundError:
-				print(
-					f"The file {chr_fasta_path} was not found. Please regenerate background data and check the target directory")
+				print(f"The file {chr_fasta_path} was not found. Please regenerate background data and check the target directory")
 				continue
 			except pickle.UnpicklingError:
 				print(f"The file {chr_fasta_path} is not in the correct format. Please regenerate background data")
@@ -335,20 +367,22 @@ class Fetch_Guides:
 						tid, eid, gname = '-', '-', '-'
 						feature_annotation = tx
 						rf, strand = 'None', '+'
-						extracted_seq = self.extract_seqs(searchseq=fasta.seq, pos=snvpos, alt=alt, window=self.window)
+						extracted_seq = self.extract_seqs(searchseq=fasta.seq, pos=snvpos, ref=ref,alt=alt, window=self.window)
 
 
 					else:
 						eid, tid, gname, strand, txstart = tx.tx_info()
 						tx_seq = tx.get_tx_seq(fasta)
 						t_snvpos = int(snvpos) - int(txstart)
-						extracted_seq = self.extract_seqs(searchseq=tx_seq, pos=t_snvpos - 1, alt=alt,
+						extracted_seq = self.extract_seqs(searchseq=tx_seq, pos=t_snvpos - 1, ref=ref,alt=alt,
 						                                  window=self.window)
 
 						if len(extracted_seq) != self.window * 2:
 							# if flanking or utr the extracted seq needs to come from the chromosome file
-							extracted_seq = self.extract_seqs(searchseq=fasta.seq[snvpos - 100:snvpos + 100],
-							                                  pos=self.window,
+
+							extracted_seq = self.extract_seqs(searchseq=fasta.seq[snvpos - self.window*2:snvpos + self.window*2],
+							                                  pos=self.window*2,
+															  ref=ref,
 							                                  alt=alt,
 							                                  window=self.window)
 
@@ -359,6 +393,8 @@ class Fetch_Guides:
 						 f"chr{str(ch)}:{str(snvpos)}"])
 
 					print('Query term & annoation:', query, feature_annotation)
+				else:
+					self.add_not_found(query, 'ref or alt allele contain non-ATCG characters')
 			self.snv_info[ch] = new_data
 
 	@staticmethod
@@ -412,7 +448,7 @@ class Fetch_Guides:
 						f"WARNING: The query below has the wrong number of values to unpack. Needs further investigation:\n{d}")
 					continue
 				dh = DataHandler(query, strand, ref, alt, feature_annotation, models_dir, extracted_seq, codons, coord,
-				                 gname)
+				                 gname,self.dist_from_cutsite)
 
 				if self.be_request != 'off':
 					guides, BEguides = dh.get_Guides(self.search_params, self.BE_search_params)
