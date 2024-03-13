@@ -146,8 +146,8 @@ def main():
 	# SNAKEMAKE IMPORTS
 	# === Inputs ===
 	guides_report_per_editor_path = str(snakemake.input.guides_per_editor_path)
-	assembly_reference_path = str(snakemake.input.assembly_path)
 	guide_search_params = str(snakemake.input.guide_search_params)
+	assembly_reference_path = str(snakemake.input.assembly_path)
 	# snv_site_info = str(snakemake.input.snv_site_info)
 	# annote_path = str(snakemake.params.annote_path)
 	# === Outputs ===
@@ -157,7 +157,7 @@ def main():
 	tmp_processing_casoff_path = str(snakemake.output.tmp_processing_casoff)
 	RNAbb = str(snakemake.params.rna_bulge)
 	DNAbb = str(snakemake.params.dna_bulge)
-	mm = str(snakemake.params.max_mismatch)
+	maximum_mismatches = str(snakemake.params.max_mismatch)
 	PU = str(snakemake.params.casoff_accelerator)
 	# === Wildcards ===
 	editing_tool = str(snakemake.wildcards.editing_tool)
@@ -166,7 +166,7 @@ def main():
 
 	# paths = listdir(resultsfolder)
 
-	# Guide search params
+	# === Guide search params ===
 	search_params = pickle.load(open(guide_search_params, 'rb'))
 	guides_report_per_editor = pickle.load(open(guides_report_per_editor_path, 'rb'))
 	# search_params = pickle.load(open(resultsfolder + "guide_search_params.pkl", 'rb'))
@@ -199,7 +199,7 @@ def main():
 	guides, gnames = list(guides_report_per_editor.gRNA), list(guides_report_per_editor.Guide_ID)
 
 	#
-	casoff_params = (mm, RNAbb, DNAbb, PU)
+	casoff_params = (maximum_mismatches, RNAbb, DNAbb, PU)
 	bulge_check = check_bulge(casoff_params)
 
 	make_casoffinder_input(tmp_processing_casoff_path,

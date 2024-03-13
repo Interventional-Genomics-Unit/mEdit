@@ -237,8 +237,17 @@ def parse_arguments():
 		formatter_class=RawTextHelpFormatter
 	)
 	offtarget_params = casoff_parser.add_argument_group("== Off-Target Parameters ==")
+
 	offtarget_params.add_argument(
 		'-r', help='Reference Genome')
+
+	offtarget_params.add_argument('-j',
+						dest='jobtag',
+						help=textwrap.dedent('''
+		                    Provide the tag associated with the current mEdit job.
+		                    mEdit will generate a random jobtag by default''')
+						)
+	#TODO: Finish the other options at the user interface
 
 	# Parse arguments from the command line
 	arguments = parser.parse_args()
