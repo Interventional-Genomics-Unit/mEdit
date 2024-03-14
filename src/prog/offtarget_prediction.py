@@ -11,6 +11,7 @@ from prog.medit_lib import (export_guides_by_editor,
 							group_guide_table,
 							launch_shell_cmd,
 							project_file_path,
+							set_export,
 							write_yaml_to_file
 							)
 
@@ -69,18 +70,20 @@ def offtarget_prediction(args, jobtag):
 		config_template = yaml.safe_load(config_handle)
 
 	# === Import Variables from Configuration File ===
-	run_name = dynamic_config_guidepred['run_name']
-	mode = dynamic_config_guidepred['processing_mode']
-	root_dir = dynamic_config_guidepred['output_directory']
-	sequence_id = dynamic_config_guidepred['sequence_id']
+	run_name = str(dynamic_config_guidepred['run_name'])
+	mode = str(dynamic_config_guidepred['processing_mode'])
+	root_dir = str(dynamic_config_guidepred['output_directory'])
+	# == mEdit offtarget prediction will only process one reference genome in this version ==
+	sequence_id = str(dynamic_config_guidepred['sequence_id'][0])
 
 	# == Set output paths ==
-	guides_per_editor_path = Path(f"{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction")
+	guides_per_editor_path = str(
+		f"{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction")
 
 	# == Recover Guide Prediction filepath ==
 	guides_report_path = Path(f"{root_dir}/{mode}/jobs/{run_name}/"
 							  f"guide_prediction-{sequence_id}/guides_report_ref/Guides_found.csv")
-	# guide_search_params = Path(f"{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params/guide_search_params.pkl")
+
 	# == Group guides by editor and export DF as pickles by editor
 	grouped_guide_dict = group_guide_table(guides_report_path)
 	editors_list = export_guides_by_editor(grouped_guide_dict, guides_per_editor_path)
@@ -89,6 +92,9 @@ def offtarget_prediction(args, jobtag):
 	config_template['guides_per_editor_path'] = guides_per_editor_path
 	config_template['editors_list'] = editors_list
 	config_template['tmp_processing_casoff'] = f"{root_dir}/{config_template['tmp_processing_casoff']}"
+
+	# == Set the temporary directory up for CasOffinder ==
+	set_export(config_template['tmp_casoff_path'])
 
 	# === Write YAML configs to mEdit Root Directory ===
 	write_yaml_to_file(config_template, dynamic_config_off_path)
@@ -99,7 +105,7 @@ def offtarget_prediction(args, jobtag):
 		# --> When cluster submission is switched on,
 		launch_shell_cmd(f"snakemake "
 						 f"--snakefile {project_file_path('smk.pipelines', 'offtarget_prediction.smk')} "
-						 f"{smk_run_triggers} " 
+						 f"{smk_run_triggers} "
 						 f"-j {ncores} "
 						 f"{cluster_smk_setup} "
 						 f"--configfile {config_db_path} "

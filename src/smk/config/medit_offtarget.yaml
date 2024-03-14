@@ -3,17 +3,18 @@
 #   == Parent output directory where files should be stored after processing ==
 guides_per_editor_path: ""
 
-# Temporary file used during the casOffinder input file preparation
+# Temporary file and parent path used during the casOffinder input file preparation
 tmp_processing_casoff: "tmp_casoff/tmp_bulge_processing.txt"
+tmp_casoff_path: "tmp_casoff"
 
 # List of editors ingested by offtarget_prediction.py based on a previous mEdit run
 editors_list: ""
 
 # RNA bulge, a deletion in the off-target
-RNAbb: 0
+RNAbb: "0"
 # DNA bulge, an insertion in the off-target
-DNAbb: 1
+DNAbb: "1"
 # Maximum allowable mismatch
-max_mismatch: 3
+max_mismatch: "3"
 # G = GPU C = CPU A = Accelerators
 PU: "C"

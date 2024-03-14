@@ -13,13 +13,11 @@ import glob
 rule all:
 	input:
 		# Prepare input files for casoffinder on a per-editor basis
-		expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/"
-		       "offtarget_prediction/{editing_tool}_casoff_in.txt",
+		expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/{editing_tool}_casoff_in.txt",
 			root_dir=config["output_directory"],mode=config["processing_mode"],
 			run_name=config["run_name"], sequence_id=config["sequence_id"],
 			editing_tool=config["editors_list"]),
-		# Description
-		expand("",),
+
 
 # noinspection SmkAvoidTabWhitespace
 rule casoff_input_formatting:
@@ -33,14 +31,29 @@ rule casoff_input_formatting:
 		seq_pam_path = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/{editing_tool}_seqpam.pkl"
 	params:
 		tmp_processing_casoff = config["tmp_processing_casoff"],
-		RNAbb = config["RNAbb"],
-		DNAbb= config["DNAbb"],
+		rna_bulge = config["RNAbb"],
+		dna_bulge= config["DNAbb"],
 		max_mismatch= config["max_mismatch"],
-		PU = config["PU"]
+		casoff_accelerator = config["PU"]
 	conda:
-		"envs/casoff.yaml"
+		"../envs/casoff.yaml"
 	message:
 		"""
+# === PREDICT OFFTARGET EFFECT === #	
+Inputs used:
+--> Take guides grouped by editing tool:\n {input.guides_per_editor_path}
+--> Use reference assembly:\n {input.assembly_path}
+--> Use guide search parameters from:\n {input.guide_search_params}
+
+Run parameters:
+--> RNA bulge: {params.rna_bulge} 
+--> DNA bulge: {params.dna_bulge}
+--> Maximum mismatch: {params.max_mismatch}
+
+Outputs generated:
+--> CasOffinder formatted input: {output.casoff_input}
+Wildcards in this rule:
+--> {wildcards}
 		"""
 	script:
 		"py/build_casoff_input.py"

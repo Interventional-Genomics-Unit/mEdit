@@ -10,6 +10,7 @@ import os
 import os.path
 import re
 import pathlib
+from pathlib import Path
 import pickle
 # == Installed Modules ==
 from alive_progress import alive_bar
@@ -88,12 +89,14 @@ def download_s3_objects(s3_bucket_name: str, s3_object_name: str, destination_pa
 			bar()
 
 
-def export_guides_by_editor(guide_df_by_editor_dict: dict, output_dir: pathlib.Path):
+def export_guides_by_editor(guide_df_by_editor_dict: dict, output_dir: (str, Path)):
 	editors_list = []
 	for editor in guide_df_by_editor_dict:
 		editors_list.append(editor)
-		guide_df = guide_df_by_editor_dict[editor]
+		guide_df = pd.DataFrame(guide_df_by_editor_dict[editor][0])
 		filepath = f"{output_dir}/{editor}.pkl"
+		# Create output directory if non-existent
+		set_export(output_dir)
 		with open(filepath, 'wb') as guide_df_handle:
 			pickle.dump(guide_df, guide_df_handle)
 	return editors_list
@@ -220,7 +223,8 @@ def project_file_path(path_from_toplevel: str, filename: str):
 
 def set_export(outdir: str):
 	if os.path.exists(outdir):
-		print(f'--> Skipping directory creation: {outdir}')
+		pass
+		# print(f'--> Skipping directory creation: {outdir}')
 	# Create outdir only if it doesn't exist
 	if not os.path.exists(outdir):
 		print(f'Directory created on: {outdir}')

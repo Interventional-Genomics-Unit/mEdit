@@ -154,9 +154,9 @@ def main():
 	casoff_input_path = str(snakemake.output.casoff_input)
 	seq_pam_path = str(snakemake.output.seq_pam_path)
 	# === Params ===
-	tmp_processing_casoff_path = str(snakemake.output.tmp_processing_casoff)
-	RNAbb = str(snakemake.params.rna_bulge)
-	DNAbb = str(snakemake.params.dna_bulge)
+	tmp_processing_casoff_path = str(snakemake.params.tmp_processing_casoff)
+	rna_bulge = str(snakemake.params.rna_bulge)
+	dna_bulge = str(snakemake.params.dna_bulge)
 	maximum_mismatches = str(snakemake.params.max_mismatch)
 	PU = str(snakemake.params.casoff_accelerator)
 	# === Wildcards ===
@@ -199,7 +199,7 @@ def main():
 	guides, gnames = list(guides_report_per_editor.gRNA), list(guides_report_per_editor.Guide_ID)
 
 	#
-	casoff_params = (maximum_mismatches, RNAbb, DNAbb, PU)
+	casoff_params = (maximum_mismatches, rna_bulge, dna_bulge, PU)
 	bulge_check = check_bulge(casoff_params)
 
 	make_casoffinder_input(tmp_processing_casoff_path,
