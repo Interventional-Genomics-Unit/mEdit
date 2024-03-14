@@ -12,7 +12,7 @@ def parse_arguments():
 		prog='mEdit',
 		description=f'version {version("meditability")}',
 		# epilog="mEdit is pretty cool, huh? :)",
-		usage='%(prog)s [options]',
+		usage='%(prog)s ',
 		formatter_class=RawTextHelpFormatter
 	)
 
@@ -237,17 +237,72 @@ def parse_arguments():
 		formatter_class=RawTextHelpFormatter
 	)
 	offtarget_params = casoff_parser.add_argument_group("== Off-Target Parameters ==")
-
 	offtarget_params.add_argument(
-		'-r', help='Reference Genome')
+		'--dry',
+		dest='dry_run',
+		action='store_true',
+		help=textwrap.dedent('''
+				Perform a dry run of mEdit.'''))
 
-	offtarget_params.add_argument('-j',
-						dest='jobtag',
-						help=textwrap.dedent('''
-		                    Provide the tag associated with the current mEdit job.
-		                    mEdit will generate a random jobtag by default''')
-						)
-	#TODO: Finish the other options at the user interface
+	off_in_out = casoff_parser.add_argument_group("== Input/Output Options ==")
+	off_in_out.add_argument(
+		'-o',
+		dest='output',
+		default='medit_analysis',
+		help=textwrap.dedent('''
+		Path to root directory where mEdit guide_prediction
+		 outputs were stored. "medit offtarget" can't 
+		 operate if this path is incorrect. [default: mEdit_analysis_<jobtag>/]
+		 ''')
+	)
+	off_in_out.add_argument('-d',
+							dest='db_path',
+							default='.',
+							help=textwrap.dedent('''
+		                    Provide the path where the "mEdit_database" 
+		                    directory was created ahead of the analysis 
+		                    using the "db_set" program. 
+		                    [default: ./mEdit_database]''')
+							)
+	off_in_out.add_argument('-j',
+							dest='jobtag',
+							required=True,
+							help=textwrap.dedent('''
+							Provide the tag associated with the desired 
+							"medit guide_prediction" job ID.
+							"mEdit offtarget" will use the path from the
+							 OUTPUT option to access this JOBTAG.
+							''')
+							)
+
+	off_cluster_opt = casoff_parser.add_argument_group("== SLURM Options ==")
+	off_cluster_opt.add_argument(
+		'-p',
+		dest='parallel_processes',
+		help=textwrap.dedent('''
+					Most processes in mEdit can be submitted to SLURM.
+					When submitting mEdit jobs to SLURM, the user can specify
+					the number of parallel processes that will be sent to the 
+					server [default = 1]''')
+	)
+	off_cluster_opt.add_argument(
+		'--ncores',
+		dest='ncores',
+		default=2,
+		help=textwrap.dedent('''
+				Specify the number of cores through which each parallel process 
+				will be computed. [default = 2]''')
+	)
+
+	off_cluster_opt.add_argument(
+		'--maxtime',
+		dest='maxtime',
+		default='1:00:00',
+		help=textwrap.dedent('''
+				Specify the maximum amount of time allowed for each parallel job.
+				Format example: 2 hours -> "2:00:00" [default = 1 hour]''')
+	)
+	# TODO: Finish the other options at the user interface
 
 	# Parse arguments from the command line
 	arguments = parser.parse_args()
