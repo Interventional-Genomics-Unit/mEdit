@@ -6,7 +6,8 @@ from pathlib import Path
 # == Installed Modules
 import yaml
 # == Project Modules
-from prog.medit_lib import (export_guides_by_editor,
+from prog.medit_lib import (
+							export_guides_by_editor,
 							file_exists,
 							group_guide_table,
 							launch_shell_cmd,
