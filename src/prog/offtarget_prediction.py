@@ -7,14 +7,14 @@ from pathlib import Path
 import yaml
 # == Project Modules
 from prog.medit_lib import (
-							export_guides_by_editor,
-							file_exists,
-							group_guide_table,
-							launch_shell_cmd,
-							project_file_path,
-							set_export,
-							write_yaml_to_file
-							)
+	export_guides_by_editor,
+	file_exists,
+	group_guide_table,
+	launch_shell_cmd,
+	project_file_path,
+	set_export,
+	write_yaml_to_file
+)
 
 
 def offtarget_prediction(args, jobtag):
@@ -44,6 +44,7 @@ def offtarget_prediction(args, jobtag):
 
 	#   == Load template configuration files ==
 	config_template_path = project_file_path("smk.config", "medit_offtarget.yaml")
+	config_cluster_path = project_file_path("smk.config", "medit_cluster.yaml")
 
 	# == Define dynamic SMK call variables ==
 	cluster_smk_setup = ''
@@ -62,7 +63,7 @@ def offtarget_prediction(args, jobtag):
 		# --> That's because samtool's conda package crashes on a libcrypto error when
 		#       it's deployed by snakemake on a SLURM node
 		cluster_smk_setup = ('--cluster "sbatch -t {cluster.time} -n {cluster.cores}" '
-							 '--cluster-config  config/medit_cluster.yaml')
+							 f'--cluster-config  {config_cluster_path}')
 
 	# ->=== CONFIG FILES IMPORT ===<-
 	with open(dynamic_config_guidepred_path, 'r') as dynamic_config_handle:

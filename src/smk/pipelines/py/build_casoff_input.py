@@ -147,7 +147,7 @@ def main():
 	# === Inputs ===
 	guides_report_per_editor_path = str(snakemake.input.guides_per_editor_path)
 	guide_search_params = str(snakemake.input.guide_search_params)
-	assembly_reference_path = str(snakemake.input.assembly_path)
+	assembly_reference_path = str(snakemake.input.decompressed_assembly_symlink)
 	# snv_site_info = str(snakemake.input.snv_site_info)
 	# annote_path = str(snakemake.params.annote_path)
 	# === Outputs ===
