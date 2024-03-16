@@ -23,6 +23,10 @@ rule all:
 		expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/{editing_tool}_casoff.txt",
 			root_dir=config["output_directory"],mode=config["processing_mode"],
 			run_name=config["run_name"], sequence_id=config["sequence_id"],
+			editing_tool=config["editors_list"]),
+		expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/{editing_tool}_casoff_parsed.txt",
+			root_dir=config["output_directory"],mode=config["processing_mode"],
+			run_name=config["run_name"], sequence_id=config["sequence_id"],
 			editing_tool=config["editors_list"])
 
 
@@ -51,12 +55,11 @@ rule casoff_input_formatting:
 	input:
 		guides_per_editor_path = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/{editing_tool}.pkl",
 		guide_search_params = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params/guide_search_params.pkl",
-		decompressed_assembly_symlink = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/{sequence_id}.fa"
+		decompressed_assembly_symlink = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/{sequence_id}.fa",
 	output:
 		casoff_input = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/input_files/{editing_tool}_casoff_in.txt",
-		seq_pam_path = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/input_files/{editing_tool}_seqpam.pkl"
+		casoff_support = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/input_files/{editing_tool}_casoff_support.txt"
 	params:
-		tmp_processing_casoff = config["tmp_processing_casoff"],
 		rna_bulge = config["RNAbb"],
 		dna_bulge= config["DNAbb"],
 		max_mismatch= config["max_mismatch"],
@@ -70,7 +73,7 @@ Inputs used:
 --> Take guides grouped by editing tool:\n {input.guides_per_editor_path}
 --> Use reference assembly:\n {input.decompressed_assembly_symlink}
 --> Use guide search parameters from:\n {input.guide_search_params}
---> Temp files stored at:\n {params.tmp_processing_casoff}
+--> Temp files stored at:\n {output.casoff_support}
 
 Outputs generated:
 --> CasOffinder formatted input: {output.casoff_input}
@@ -87,7 +90,6 @@ rule casoff_run:
 	output:
 		casoff_out = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/{editing_tool}_casoff.txt"
 	params:
-		tmp_processing_casoff=config["tmp_processing_casoff"],
 		rna_bulge=config["RNAbb"],
 		dna_bulge=config["DNAbb"],
 		max_mismatch=config["max_mismatch"],
@@ -119,20 +121,25 @@ Wildcards in this rule:
 		cas-offinder {input.casoff_input} {params.casoff_accelerator} {output.casoff_out}
 		"""
 
-# rule casoff_output_formatting:
-# 	input:
-# 		guides_report_out=""
-# 	output:
-# 		casoff_out = ""
-# 	params:
-# 		tmp_casoff = ""
-# 	conda:
-# 		"envs/"
-# 	message:
-# 		"""
-# 		"""
-# 	script:
-# 		"py/"
+# noinspection SmkAvoidTabWhitespace
+rule casoff_output_formatting:
+	input:
+		casoff_out = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/{editing_tool}_casoff.txt",
+		casoff_support = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/input_files/{editing_tool}_casoff_support.txt",
+	output:
+		formatted_casoff_out = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/{editing_tool}_casoff_parsed.txt"
+	params:
+		rna_bulge=config["RNAbb"],
+		dna_bulge=config["DNAbb"],
+		max_mismatch=config["max_mismatch"],
+		casoff_accelerator=config["PU"]
+	conda:
+		"../envs/casoff.yaml"
+	message:
+		"""
+		"""
+	script:
+		"py/build_casoff_output.py"
 
 
 

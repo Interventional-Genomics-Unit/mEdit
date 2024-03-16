@@ -4,7 +4,7 @@
 guides_per_editor_path: ""
 
 # Temporary file and parent path used during the casOffinder input file preparation
-tmp_processing_casoff: "tmp_casoff/tmp_bulge_processing.txt"
+tmp_processing_casoff: "tmp_casoff/tmp_bulge_processing"
 tmp_casoff_path: "tmp_casoff"
 
 # List of editors ingested by offtarget_prediction.py based on a previous mEdit run
