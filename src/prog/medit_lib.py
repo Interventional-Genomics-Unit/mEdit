@@ -106,8 +106,10 @@ def file_exists(file_path):
 	return os.path.exists(file_path)
 
 
-def group_guide_table(guide_table_path: pathlib.Path):
+def group_guide_table(guide_table_path: pathlib.Path, editor_filter: (list, str)):
 	guides_df = pd.read_csv(guide_table_path)
+	if editor_filter:
+		guides_df = guides_df[guides_df['Editor'].isin(editor_filter)]
 	grouped_guides_df = guides_df.groupby('Editor')
 	editor_expanded_dictionary = {}
 	for editor, stats in grouped_guides_df:

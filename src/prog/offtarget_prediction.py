@@ -22,6 +22,7 @@ def offtarget_prediction(args, jobtag):
 	user_jobtag = args.user_jobtag
 	root_dir = abspath(args.output)
 	db_path_full = f"{abspath(args.db_path)}/medit_database"
+	editing_tool_request = args.select_editors
 	# == Load SLURM-related values ==
 	ncores = args.ncores
 	maxtime = args.maxtime
@@ -30,6 +31,9 @@ def offtarget_prediction(args, jobtag):
 
 	# == Set export paths tied to the SMK pipeline ==
 	config_dir_path = f"{root_dir}/config"
+
+	if editing_tool_request:
+		editing_tool_request = list(editing_tool_request.split(","))
 
 	# == Set import/export paths for dynamic YAML files ==
 	config_db_path = f"{db_path_full}/config_db/config_db.yaml"
@@ -87,7 +91,7 @@ def offtarget_prediction(args, jobtag):
 							  f"guide_prediction-{sequence_id}/guides_report_ref/Guides_found.csv")
 
 	# == Group guides by editor and export DF as pickles by editor
-	grouped_guide_dict = group_guide_table(guides_report_path)
+	grouped_guide_dict = group_guide_table(guides_report_path, editing_tool_request)
 	editors_list = export_guides_by_editor(grouped_guide_dict, guides_per_editor_path)
 
 	# === Export Variables to Configuration File ===

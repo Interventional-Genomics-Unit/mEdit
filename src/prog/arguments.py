@@ -77,18 +77,18 @@ def parse_arguments():
 	                          using the "db_set" program.
 	                          [default: ./mEdit_database]''')
 							  )
-	editors_list.add_argument('-e',
-							  dest='editors',
-							  action='store_true',
-							  help=textwrap.dedent('''
-	                          Provides the current list of available editors on mEdit
-	                           '''))
-	editors_list.add_argument('-b',
-							  dest='base_editors',
-							  action='store_true',
-							  help=textwrap.dedent('''
-	                          Provides the current list of available base editors on mEdit 
-	                          '''))
+	# editors_list.add_argument(('--editors'),
+	# 						  dest='editors',
+	# 						  action='store_true',
+	# 						  help=textwrap.dedent('''
+	#                           Provides the current list of available editors on mEdit
+	#                            '''))
+	# editors_list.add_argument('-b',
+	# 						  dest='base_editors',
+	# 						  action='store_true',
+	# 						  help=textwrap.dedent('''
+	#                           Provides the current list of available base editors on mEdit
+	#                           '''))
 
 	# === Guide Prediction Program ===
 	fguides_parser = programs.add_parser(
@@ -282,6 +282,15 @@ def parse_arguments():
 							"mEdit offtarget" will use the path from the
 							 OUTPUT option to access this JOBTAG.
 							''')
+							)
+	off_in_out.add_argument('--select_editors',
+							dest='select_editors',
+							default='',
+							help=textwrap.dedent('''
+								Provide a comma-separated list to select which 
+								editors should be analyzed for offtarget effect.
+								[default: all] 
+								''')
 							)
 
 	off_cluster_opt = casoff_parser.add_argument_group("== SLURM Options ==")
