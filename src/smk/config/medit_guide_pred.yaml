@@ -12,9 +12,11 @@ run_name: ""
 processing_mode: ""
 
 # == RUN PARAMETERS ==
+# Any applicable defaults are defined at prog/arguments.py
 qtype: ""
 be_request: ""
 editor_request: ""
+distance_from_cutsite: ""
 
 # === I/O PATHS ===
 # == DIRECTORIES ==

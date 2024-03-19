@@ -196,6 +196,15 @@ def parse_arguments():
 			[default = off]''')
 	)
 	run_params.add_argument(
+		'--cutdist',
+		dest='cutdist',
+		default='7',
+		help=textwrap.dedent('''
+				Max allowable window a variant start position can be from
+				the editor cut site. This option not available for base editors. 
+				[default = 7]''')
+	)
+	run_params.add_argument(
 		'--dry',
 		dest='dry_run',
 		action='store_true',

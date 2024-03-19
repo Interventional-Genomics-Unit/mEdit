@@ -107,6 +107,7 @@ rule predict_guides:
 		editors = config["editors"],
 		base_editors = config["base_editors"],
 		models_path= config["models_path"],
+		distance_from_cutsite = config["distance_from_cutsite"],
 		# == Run Parameters ==
 		qtype = config["qtype"],
 		be_request = config["be_request"],

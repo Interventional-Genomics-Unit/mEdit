@@ -27,6 +27,7 @@ def guide_prediction(args, jobtag):
 	qtype = args.qtype_request
 	editor_request = parse_editor_request(args.editor_request)
 	be_request = parse_editor_request(args.be_request)
+	cutdist = args.cutdist
 
 	# == Load SLURM-related values ==
 	ncores = args.ncores
@@ -99,6 +100,7 @@ def guide_prediction(args, jobtag):
 	config_template['qtype'] = qtype
 	config_template['editor_request'] = editor_request
 	config_template['be_request'] = be_request
+	config_template['distance_from_cutsite'] = cutdist
 	# Assign cluster options
 	cluster_template['__default__']['cores'] = ncores
 	cluster_template['__default__']['time'] = maxtime

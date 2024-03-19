@@ -29,16 +29,17 @@ def set_export(outdir):
 class Fetch_Guides:
 
 	def __init__(self,
-	             queries: list,
-	             qtype: str,
-	             editor_request: str | list,
-	             be_request: str | list,
-	             editors: dict,
-	             base_editors: dict,
-	             datadir: str,
-	             fasta_path: str,
-	             annote_path: str,
-	             **kwargs):
+				 queries: list,
+				 qtype: str,
+				 editor_request: str | list,
+				 be_request: str | list,
+				 editors: dict,
+				 base_editors: dict,
+				 dist_from_cutsite: int,
+				 datadir: str,
+				 fasta_path: str,
+				 annote_path: str,
+				 **kwargs):
 		"""
 		:param queries: list of query terms, either in hgvs format - 'NM_000518.5:c.114G>A' or coords 'chr11:5226778C>T' (COORDS ALLELES MUST BE PLUS STRAND!!)
 		:param qtype: 'hgvs' or 'coord'
@@ -50,6 +51,7 @@ class Fetch_Guides:
 		:param be_request: 'off','default','all', or select BE editor for base editor choices below
 		:param editors: Dictionary containing information on the current set of editors supported by mEdit
 		:param base_editors: Dictionary containing information on the current set of base editors supported by mEdit
+		:param dist_from_cutsite: this is how farway the cutsite may be from the start of the variant position
 		:param genome: genome used
 		:param datadir: folder where tables and pre-computed data live
 		:param fasta_path: *Unsure using chromsome seperate files right now but unsure if this will be permenant
@@ -66,6 +68,7 @@ class Fetch_Guides:
 		self.kwargs = kwargs
 		self.editor_lib = editors
 		self.be_lib = base_editors
+		self.dist_from_cutsite = dist_from_cutsite
 
 		# input paths/folders
 		self.processed_tables = f"{datadir}/processed_tables"  # folder with cleaned clinvar/hpa tabs
@@ -73,7 +76,7 @@ class Fetch_Guides:
 		self.fasta_path = fasta_path
 		self.annote_path = annote_path
 		self.window = 50
-		self.dist_from_cutsite = 7
+		# self.dist_from_cutsite = 7
 
 		# other variables
 		self.snv_info = {}  # {chrom: (queryterm,tid,eid,gene,strand,ref,alt,feature,extracted_seq,rf,coord)}
@@ -97,21 +100,6 @@ class Fetch_Guides:
 		self.all_BE = {}
 		self.not_found = {}
 
-
-	#########          ####       ##      ##     ##  #########   ##
-	#       ##        ##  ##      ####    ##     ##  ##          ##
-	#       ###      ##    ##     ## ##   ##     ##  ##          ##
-	#       ##      ##########    ##  ##  ##     ##  #######     ##
-	#       #      ##        ##   ##   ## ##     ##  ##          ##
-	########      ##          ##  ##    ####     ##  #########   ############
-
-	#################### Add distance from cutsite an optional paremeter? $#########
-
-	def set_distance_from_cutsite(self,dist_from_cutsite):
-		## Default is 7 which corresponds to HDR paremeters
-		# this is how farway the cutsite may be from the start of the variant position
-		self.dist_from_cutsite = dist_from_cutsite
-
 	def configure_search_params(self):
 		"""
 		set paramteres for the selected editor or editors(not BE editors)
@@ -132,7 +120,7 @@ class Fetch_Guides:
 					search_params[editor] = self.editor_lib['user_request'][editor]
 				except KeyError:
 					print(f"Please list one or more editors available at the current version's list:"
-					      f" \n{self.editor_lib['user_request'].keys()}")
+						  f" \n{self.editor_lib['user_request'].keys()}")
 					raise Exception(f"The editor {editor} isn't available in the currently version of mEdit")
 
 		# else use single set parameters
@@ -218,25 +206,24 @@ class Fetch_Guides:
 		if len(self.not_found.keys()) > 0:
 			pd.Series(data=self.not_found.values(), index=self.not_found.keys()).to_csv(outfile)
 
-	def write_extracted_sequences(self,extracted_seq_outfile):
+	def write_extracted_sequences(self, extracted_seq_outfile):  # Taylor's been Walter Whiting here.
 		'''
 		writes tab-deliminated file of 100-mer sequence in which each
 		each variant was found.
 		'''
 		if len(self.snv_info.keys()) > 0:
-			with open(extracted_seq_outfile,"w") as out:
+			with open(extracted_seq_outfile, "w") as out:
 				for chrom, snv_info in self.snv_info.items():
 					for value in snv_info:
 						query = value[0]
 						extracted_seq = str(value[8])
-						print(query+"\t"+extracted_seq,file=out)
-
+						print(query + "\t" + extracted_seq, file=out)
 
 	def write_guide_csv(self, guides, outfile):
 		df = pd.DataFrame(guides)
 		if 'On-Target Efficiency Score' in df.columns:
 			temp = df[df['On-Target Efficiency Score'] != '-'].sort_values(by='On-Target Efficiency Score',
-			                                                               ascending=False)
+																		   ascending=False)
 			temp = temp.sort_values(by='Editor')
 			df = pd.concat([temp, df[df['On-Target Efficiency Score'] == '-']]).reset_index(drop=True)
 		df['Guide_ID'] = [y + str(x) for x, y in zip(list(df.index), list(df['Guide_ID']))]
@@ -270,7 +257,7 @@ class Fetch_Guides:
 			self.not_found[nf] = reason
 
 	@staticmethod
-	def extract_seqs(searchseq, pos, ref,alt, window):
+	def extract_seqs(searchseq, pos, ref, alt, window):
 		# extracts the sequence +/windowbp surrounding a SNV then swaps ref for alt allele
 
 		if len(ref) == len(alt):  ## substitution
@@ -278,8 +265,8 @@ class Fetch_Guides:
 			variant_seq = Seq(extracted_seq[0:window] + alt + extracted_seq[window + 1:]).upper()
 
 		elif len(ref) > len(alt):  # deletion
-			extracted_seq = str(searchseq[pos - window:pos + window + (len(ref)-1)])
-			variant_seq = extracted_seq[0:window] + alt+ extracted_seq[window+len(ref):]
+			extracted_seq = str(searchseq[pos - window:pos + window + (len(ref) - 1)])
+			variant_seq = extracted_seq[0:window] + alt + extracted_seq[window + len(ref):]
 
 
 		elif len(ref) < len(alt):  # insertion
@@ -313,7 +300,7 @@ class Fetch_Guides:
 				gadf = df.loc[df['HGVS_Simple'].isin(self.queries)]
 				self.add_clinvar(gadf)
 				self.snv_info[ch] = \
-				gadf[['HGVS_Simple', 'PositionVCF', 'RefAlleleVCF', 'AltAlleleVCF']].to_dict('tight')['data']
+					gadf[['HGVS_Simple', 'PositionVCF', 'RefAlleleVCF', 'AltAlleleVCF']].to_dict('tight')['data']
 			found = []
 			for k in self.snv_info.keys():
 				for v in self.snv_info[k]:
@@ -324,7 +311,7 @@ class Fetch_Guides:
 		# Else All information is given to find transcript info
 		else:
 
-			#coord_fmt = r'chr[0-9MTXY]*:(\d*)([ATCG]{1})\>([ATCG]{1})'
+			# coord_fmt = r'chr[0-9MTXY]*:(\d*)([ATCG]{1})\>([ATCG]{1})'
 			coord_fmt = r'chr[0-9MTXY]*:(\d*)([ATCG]{1,10})\>([ATCG]{1,10})'
 			for query in self.queries:
 				ch = query.split(':')[0].replace('chr', '')
@@ -349,7 +336,8 @@ class Fetch_Guides:
 				with open(chr_fasta_path, 'rb') as pfile:
 					fasta = pickle.load(pfile)
 			except FileNotFoundError:
-				print(f"The file {chr_fasta_path} was not found. Please regenerate background data and check the target directory")
+				print(
+					f"The file {chr_fasta_path} was not found. Please regenerate background data and check the target directory")
 				continue
 			except pickle.UnpicklingError:
 				print(f"The file {chr_fasta_path} is not in the correct format. Please regenerate background data")
@@ -367,24 +355,26 @@ class Fetch_Guides:
 						tid, eid, gname = '-', '-', '-'
 						feature_annotation = tx
 						rf, strand = 'None', '+'
-						extracted_seq = self.extract_seqs(searchseq=fasta.seq, pos=snvpos, ref=ref,alt=alt, window=self.window)
+						extracted_seq = self.extract_seqs(searchseq=fasta.seq, pos=snvpos, ref=ref, alt=alt,
+														  window=self.window)
 
 
 					else:
 						eid, tid, gname, strand, txstart = tx.tx_info()
 						tx_seq = tx.get_tx_seq(fasta)
 						t_snvpos = int(snvpos) - int(txstart)
-						extracted_seq = self.extract_seqs(searchseq=tx_seq, pos=t_snvpos - 1, ref=ref,alt=alt,
-						                                  window=self.window)
+						extracted_seq = self.extract_seqs(searchseq=tx_seq, pos=t_snvpos - 1, ref=ref, alt=alt,
+														  window=self.window)
 
 						if len(extracted_seq) != self.window * 2:
 							# if flanking or utr the extracted seq needs to come from the chromosome file
 
-							extracted_seq = self.extract_seqs(searchseq=fasta.seq[snvpos - self.window*2:snvpos + self.window*2],
-							                                  pos=self.window*2,
-															  ref=ref,
-							                                  alt=alt,
-							                                  window=self.window)
+							extracted_seq = self.extract_seqs(
+								searchseq=fasta.seq[snvpos - self.window * 2:snvpos + self.window * 2],
+								pos=self.window * 2,
+								ref=ref,
+								alt=alt,
+								window=self.window)
 
 						feature_annotation, rf = tx.feature, tx.rf
 
@@ -448,7 +438,7 @@ class Fetch_Guides:
 						f"WARNING: The query below has the wrong number of values to unpack. Needs further investigation:\n{d}")
 					continue
 				dh = DataHandler(query, strand, ref, alt, feature_annotation, models_dir, extracted_seq, codons, coord,
-				                 gname,self.dist_from_cutsite)
+								 gname, self.dist_from_cutsite)
 
 				if self.be_request != 'off':
 					guides, BEguides = dh.get_Guides(self.search_params, self.BE_search_params)
@@ -489,9 +479,9 @@ class Fetch_Guides:
 			print('No Base Editor Guides found for any queries')
 
 		return {'all_variant': self.all_variant,
-		        'all_gene': self.all_gene,
-		        'guide_table': guidedf,
-		        'BE_table': BEdf}
+				'all_gene': self.all_gene,
+				'guide_table': guidedf,
+				'BE_table': BEdf}
 
 
 def main():
@@ -515,6 +505,7 @@ def main():
 	editors_path = str(snakemake.params.editors)
 	base_editors_path = str(snakemake.params.base_editors)
 	models_path = str(snakemake.params.models_path)
+	distance_from_cutsite = int(snakemake.params.distance_from_cutsite)
 	#   == Run Parameters ==
 	qtype = str(snakemake.params.qtype)
 	be_request = str(snakemake.params.be_request)
@@ -553,15 +544,16 @@ def main():
 
 	# == Get query items ==
 	fg = Fetch_Guides(queries,
-	                  qtype,
-	                  editor_request,
-	                  be_request,
-	                  editors,
-	                  base_editors,
-	                  datadir,
-	                  fasta_path,
-	                  annote_path
-	                  )
+					  qtype,
+					  editor_request,
+					  be_request,
+					  editors,
+					  base_editors,
+					  distance_from_cutsite,
+					  datadir,
+					  fasta_path,
+					  annote_path
+					  )
 	# == Set up object and run core methods ==
 	exports = fg.run_FetchGuides(guides_report, be_report, models_path)
 
