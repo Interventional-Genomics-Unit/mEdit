@@ -48,12 +48,12 @@ class DataHandler:
 
         # outputs
         self.guides_found = {'QueryTerm': [], 'GeneName':[],'Editor': [], 'Guide_ID': [], 'Coordinates': [],
-                             'Strand': [], 'gRNA': [], 'Pam': [], 'SNV Position': [], 'Extended Guide Site': [],
+                             'Strand': [], 'gRNA': [], 'Pam': [], 'Variant Position': [], 'Extended Guide Site': [],
                              'Azimuth Score': [], 'DeepCas9 Score':[],'DeepCpf1 Score':[],
                              'OOF Score':[],'Ref>Alt': [], 'Annotation': []}
 
         self.BEguides_found = {'QueryTerm': [], 'GeneName':[],'Editor': [], 'Guide_ID': [], 'Coordinates': [],
-                               'Strand': [],'gRNA': [], 'Pam': [], 'SNV Position': [],'Extended Guide Site': [],
+                               'Strand': [],'gRNA': [], 'Pam': [], 'Variant Position': [],'Extended Guide Site': [],
                                'ABE score':[], 'CBE Score':[],
                                'Hg38 Reference (Codon>AA)': [], 'Alternate (Codon>AA)': [], 'BE Converted (Codon>AA)': [],
                                'Conversion Type': [], 'Bystander': [], 'Annotation': []}
@@ -195,7 +195,7 @@ class DataHandler:
         self.guides_found['Pam'].append(str(pam_found))
         self.guides_found['gRNA'].append(str(guide))
         self.guides_found['Ref>Alt'].append(f"{self.NM_ref_allele}>{self.NM_alt_allele}")
-        self.guides_found['SNV Position'].append(snvpos)
+        self.guides_found['Variant Position'].append(snvpos)
         self.guides_found['Annotation'].append(self.annotation)
 
     def add_BEguides(self, name, guide, pam_found, strand, snvpos, scores,extended_guide,start, end, ref, alt, convert, ctype, bystander):
@@ -206,7 +206,7 @@ class DataHandler:
         self.BEguides_found['Coordinates'].append(f'{self.chrom}:{start}-{end}')
         self.BEguides_found['gRNA'].append(str(guide))
         self.BEguides_found['Pam'].append(str(pam_found))
-        self.BEguides_found['SNV Position'].append(snvpos)
+        self.BEguides_found['Variant Position'].append(snvpos)
         self.BEguides_found['ABE score'].append(scores['abe']),
         self.BEguides_found['CBE Score'].append(scores['cbe']),
         self.BEguides_found['Strand'].append(strand)

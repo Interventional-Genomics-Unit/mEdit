@@ -76,6 +76,8 @@ class Fetch_Guides:
 		self.fasta_path = fasta_path
 		self.annote_path = annote_path
 		self.window = 50
+		if self.dist_from_cutsite > 7:
+			self.window = 100
 		# self.dist_from_cutsite = 7
 
 		# other variables
@@ -260,22 +262,30 @@ class Fetch_Guides:
 	def extract_seqs(searchseq, pos, ref, alt, window):
 		# extracts the sequence +/windowbp surrounding a SNV then swaps ref for alt allele
 
-		if len(ref) == len(alt):  ## substitution
+		if len(ref) == len(alt):  ##substitution
 			extracted_seq = str(searchseq[pos - window:pos + window])
-			variant_seq = Seq(extracted_seq[0:window] + alt + extracted_seq[window + 1:]).upper()
+			variant_seq = (extracted_seq[0:window] + alt + extracted_seq[window + len(alt):]).upper()
+
 
 		elif len(ref) > len(alt):  # deletion
-			extracted_seq = str(searchseq[pos - window:pos + window + (len(ref) - 1)])
-			variant_seq = extracted_seq[0:window] + alt + extracted_seq[window + len(ref):]
-
+			diff= len(ref) - len(alt)
+			extracted_seq = str(searchseq[pos - window:(pos + window + diff)])
+			variant_seq = (extracted_seq[0:window] + alt+ extracted_seq[window+len(ref):]).upper()
 
 		elif len(ref) < len(alt):  # insertion
 			extracted_seq = str(searchseq[pos - window:pos + window - (len(alt))])
-			variant_seq = extracted_seq[0:window] + alt + extracted_seq[window:]
+			variant_seq = (extracted_seq[0:window] + alt + extracted_seq[window:]).upper()
 		# print(new_seq)
 
 		else:
-			pass
+			print('VARIANT REF AND ALT DO NOT COMPLY')
+			print(ref,alt,pos)
+		#if len(variant_seq) != 2* self.window:
+		#	print('SEQUENCE LENGTH less than 100')
+		#	print('REF', ref)
+		#	print('ALT', alt)
+		#	print('t_pos', pos)
+
 
 		return variant_seq
 
@@ -300,7 +310,7 @@ class Fetch_Guides:
 				gadf = df.loc[df['HGVS_Simple'].isin(self.queries)]
 				self.add_clinvar(gadf)
 				self.snv_info[ch] = \
-					gadf[['HGVS_Simple', 'PositionVCF', 'RefAlleleVCF', 'AltAlleleVCF']].to_dict('tight')['data']
+				gadf[['HGVS_Simple', 'PositionVCF', 'RefAlleleVCF', 'AltAlleleVCF']].to_dict('tight')['data']
 			found = []
 			for k in self.snv_info.keys():
 				for v in self.snv_info[k]:
@@ -368,10 +378,12 @@ class Fetch_Guides:
 
 						if len(extracted_seq) != self.window * 2:
 							# if flanking or utr the extracted seq needs to come from the chromosome file
+							print('Extracted Sequence Length OUT OF BOUNDS in Transcript Sequence ')
+							print('Searching chromosome sequence instead')
 
 							extracted_seq = self.extract_seqs(
-								searchseq=fasta.seq[snvpos - self.window * 2:snvpos + self.window * 2],
-								pos=self.window * 2,
+								searchseq=fasta.seq[snvpos - self.window * 3:snvpos + self.window * 3],
+								pos=self.window * 3,
 								ref=ref,
 								alt=alt,
 								window=self.window)
@@ -410,7 +422,7 @@ class Fetch_Guides:
 		standardizes input coordinate and checks formatting
 		'''
 		# q = 'chr11:5226778C>T'
-		coord_fmt = r'(chr[0-9]*:\d*(A|T|C|G)>(A|T|C|G))'
+		coord_fmt = r'(chr[0-9XYM]*:\d*(A|T|C|G)>(A|T|C|G))'
 		validated_queries = []
 		for q in set(queries):
 			if re.search(coord_fmt, q):
@@ -473,10 +485,11 @@ class Fetch_Guides:
 		else:
 			print('No Editor Guides found for any queries')
 
-		if len(self.all_BE.keys()) != 0:
-			BEdf = self.write_guide_csv(self.all_BE, outfile_be_guides)
-		else:
-			print('No Base Editor Guides found for any queries')
+		if self.be_request != 'off':
+			if len(self.all_BE.keys()) != 0:
+				BEdf = self.write_guide_csv(self.all_BE, outfile_be_guides)
+			else:
+				print('No Base Editor Guides found for any queries')
 
 		return {'all_variant': self.all_variant,
 				'all_gene': self.all_gene,
