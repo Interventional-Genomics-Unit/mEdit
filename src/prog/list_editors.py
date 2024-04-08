@@ -16,7 +16,7 @@ def ls_editors(args):
 	config_db_path = f"{db_path_full}/config_db/config_db.yaml"
 
 	if not isdir(db_path_full):
-		raise f"The database path {db_path_full} is not a directory."
+		raise f"The database path directory could not be found."
 
 	# === Load configuration file ===
 	with open(config_db_path, 'r') as config_handle:
