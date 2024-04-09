@@ -4,6 +4,7 @@
 import pickle
 import os
 import re
+from copy import deepcopy
 # from zlib import error
 # Installed Modules
 import pandas as pd
@@ -17,8 +18,6 @@ from annotate import Transcript
 ###############
 # Main Script with Fetch_Guides Class for running pipeline
 ###############
-
-
 def set_export(outdir):
 	# Create outdir if inexistent
 	if not os.path.exists(outdir):
@@ -106,6 +105,7 @@ class Fetch_Guides:
 		"""
 		set paramteres for the selected editor or editors(not BE editors)
 		"""
+		search_params = {}
 		# search for all guides
 		if self.editor_request == 'clinical':
 			search_params = self.editor_lib['clinical']
@@ -115,23 +115,26 @@ class Fetch_Guides:
 
 		# search for selected subset
 		# TODO: The guide_prediction.py needs to ingest this correctly
-		elif type(self.editor_request) is list:
-			search_params = {}
+		elif len(self.editor_request.split(',')) >= 1:
+			user_request_editors = deepcopy(self.editor_lib['user_request'])
+			self.editor_request = list(self.editor_request.split(','))
 			for editor in self.editor_request:
 				try:
-					search_params[editor] = self.editor_lib['user_request'][editor]
+					search_params.setdefault(editor, user_request_editors[editor])
 				except KeyError:
-					print(f"Please list one or more editors available at the current version's list:"
-						  f" \n{self.editor_lib['user_request'].keys()}")
-					raise Exception(f"The editor {editor} isn't available in the currently version of mEdit")
-
+					print(f"\n*********************************\n"
+						  f"The entry {editor} is not part of the built-in list of editing tools.\n"
+						  f"Please list one or more editors available at the current version's list.\n"
+						   f"For more information consult 'medit list --help'\n "
+						  f"*********************************\n")
+					continue
 		# else use single set parameters
 		else:
-			if self.editor_request in self.editor_choices:
+			try:
 				search_params = {self.editor_request: self.editor_lib[self.editor_request]}
-
-			else:
-				print('Please choose a name(s) found in the editor name choices')
+			except KeyError:
+				raise Exception("Please choose a name(s) found in the editor name choices. "
+					   "For more information consult 'medit list --help")
 
 		print(f'Editor(s) set to: {[x for x in search_params.keys()]}')
 		return search_params
@@ -268,9 +271,9 @@ class Fetch_Guides:
 
 
 		elif len(ref) > len(alt):  # deletion
-			diff= len(ref) - len(alt)
+			diff = len(ref) - len(alt)
 			extracted_seq = str(searchseq[pos - window:(pos + window + diff)])
-			variant_seq = (extracted_seq[0:window] + alt+ extracted_seq[window+len(ref):]).upper()
+			variant_seq = (extracted_seq[0:window] + alt + extracted_seq[window + len(ref):]).upper()
 
 		elif len(ref) < len(alt):  # insertion
 			extracted_seq = str(searchseq[pos - window:pos + window - (len(alt))])
@@ -279,13 +282,12 @@ class Fetch_Guides:
 
 		else:
 			print('VARIANT REF AND ALT DO NOT COMPLY')
-			print(ref,alt,pos)
-		#if len(variant_seq) != 2* self.window:
+			print(ref, alt, pos)
+		# if len(variant_seq) != 2* self.window:
 		#	print('SEQUENCE LENGTH less than 100')
 		#	print('REF', ref)
 		#	print('ALT', alt)
 		#	print('t_pos', pos)
-
 
 		return variant_seq
 
@@ -310,7 +312,7 @@ class Fetch_Guides:
 				gadf = df.loc[df['HGVS_Simple'].isin(self.queries)]
 				self.add_clinvar(gadf)
 				self.snv_info[ch] = \
-				gadf[['HGVS_Simple', 'PositionVCF', 'RefAlleleVCF', 'AltAlleleVCF']].to_dict('tight')['data']
+					gadf[['HGVS_Simple', 'PositionVCF', 'RefAlleleVCF', 'AltAlleleVCF']].to_dict('tight')['data']
 			found = []
 			for k in self.snv_info.keys():
 				for v in self.snv_info[k]:
