@@ -7,13 +7,14 @@ from setuptools import setup, find_packages
 
 setup(
     name='meditability',
-    version='0.2.1',
+    version='0.2.35',
     description='',
     author='Interventional Genomics Unit',
     author_email='',
     entry_points={
         "console_scripts": [
-            "medit = prog:main"
+            "medit = prog:main",
+            "ncbi_cross_db = prog:cross_db"
         ]
     },
     packages=find_packages("src"),
@@ -31,7 +32,8 @@ setup(
         'importlib-resources>=6.1.1',
         'pytz>=2023.3',
         'boto3>=1.28.57',
-        'alive-progress>=3.1.5'
+        'alive-progress>=3.1.5',
+        'xmltodict>=0.13.0'
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',
