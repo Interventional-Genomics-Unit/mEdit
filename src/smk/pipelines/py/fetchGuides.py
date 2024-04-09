@@ -121,12 +121,13 @@ class Fetch_Guides:
 			for editor in self.editor_request:
 				try:
 					search_params.setdefault(editor, user_request_editors[editor])
-				except KeyError:
+				except KeyError as e:
 					print(f"\n*********************************\n"
 						  f"The entry {editor} is not part of the built-in list of editing tools.\n"
 						  f"Please list one or more editors available at the current version's list.\n"
 						   f"For more information consult 'medit list --help'\n "
 						  f"*********************************\n")
+				else:
 					continue
 		# else use single set parameters
 		else:

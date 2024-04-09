@@ -15,8 +15,12 @@ def ls_editors(args):
 	db_path_full = f"{abspath(args.db_path)}/medit_database"
 	config_db_path = f"{db_path_full}/config_db/config_db.yaml"
 
-	if not isdir(db_path_full):
-		raise f"The database path directory could not be found."
+	try:
+		isdir(db_path_full)
+	except Exception:
+		print("The database path directory could not be found.")
+	else:
+		exit(0)
 
 	# === Load configuration file ===
 	with open(config_db_path, 'r') as config_handle:
