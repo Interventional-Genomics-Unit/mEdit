@@ -181,14 +181,6 @@ def list_files_by_extension(root_path, extension: str):
 	return file_list
 
 
-def parse_editor_request(request):
-	processed_request = request
-	if type(processed_request) is list:
-		processed_request = request.split(',')
-
-	return processed_request
-
-
 def pickle_chromosomes(genome_fasta, output_dir):
 	records = SeqIO.parse(open(genome_fasta, 'rt'), "fasta")
 	with alive_bar(25, title=f'Serializing human chromosomes') as bar:

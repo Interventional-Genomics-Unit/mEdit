@@ -138,14 +138,16 @@ def parse_arguments():
 		'-m',
 		dest='mode',
 		default='standard',
-		choices=['standard', 'private'],
+		choices=['fast', 'standard', 'private'],
 		help=textwrap.dedent('''
 			The MODE option determines how mEdit will run your job. 
 			[default = "standard"]
-			[1-] "standard": will find and process guides based on a 
+			[1-] "fast": will find and process guides based only on one 
+			reference human genome.
+			[2-] "standard": will find and process guides based on a 
 			reference human genome assembly along with a diverse set of 
 			pangenomes from HPRC.
-			[2-] "private": requires a private VCF file that will be 
+			[3-] "private": requires a private VCF file that will be 
 			 processed for guide prediction.''')
 	)
 	run_params.add_argument(
@@ -174,7 +176,6 @@ def parse_arguments():
 		'--editor',
 		dest='editor_request',
 		default='clinical',
-		choices=['clinical', 'custom', 'user defined list'],
 		help=textwrap.dedent('''
 			Delimits the set of editors to be used by mEdit. 
 			[default = "clinical"]

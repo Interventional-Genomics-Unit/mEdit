@@ -8,7 +8,6 @@ import yaml
 from prog.medit_lib import (compress_file,
                             file_exists,
                             launch_shell_cmd,
-                            parse_editor_request,
                             project_file_path,
                             prRed,
                             set_export,
@@ -25,8 +24,8 @@ def guide_prediction(args, jobtag):
 	mode = args.mode
 	private_genomes = args.private_genome
 	qtype = args.qtype_request
-	editor_request = parse_editor_request(args.editor_request)
-	be_request = parse_editor_request(args.be_request)
+	editor_request = args.editor_request
+	be_request = args.be_request
 	cutdist = args.cutdist
 
 	# == Load SLURM-related values ==
@@ -90,23 +89,7 @@ def guide_prediction(args, jobtag):
 		prRed(f"Couldn't fund the file {config_db_path}. "
 		      f"Please double-check the path to <medit_database> and provide the path via '-d' option")
 
-	# === Assign Variables to Configuration File ===
-	config_template['run_name'] = f"{mode}_{jobtag}"
-	config_template['support_tables'] = db_path_full
-	config_template['processing_mode'] = mode
-	config_template['output_directory'] = root_dir
-	config_template['variant_query_dir'] = query_input
-	# Assign run parameters to config
-	config_template['qtype'] = qtype
-	config_template['editor_request'] = editor_request
-	config_template['be_request'] = be_request
-	config_template['distance_from_cutsite'] = cutdist
-	# Assign cluster options
-	cluster_template['__default__']['cores'] = ncores
-	cluster_template['__default__']['time'] = maxtime
-
-	# ->=== PRIVATE GENOME RUN ===<-
-	# == Check run mode ==
+	# ->=== CHECK RUN MODE ===<-
 	if mode == 'private':
 		# == Enforce presence of private genome in this mode ==
 		if not private_genomes:
@@ -140,6 +123,26 @@ def guide_prediction(args, jobtag):
 			count_tag += 1
 		#   => Add any amount of private genomes to the config file
 		config_template["vcf_id"] = tagged_genomes
+	elif mode == 'fast':
+		allowed_rules = ['--until "predict_guides" --omit-from consensus_fasta']
+		# == 'fast' mode is a sub-mode of 'standard';
+		# downstram processes must acknowledge that this is a standard run
+		mode = 'standard'
+
+	# === Assign Variables to Configuration File ===
+	config_template['run_name'] = f"{mode}_{jobtag}"
+	config_template['support_tables'] = db_path_full
+	config_template['processing_mode'] = mode
+	config_template['output_directory'] = root_dir
+	config_template['variant_query_dir'] = query_input
+	# Assign run parameters to config
+	config_template['qtype'] = qtype
+	config_template['editor_request'] = editor_request
+	config_template['be_request'] = be_request
+	config_template['distance_from_cutsite'] = cutdist
+	# Assign cluster options
+	cluster_template['__default__']['cores'] = ncores
+	cluster_template['__default__']['time'] = maxtime
 
 	# === Write YAML configs to mEdit Root Directory ===
 	write_yaml_to_file(config_template, dynamic_config_path)
