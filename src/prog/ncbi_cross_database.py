@@ -1,15 +1,17 @@
 # Native modules
 import re
+from typing import Literal
 import time
 from argparse import ArgumentParser as argp
 # Installed modules
 import pandas as pd
 from Bio import Entrez
-import yaml
 import urllib.request
 import urllib.error
 import urllib3
 import xmltodict
+# Literals
+Orient = Literal["columns", "index", "tight"]
 
 
 def parse_arguments():
@@ -20,24 +22,22 @@ def parse_arguments():
 		usage='%(prog)s [options]')
 	# Define arguments
 	parser.add_argument('input_list',
-	                    help='Path to a plain txt containing a column of NCBI ID entries')  # positional argument
+						help='Path to a plain txt containing a column of NCBI ID entries')  # positional argument
+	parser.add_argument('login_email',
+						help='Email used to connect with NCBI Entrez')  # positional argument
 	parser.add_argument('-o', default='hgvs_list.txt',
-	                    dest='outfile',
-	                    help='Path to output the list of HGVSs')
+						dest='outfile',
+						help='Path to output the list of HGVSs')
 	parser.add_argument('-f',
-	                    dest='db_from',
-	                    default='gene',
-	                    choices=['clinvar', 'pubmed', 'gene', 'snp'],
-	                    help='The NCBI database where the IDs in the input list will be matched against')
+						dest='db_from',
+						default='gene',
+						choices=['clinvar', 'pubmed', 'gene', 'snp'],
+						help='The NCBI database where the IDs in the input list will be matched against')
 	parser.add_argument('-t',
 						dest='db_to',
 						default='clinvar',
 						choices=['clinvar', 'pubmed', 'gene', 'snp'],
 						help='The target NCBI database where the IDs in the input list will be linked to')
-	parser.add_argument('-l',
-	                    dest='login_email',
-	                    default='thedoudnalab@gmail.com',
-	                    help='Email used to connect with NCBI Entrez')
 
 	# Parse arguments from the command line
 	arguments = parser.parse_args()
@@ -113,7 +113,6 @@ def cross_db_search(query_list, db_from, dbto):
 			except RuntimeError:
 				continue
 
-
 		# # Standardize identifiers to NCBI UIDs through ESearch
 		# handle = Entrez.esearch(db=f"{db_from}", term=f"{hit}", idtype="acc")
 		# search_record = Entrez.read(handle)
@@ -158,11 +157,18 @@ def fetch_hgvs_list(query_list, db_name):
 		germline_description = ''
 		try:
 			print(f"Full XML data: {xml_data}")
-			if xml_data['eSummaryResult']['DocumentSummarySet']['DocumentSummary']['clinical_impact_classification']['description']:
-				description = xml_data['eSummaryResult']['DocumentSummarySet']['DocumentSummary']['clinical_impact_classification']['description']
-			if xml_data['eSummaryResult']['DocumentSummarySet']['DocumentSummary']['germline_classification']['description']:
-				germline_description = xml_data['eSummaryResult']['DocumentSummarySet']['DocumentSummary']['germline_classification']['description']
-			if re.search('pathogenic', description, re.IGNORECASE) or re.search('pathogenic', germline_description, re.IGNORECASE):
+			if xml_data['eSummaryResult']['DocumentSummarySet']['DocumentSummary']['clinical_impact_classification'][
+				'description']:
+				description = \
+				xml_data['eSummaryResult']['DocumentSummarySet']['DocumentSummary']['clinical_impact_classification'][
+					'description']
+			if xml_data['eSummaryResult']['DocumentSummarySet']['DocumentSummary']['germline_classification'][
+				'description']:
+				germline_description = \
+				xml_data['eSummaryResult']['DocumentSummarySet']['DocumentSummary']['germline_classification'][
+					'description']
+			if re.search('pathogenic', description, re.IGNORECASE) or re.search('pathogenic', germline_description,
+																				re.IGNORECASE):
 				hgvs = xml_data['eSummaryResult']['DocumentSummarySet']['DocumentSummary']['title']
 				# Returns a list  of Genbank SeqRecords objects
 				hgvs_records.setdefault(uid, hgvs)
@@ -171,8 +177,12 @@ def fetch_hgvs_list(query_list, db_name):
 			print(f"No description or no pathogenic found for {uid}")
 			not_found.append(uid)
 			continue
-		# Returns a list  of Genbank SeqRecords objects
+	# Returns a list  of Genbank SeqRecords objects
 	return hgvs_records, not_found
+
+
+def create_dataframe(data: dict, orient: Orient) -> pd.DataFrame:
+	return pd.DataFrame.from_dict(data, orient=orient)
 
 
 def cross_db():
@@ -184,25 +194,16 @@ def cross_db():
 	entrez_login = args.login_email
 	queries_df = pd.read_csv(in_path, low_memory=False, header=None)
 	queries = queries_df.iloc[:, 0].tolist()
-	final_df_orient = 'columns'
-	# #DEBUG
-	# queries = ["BCL11A"]
-	# in_path = "/Users/bellieny/projects/mEdit/hgvs_input.csv"
-	# entrez_login = 'thedoudnalab@gmail.com'
-	# db_from = 'gene'
-	# dbto = 'clinvar'
-	# final_df_orient = 'columns'
-	# # Load config file
-	# with open("/groups/doudna/projects/daniel_projects/editability/src/smk/config/id_convert.yaml", "r") as f:
-	# 	config = yaml.load(f, Loader=yaml.FullLoader)
+	final_df_orient = Orient.__args__[0]
 
 	# === Entrez authentication ===
 	Entrez.email = entrez_login
 
-	# Query NCBI to get UIDs associated with the input IDs using ESearch/ELink
+	# === Query NCBI to get UIDs associated with the input IDs using ESearch/ELink ===
 	print("Linking query IDs to Nuccore entries")
 	hit_to_link, hits_not_found, record = cross_db_search(queries, db_from, dbto)
 
+	# === Translate UID to HGVS if the program is running on default params ===
 	print("Cross database pre-processing finalized")
 	if dbto == 'clinvar':
 		print("Convert input data to HGVS")
@@ -210,10 +211,11 @@ def cross_db():
 		for input_id in hit_to_link:
 			hgvs_list.extend(fetch_hgvs_list(hit_to_link[input_id], dbto))
 		hit_to_link = hgvs_list[0]
-		final_df_orient = "index"
-# 	Format output table
+		final_df_orient = Orient.__args__[1]
+
+	# === Format output table ===
 	print("Format output table")
-	df_linked = pd.DataFrame.from_dict(hit_to_link, orient=final_df_orient)
+	df_linked = create_dataframe(hit_to_link, orient=final_df_orient)
 	df_linked.to_csv(out_path, index=False, header=False)
 
 
