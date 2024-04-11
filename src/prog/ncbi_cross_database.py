@@ -52,7 +52,7 @@ def elink_routine(dbfrom, dbto, hit_uid):
 	handle = None
 	server_attempts = 0
 	try:
-		handle = Entrez.elink(dbfrom=f"{dbfrom}", db=dbto, id=f"{hit_uid}")
+		handle = Entrez.elink(dbfrom=f"{dbfrom}", db=dbto, id=f"{hit_uid}", idtype="uid")
 	except urllib.error.HTTPError as err:
 		if err.code == 500:
 			print(f'An internal server error occurred while handling the accession {hit_uid}')
@@ -86,7 +86,7 @@ def cross_db_search(query_list, db_from, dbto):
 		progress += 1
 		dup_check = []
 		uid = ''
-		max_retries = 200000000
+		max_retries = 20
 		search_record = {}
 		# Standardize protein identifiers to NCBI UIDs through ESearch
 		# Introduce a delay of 1 second before making the request
@@ -101,7 +101,7 @@ def cross_db_search(query_list, db_from, dbto):
 					uid = search_record['IdList'][0]
 					print(f"Entry {hit}: Found UID {uid}")
 				except IndexError:
-					continue
+					break
 				handle.close()
 				break  # Break the loop if successful
 			except urllib.error.HTTPError as e:
@@ -151,15 +151,24 @@ def fetch_hgvs_list(query_list, db_name):
 	hgvs_records = {}
 	not_found = []
 	for uid in query_list:
+		print(f"Processing {uid}")
 		handle = Entrez.esummary(db=db_name, id=f"{uid}", rettype="clinvarset", retmode="default")
 		xml_data = url2xml_dict(handle.url)
+		description = ''
+		germline_description = ''
 		try:
-			description = xml_data['eSummaryResult']['DocumentSummarySet']['DocumentSummary']['clinical_significance']['description']
-			if re.search('pathogenic', description, re.IGNORECASE):
+			print(f"Full XML data: {xml_data}")
+			if xml_data['eSummaryResult']['DocumentSummarySet']['DocumentSummary']['clinical_impact_classification']['description']:
+				description = xml_data['eSummaryResult']['DocumentSummarySet']['DocumentSummary']['clinical_impact_classification']['description']
+			if xml_data['eSummaryResult']['DocumentSummarySet']['DocumentSummary']['germline_classification']['description']:
+				germline_description = xml_data['eSummaryResult']['DocumentSummarySet']['DocumentSummary']['germline_classification']['description']
+			if re.search('pathogenic', description, re.IGNORECASE) or re.search('pathogenic', germline_description, re.IGNORECASE):
 				hgvs = xml_data['eSummaryResult']['DocumentSummarySet']['DocumentSummary']['title']
 				# Returns a list  of Genbank SeqRecords objects
 				hgvs_records.setdefault(uid, hgvs)
-		except KeyError:
+				print(f"HGVS found {hgvs}; Description: {description}")
+		except KeyError as e:
+			print(f"No description or no pathogenic found for {uid}")
 			not_found.append(uid)
 			continue
 		# Returns a list  of Genbank SeqRecords objects
@@ -168,9 +177,11 @@ def fetch_hgvs_list(query_list, db_name):
 
 def cross_db():
 	# DEBUG
-	# queries = ["264300", "610006", "616034", "246450", "605911"]
-	# in_path = "/groups/doudna/projects/daniel_projects/editability/hgvs_input.csv"
+	# queries = ["53335"]
+	# in_path = "/Users/bellieny/projects/mEdit/hgvs_input.csv"
 	# entrez_login = 'thedoudnalab@gmail.com'
+	# db_from = 'gene'
+	# dbto = 'clinvar'
 
 	args = parse_arguments()
 	in_path = args.input_list
@@ -193,15 +204,14 @@ def cross_db():
 	hit_to_link, hits_not_found, record = cross_db_search(queries, db_from, dbto)
 
 	print("Cross database pre-processing finalized")
-	if dbto == 'clinvar':
-		hgvs_list = []
-		for input_id in hit_to_link:
-			hgvs_list.extend(fetch_hgvs_list(hit_to_link[input_id], dbto))
+	hgvs_list = []
+	for input_id in hit_to_link:
+		hgvs_list.extend(fetch_hgvs_list(hit_to_link[input_id], dbto))
 
 # 	Format output table
 	print("Format output table")
-	df_linked = pd.DataFrame.from_dict(hit_to_link, orient='index').reset_index(names=str(db_from))
-	df_linked.to_csv(out_path)
+	df_linked = pd.DataFrame.from_dict(hgvs_list[0], orient='index')
+	df_linked.to_csv(out_path, index=False, header=False)
 
 
 if __name__ == "__main__":
