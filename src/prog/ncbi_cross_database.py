@@ -26,12 +26,12 @@ def parse_arguments():
 	                    help='Path to output the list of HGVSs')
 	parser.add_argument('-f',
 	                    dest='db_from',
-	                    default='clinvar',
+	                    default='gene',
 	                    choices=['clinvar', 'pubmed', 'gene', 'snp'],
 	                    help='The NCBI database where the IDs in the input list will be matched against')
 	parser.add_argument('-t',
 						dest='db_to',
-						default='gene',
+						default='clinvar',
 						choices=['clinvar', 'pubmed', 'gene', 'snp'],
 						help='The target NCBI database where the IDs in the input list will be linked to')
 	parser.add_argument('-l',
@@ -86,7 +86,7 @@ def cross_db_search(query_list, db_from, dbto):
 		progress += 1
 		dup_check = []
 		uid = ''
-		max_retries = 20
+		max_retries = 50
 		search_record = {}
 		# Standardize protein identifiers to NCBI UIDs through ESearch
 		# Introduce a delay of 1 second before making the request
@@ -101,7 +101,7 @@ def cross_db_search(query_list, db_from, dbto):
 					uid = search_record['IdList'][0]
 					print(f"Entry {hit}: Found UID {uid}")
 				except IndexError:
-					break
+					continue
 				handle.close()
 				break  # Break the loop if successful
 			except urllib.error.HTTPError as e:
@@ -176,13 +176,6 @@ def fetch_hgvs_list(query_list, db_name):
 
 
 def cross_db():
-	# DEBUG
-	# queries = ["53335"]
-	# in_path = "/Users/bellieny/projects/mEdit/hgvs_input.csv"
-	# entrez_login = 'thedoudnalab@gmail.com'
-	# db_from = 'gene'
-	# dbto = 'clinvar'
-
 	args = parse_arguments()
 	in_path = args.input_list
 	out_path = args.outfile
@@ -191,26 +184,36 @@ def cross_db():
 	entrez_login = args.login_email
 	queries_df = pd.read_csv(in_path, low_memory=False, header=None)
 	queries = queries_df.iloc[:, 0].tolist()
-	#
+	final_df_orient = 'columns'
+	# #DEBUG
+	# queries = ["BCL11A"]
+	# in_path = "/Users/bellieny/projects/mEdit/hgvs_input.csv"
+	# entrez_login = 'thedoudnalab@gmail.com'
+	# db_from = 'gene'
+	# dbto = 'clinvar'
+	# final_df_orient = 'columns'
 	# # Load config file
 	# with open("/groups/doudna/projects/daniel_projects/editability/src/smk/config/id_convert.yaml", "r") as f:
 	# 	config = yaml.load(f, Loader=yaml.FullLoader)
 
-	# Entrez authentication
+	# === Entrez authentication ===
 	Entrez.email = entrez_login
 
-	# Query NCBI to get nuccore UIDs associated with the protein hits using ESearch/ELink
-	print("Linking protein hit ids to Nuccore entries")
+	# Query NCBI to get UIDs associated with the input IDs using ESearch/ELink
+	print("Linking query IDs to Nuccore entries")
 	hit_to_link, hits_not_found, record = cross_db_search(queries, db_from, dbto)
 
 	print("Cross database pre-processing finalized")
-	hgvs_list = []
-	for input_id in hit_to_link:
-		hgvs_list.extend(fetch_hgvs_list(hit_to_link[input_id], dbto))
-
+	if dbto == 'clinvar':
+		print("Convert input data to HGVS")
+		hgvs_list = []
+		for input_id in hit_to_link:
+			hgvs_list.extend(fetch_hgvs_list(hit_to_link[input_id], dbto))
+		hit_to_link = hgvs_list[0]
+		final_df_orient = "index"
 # 	Format output table
 	print("Format output table")
-	df_linked = pd.DataFrame.from_dict(hgvs_list[0], orient='index')
+	df_linked = pd.DataFrame.from_dict(hit_to_link, orient=final_df_orient)
 	df_linked.to_csv(out_path, index=False, header=False)
 
 

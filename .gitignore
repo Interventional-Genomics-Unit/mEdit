@@ -1,2 +1,6 @@
 /src/py/
 /hgvs_input.csv
+/dump/
+/PG_WGS_HG38.vcf.gz
+/medit_delete/
+/medit_analysis/
