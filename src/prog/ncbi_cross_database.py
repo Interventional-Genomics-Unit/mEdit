@@ -156,7 +156,6 @@ def fetch_hgvs_list(query_list, db_name):
 		description = ''
 		germline_description = ''
 		try:
-			print(f"Full XML data: {xml_data}")
 			if xml_data['eSummaryResult']['DocumentSummarySet']['DocumentSummary']['clinical_impact_classification'][
 				'description']:
 				description = \
@@ -174,7 +173,7 @@ def fetch_hgvs_list(query_list, db_name):
 				hgvs_records.setdefault(uid, hgvs)
 				print(f"HGVS found {hgvs}; Description: {description}")
 		except KeyError as e:
-			print(f"No description or no pathogenic found for {uid}")
+			print(f"No description or no pathogenic flag found for {uid}")
 			not_found.append(uid)
 			continue
 	# Returns a list  of Genbank SeqRecords objects
