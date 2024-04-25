@@ -283,12 +283,19 @@ class DataHandler:
                             scores['deepcpf1'] = round(scoring.deepcpf1([extended_guide],
                                                               self.models_dir)[0][0], 2)
 
-                    snvpos = snv_rel_pos - target_start
-                    start = self.SNV_chr_pos - snvpos
+                    snvpos = target_start -snv_rel_pos
+
+                    if search_strand == '-':
+                        #snvpos = snvpos - (sitelen * -1)
+                        snvpos = snv_rel_pos - (target_start + sitelen)
+                        #snvpos = snv_rel_pos + ((snvpos - sitelen))
+                    start = self.SNV_chr_pos + snvpos
                     end = start + sitelen
 
                     guides.append([name, guide, pam_found, search_strand, snvpos, scores,extended_guide, start, end])
-
+                    print('strand',search_strand)
+                    print('i,target_start,snvpos,start',i,target_start,snvpos,start)
+                    print('guide',guide)
                     if not BEmode:
                         self.add_guides(name, guide, pam_found, search_strand, snvpos, scores ,extended_guide, start, end)
         return guides
