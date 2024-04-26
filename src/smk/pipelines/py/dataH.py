@@ -293,9 +293,6 @@ class DataHandler:
                     end = start + sitelen
 
                     guides.append([name, guide, pam_found, search_strand, snvpos, scores,extended_guide, start, end])
-                    print('strand',search_strand)
-                    print('i,target_start,snvpos,start',i,target_start,snvpos,start)
-                    print('guide',guide)
                     if not BEmode:
                         self.add_guides(name, guide, pam_found, search_strand, snvpos, scores ,extended_guide, start, end)
         return guides
