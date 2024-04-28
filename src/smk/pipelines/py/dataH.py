@@ -218,7 +218,7 @@ class DataHandler:
         self.BEguides_found['Bystander'].append(bystander)
         self.BEguides_found['Annotation'].append(self.annotation)
 
-    def get_guide_set(self, name, pam, pamISfirst, win_size, guidelen, BEmode):
+    def get_guide_set(self, name, pam, pamISfirst, win_size, guidelen,BEmode):
         """
         :param name:
         :param pam: pam seq ex:'NGG'
@@ -240,11 +240,14 @@ class DataHandler:
                   'oof':'-'}
         if BEmode:
             win_size = [win_size[0] - guidelen -1,win_size[1] -guidelen-1]
+        #else:
+        #    pam_min,pam_max = (snv_rel_pos + win_size[0]) -1, (snv_rel_pos + win_size[1])-1
+        #    if pamISfirst == True:
+        #       pam_min, pam_max = pam_min - pamlen, pam_max - pamlen
 
         pam_min, pam_max = int((snv_rel_pos - win_size[1]))- 1, int((snv_rel_pos - win_size[0])) - 1
-
-        if pamISfirst == True:
-            pam_min, pam_max = pam_min + pamlen, pam_max + pamlen
+        #if pamISfirst == True:
+        #    pam_min, pam_max = pam_min + pamlen, pam_max + pamlen
 
         # Narrow based on guide params
         for search_strand in ["-", "+"]:
@@ -275,21 +278,23 @@ class DataHandler:
                         pam_found = str(search_seq[i:i + pamlen])
 
                     else:
-                        target_start = i + pamlen
-                        guide = search_seq[target_start: i + sitelen]
-                        pam_found = search_seq[i:target_start]
+                        target_start = i
+                        guide_start = i + pamlen
+                        guide = search_seq[guide_start: guide_start + guidelen]
+                        pam_found = search_seq[i:guide_start]
                         extended_guide = str(search_seq[i - 5:i + sitelen + 4])
                         if 'Cas12a' in name:
                             scores['deepcpf1'] = round(scoring.deepcpf1([extended_guide],
                                                               self.models_dir)[0][0], 2)
 
-                    snvpos = target_start -snv_rel_pos
+                    start_diff = target_start -snv_rel_pos
 
                     if search_strand == '-':
                         #snvpos = snvpos - (sitelen * -1)
-                        snvpos = snv_rel_pos - (target_start + sitelen)
+                        start_diff = snv_rel_pos - (target_start + sitelen)
                         #snvpos = snv_rel_pos + ((snvpos - sitelen))
-                    start = self.SNV_chr_pos + snvpos
+                    snvpos = abs(start_diff)
+                    start = self.SNV_chr_pos + start_diff
                     end = start + sitelen
 
                     guides.append([name, guide, pam_found, search_strand, snvpos, scores,extended_guide, start, end])
@@ -301,7 +306,9 @@ class DataHandler:
         for name, params, in search_params.items():
             pam, pamISfirst, guidelen, dsb_loc = params[0:4]
             win_size = [int(dsb_loc)-self.dist_from_cutsite, int(dsb_loc)+self.dist_from_cutsite]
-            guides = self.get_guide_set(name, pam, pamISfirst,win_size, guidelen, BEmode=False)
+            # win_siie is min and max distance from pam start/end
+            #win_size =  [-1*(int(dsb_loc) + self.dist_from_cutsite), -1*(int(dsb_loc) - self.dist_from_cutsite)]
+            guides = self.get_guide_set(name, pam, pamISfirst, win_size, guidelen, BEmode=False)
 
         # if BE mode is on
         if BEsearch_params is not None and len(self.NC_ref_allele + self.NC_alt_allele) ==2:
