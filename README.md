@@ -72,6 +72,7 @@
  
 #### Mamba
   - The officially supported way of installing Mamba is through Miniforge.
+  - The Miniforge repository holds the minimal installers for Conda and Mamba specific to conda-forge.
     * Important:
       * The supported way of using Mamba requires that no other packages are installed on the `base` conda environment
     * More information about miniforge: https://github.com/conda-forge/miniforge
