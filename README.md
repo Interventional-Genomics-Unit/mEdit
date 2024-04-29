@@ -50,7 +50,7 @@
     ```
     sudo apt install gcc
     ```
-  - Make sure your pip up to date
+  - Also make sure your pip up to date
     ```
     python -m pip install --upgrade pip
     ```
