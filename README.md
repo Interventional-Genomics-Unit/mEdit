@@ -59,12 +59,13 @@
     apt install python3-pip
     ```
 #### Anaconda
+  - mEdit utilizes Anaconda to build its own environments under the hood. 
   - Install Miniconda:
     * Download the installer at: https://docs.conda.io/projects/miniconda/en/latest/ 
     ```
     bash Miniconda3-latest-<your-OS>.sh
     ```
-  - Set up your conda environment: 
+  - Set up and update conda: 
     ```
     conda update --all
     conda config --set channel_priority strict
@@ -82,6 +83,7 @@
       bash Miniforge-pypy3-<your-OS>.sh
       ```
 #### AWS CLI
+  - mEdit requires pre-rendered data to perform its analyses which will be pulled from public AWS buckets. 
   - Make sure you are signed in with your AWS credentials:
   - More information: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
     ```
