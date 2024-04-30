@@ -2,6 +2,9 @@
 from math import exp
 import pickle
 import re
+import os
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 # Installed Modules
 import pandas as pd
 import numpy as np
@@ -67,13 +70,6 @@ def preprocess_seq(data):
                 pass
     return DATA_X
 
-
-##########
-##
-##                   DANIEL MAKE TENSORFLOR STOP YELLING AT ME!!!!
-##   it's giving me some warning about keras conv. layers but still runs
-##
-##########
 
 def deepspcas9(cas9_sites, models_dir):
     '''
@@ -368,14 +364,13 @@ target30mer = 'CTTGTGCGGCTGGCCCAGGACCTAGGCGAG'
 target60mer = 'ATCTCTTACAACGACTTCTTGTGCGGCTGGCCCAGGACCTAGGCGAGGCAGTAGGGGATGACA'
 off_target_seqs = ['GTGGGGCTGACCCAGGACCTGAG','GGGCCTCTGGCCCAGGACCTGGG']
 
-
 print('Microhomology Out-Of-Frame score: ',oofscore(seq = target60mer))
 # Ans: 3730.1, 64.2
 
 print('Azimuth on-target score: ',azimuth([target30mer])[0])
 #Ans: 0.38
 
-print('CFD score ',cfd_score(spacer, off_target_seqs[1]))
+print('CFD score ',cfd_score(spacer, off_target_seqs[1],models_dir = models_dir))
 print('CFD score ',cfd_score(spacer, off_target_seqs[0]))
 #0.44, 0.12
 
