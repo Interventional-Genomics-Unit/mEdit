@@ -48,7 +48,7 @@ class DataHandler:
 
         # outputs
         self.guides_found = {'QueryTerm': [], 'GeneName':[],'Editor': [], 'Guide_ID': [], 'Coordinates': [],
-                             'Strand': [], 'gRNA': [], 'Pam': [], 'Variant Position': [], 'Extended Guide Site': [],
+                             'Strand': [], 'gRNA': [], 'Pam': [], 'Extended Guide Site': [],'Variant Position': [],
                              'Azimuth Score': [], 'DeepCas9 Score':[],'DeepCpf1 Score':[],
                              'OOF Score':[],'Ref>Alt': [], 'Annotation': []}
 
@@ -218,7 +218,7 @@ class DataHandler:
         self.BEguides_found['Bystander'].append(bystander)
         self.BEguides_found['Annotation'].append(self.annotation)
 
-    def get_guide_set(self, name, pam, pamISfirst, win_size, guidelen,BEmode):
+    def get_guide_set(self, name, pam, pamISfirst, win_size, guidelen,cut_site_position, BEmode):
         """
         :param name:
         :param pam: pam seq ex:'NGG'
@@ -228,26 +228,24 @@ class DataHandler:
         :param guidelen: guide without pam length
         :return: Guide Dictionary
         """
-
         guides = []
         pamlen = len(pam)
         sitelen = guidelen + pamlen
         snv_rel_pos = int(len(self.extracted_seq)/2)
-        extended_guide = '-'
         scores = {'azimuth':'-',
                   'deepcas9':'-',
                   'deepcpf1':'-',
                   'oof':'-'}
+        extended_seq = "-"
         if BEmode:
-            win_size = [win_size[0] - guidelen -1,win_size[1] -guidelen-1]
-        #else:
-        #    pam_min,pam_max = (snv_rel_pos + win_size[0]) -1, (snv_rel_pos + win_size[1])-1
-        #    if pamISfirst == True:
-        #       pam_min, pam_max = pam_min - pamlen, pam_max - pamlen
+            win_size = [win_size[0] - guidelen,win_size[1] -guidelen]
+            pam_min, pam_max = int((snv_rel_pos + abs(win_size[1])))+1, int((snv_rel_pos + abs(win_size[0])))+1
 
-        pam_min, pam_max = int((snv_rel_pos - win_size[1]))- 1, int((snv_rel_pos - win_size[0])) - 1
-        #if pamISfirst == True:
-        #    pam_min, pam_max = pam_min + pamlen, pam_max + pamlen
+        else:
+            pam_min, pam_max = int((snv_rel_pos - abs(win_size[1]))), int((snv_rel_pos + abs(win_size[0])))
+            if pamISfirst == True:
+                pam_min, pam_max = int((snv_rel_pos - abs(win_size[1]))), int((snv_rel_pos - abs(win_size[0])))
+                pam_min, pam_max = pam_min - pamlen, pam_max - pamlen
 
         # Narrow based on guide params
         for search_strand in ["-", "+"]:
@@ -256,7 +254,6 @@ class DataHandler:
 
             for i in pam_index:
                 if i in range(pam_min, pam_max + 1):
-                    extended_guide = '-'
                     scores = {'azimuth': '-',
                               'deepcas9': '-',
                               'deepcpf1': '-',
@@ -265,6 +262,7 @@ class DataHandler:
                         target_start = i - guidelen
                         guide = search_seq[i - guidelen:i]
                         extended_guide = str(search_seq[target_start - 3:target_start + sitelen + 4])
+                        snvpos = snv_rel_pos - (i + cut_site_position)
                         if not BEmode:
                             if pam == 'NGG' and guidelen == 20:
                                 #Azmith only accurate for NGG pams
@@ -274,6 +272,8 @@ class DataHandler:
                                                            self.models_dir)[0][0],2)
                             #oof_score use only for DSB
                             mh_score, scores['oof'] = scoring.oofscore(str(search_seq[target_start - 20:target_start + sitelen + 20]))
+                        else:
+                            snvpos = (snv_rel_pos - (i-guidelen))+1
 
                         pam_found = str(search_seq[i:i + pamlen])
 
@@ -283,17 +283,14 @@ class DataHandler:
                         guide = search_seq[guide_start: guide_start + guidelen]
                         pam_found = search_seq[i:guide_start]
                         extended_guide = str(search_seq[i - 5:i + sitelen + 4])
+                        snvpos = snv_rel_pos - (i + pamlen +cut_site_position)
                         if 'Cas12a' in name:
                             scores['deepcpf1'] = round(scoring.deepcpf1([extended_guide],
                                                               self.models_dir)[0][0], 2)
-
                     start_diff = target_start -snv_rel_pos
 
                     if search_strand == '-':
-                        #snvpos = snvpos - (sitelen * -1)
                         start_diff = snv_rel_pos - (target_start + sitelen)
-                        #snvpos = snv_rel_pos + ((snvpos - sitelen))
-                    snvpos = abs(start_diff)
                     start = self.SNV_chr_pos + start_diff
                     end = start + sitelen
 
@@ -304,17 +301,15 @@ class DataHandler:
 
     def get_Guides(self, search_params, BEsearch_params=None):
         for name, params, in search_params.items():
-            pam, pamISfirst, guidelen, dsb_loc = params[0:4]
-            win_size = [int(dsb_loc)-self.dist_from_cutsite, int(dsb_loc)+self.dist_from_cutsite]
-            # win_siie is min and max distance from pam start/end
-            #win_size =  [-1*(int(dsb_loc) + self.dist_from_cutsite), -1*(int(dsb_loc) - self.dist_from_cutsite)]
-            guides = self.get_guide_set(name, pam, pamISfirst, win_size, guidelen, BEmode=False)
+            pam, pamISfirst, guidelen, cut_site_position = params[0:4]
+            win_size = [int(cut_site_position) - self.dist_from_cutsite, int(cut_site_position) + self.dist_from_cutsite]
+            guides = self.get_guide_set(name, pam, pamISfirst, win_size, guidelen,cut_site_position, BEmode=False)
 
         # if BE mode is on
         if BEsearch_params is not None and len(self.NC_ref_allele + self.NC_alt_allele) ==2:
             for k, params, in BEsearch_params.items():
                 pam, pamISfirst, guidelen, win_size = params[0][0], params[0][1], params[0][2], params[0][3]
-                bguides = self.get_guide_set(k, pam, pamISfirst, win_size, guidelen, BEmode=True)
+                bguides = self.get_guide_set(k, pam, pamISfirst, win_size, guidelen,cut_site_position=100, BEmode=True)
 
                 # if guides are found sep neg and pos strand guides
                 if len(bguides) > 0:
