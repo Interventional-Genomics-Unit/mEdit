@@ -236,24 +236,23 @@ class DataHandler:
                   'deepcas9':'-',
                   'deepcpf1':'-',
                   'oof':'-'}
-        extended_seq = "-"
         if BEmode:
             win_size = [win_size[0] - guidelen,win_size[1] -guidelen]
             pam_min, pam_max = int((snv_rel_pos + abs(win_size[1])))+1, int((snv_rel_pos + abs(win_size[0])))+1
 
         else:
-            pam_min, pam_max = int((snv_rel_pos - abs(win_size[1]))), int((snv_rel_pos + abs(win_size[0])))
+            pam_min, pam_max = int((snv_rel_pos - abs(win_size[1])))+1, int((snv_rel_pos + abs(win_size[0])))
             if pamISfirst == True:
-                pam_min, pam_max = int((snv_rel_pos - abs(win_size[1]))), int((snv_rel_pos - abs(win_size[0])))
+                pam_min, pam_max = int((snv_rel_pos - abs(win_size[1]))), int((snv_rel_pos - abs(win_size[0])))-1
                 pam_min, pam_max = pam_min - pamlen, pam_max - pamlen
 
         # Narrow based on guide params
         for search_strand in ["-", "+"]:
             search_seq = Seq(self.extracted_seq) if search_strand == "+" else Seq(self.extracted_seq).reverse_complement()
-            pam_index = SeqUtils.nt_search(str(search_seq), pam)[1:]
+            pam_index = SeqUtils.nt_search(str(search_seq).upper(), pam)[1:]
 
             for i in pam_index:
-                if i in range(pam_min, pam_max + 1):
+                if i in range(pam_min, pam_max+1):
                     scores = {'azimuth': '-',
                               'deepcas9': '-',
                               'deepcpf1': '-',
@@ -262,18 +261,28 @@ class DataHandler:
                         target_start = i - guidelen
                         guide = search_seq[i - guidelen:i]
                         extended_guide = str(search_seq[target_start - 3:target_start + sitelen + 4])
-                        snvpos = snv_rel_pos - (i + cut_site_position)
+                        snvpos = int([guide.index(x)+1 for x in guide if x.lower()][0])
+
+
                         if not BEmode:
+
+                            snvpos = ((pam_min-1 + pam_max) / 2) - i
+                            if search_strand == "-":
+                                if i >= ((pam_min-1 + pam_max) / 2):
+                                    snvpos = snvpos - 1
+
+                            if search_strand == "+":
+                                if i < ((pam_min-1 + pam_max) / 2):
+                                    snvpos += 1
+
                             if pam == 'NGG' and guidelen == 20:
                                 #Azmith only accurate for NGG pams
-                                scores['azimuth'] = scoring.azimuth([extended_guide],
+                                scores['azimuth'] = scoring.azimuth([extended_guide.upper()],
                                                            self.models_dir)[0]
-                                scores['deepcas9'] = round(scoring.deepspcas9([extended_guide],
+                                scores['deepcas9'] = round(scoring.deepspcas9([extended_guide.upper()],
                                                            self.models_dir)[0][0],2)
                             #oof_score use only for DSB
-                            mh_score, scores['oof'] = scoring.oofscore(str(search_seq[target_start - 20:target_start + sitelen + 20]))
-                        else:
-                            snvpos = (snv_rel_pos - (i-guidelen))+1
+                            mh_score, scores['oof'] = scoring.oofscore(str(search_seq[target_start - 20:target_start + sitelen + 20]).upper())
 
                         pam_found = str(search_seq[i:i + pamlen])
 
@@ -283,9 +292,15 @@ class DataHandler:
                         guide = search_seq[guide_start: guide_start + guidelen]
                         pam_found = search_seq[i:guide_start]
                         extended_guide = str(search_seq[i - 5:i + sitelen + 4])
-                        snvpos = snv_rel_pos - (i + pamlen +cut_site_position)
+                        snvpos = snv_rel_pos - (i+pamlen+cut_site_position)
+                        if search_strand == "-":
+                            if i >= ((pam_min+1+ pam_max) / 2):
+                                snvpos = snvpos - 1
+                        if search_strand == "+":
+                            if i < ((pam_min+1+ pam_max) / 2):
+                                snvpos += 1
                         if 'Cas12a' in name:
-                            scores['deepcpf1'] = round(scoring.deepcpf1([extended_guide],
+                            scores['deepcpf1'] = round(scoring.deepcpf1([extended_guide.upper()],
                                                               self.models_dir)[0][0], 2)
                     start_diff = target_start -snv_rel_pos
 
@@ -293,10 +308,11 @@ class DataHandler:
                         start_diff = snv_rel_pos - (target_start + sitelen)
                     start = self.SNV_chr_pos + start_diff
                     end = start + sitelen
+                    
 
-                    guides.append([name, guide, pam_found, search_strand, snvpos, scores,extended_guide, start, end])
+                    guides.append([name, guide, pam_found, search_strand, int(snvpos), scores,extended_guide, start, end])
                     if not BEmode:
-                        self.add_guides(name, guide, pam_found, search_strand, snvpos, scores ,extended_guide, start, end)
+                        self.add_guides(name, guide, pam_found, search_strand, int(snvpos), scores ,extended_guide, start, end)
         return guides
 
     def get_Guides(self, search_params, BEsearch_params=None):

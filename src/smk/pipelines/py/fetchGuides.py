@@ -266,30 +266,27 @@ class Fetch_Guides:
 	def extract_seqs(searchseq, pos, ref, alt, window):
 		# extracts the sequence +/windowbp surrounding a SNV then swaps ref for alt allele
 
+		alt = alt.lower()
+		searchseq = searchseq.upper()
+
 		if len(ref) == len(alt):  ##substitution
 			extracted_seq = str(searchseq[pos - window:pos + window])
-			variant_seq = (extracted_seq[0:window] + alt + extracted_seq[window + len(alt):]).upper()
+			variant_seq = (extracted_seq[0:window] + alt + extracted_seq[window + len(alt):])#.upper()
 
 
 		elif len(ref) > len(alt):  # deletion
 			diff = len(ref) - len(alt)
 			extracted_seq = str(searchseq[pos - window:(pos + window + diff)])
-			variant_seq = (extracted_seq[0:window] + alt + extracted_seq[window + len(ref):]).upper()
+			variant_seq = (extracted_seq[0:window] + alt + extracted_seq[window + len(ref):])#.upper()
 
 		elif len(ref) < len(alt):  # insertion
 			extracted_seq = str(searchseq[pos - window:pos + window - (len(alt))])
-			variant_seq = (extracted_seq[0:window] + alt + extracted_seq[window:]).upper()
+			variant_seq = (extracted_seq[0:window] + alt + extracted_seq[window:])#.upper()
 		# print(new_seq)
 
 		else:
 			print('VARIANT REF AND ALT DO NOT COMPLY')
 			print(ref, alt, pos)
-		# if len(variant_seq) != 2* self.window:
-		#	print('SEQUENCE LENGTH less than 100')
-		#	print('REF', ref)
-		#	print('ALT', alt)
-		#	print('t_pos', pos)
-
 		return variant_seq
 
 	def get_chroms(self, queries):
@@ -476,7 +473,7 @@ class Fetch_Guides:
 						for k, v in guides.items():
 							self.all_guides[k] += v
 
-						print(len((guides['gRNA'])), ' guides found for ', query)
+					print(len((guides['gRNA'])), ' guides found for ', query)
 				else:
 					print(f"No guides found for the query {query}")
 					self.add_not_found([query], 'no guides found')
