@@ -42,7 +42,6 @@
    * [PIP](#pip)
    * [Anaconda](#anaconda)
    * [Mamba](#mamba)
-   * [AWS-CLI](#aws-cli)
    * [Tabix](#tabix)
    
 #### PIP
@@ -82,15 +81,7 @@
       wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge-pypy3-<your-OS>.sh
       bash Miniforge-pypy3-<your-OS>.sh
       ```
-#### AWS CLI
-  - mEdit requires pre-rendered data to perform its analyses which will be pulled from public AWS buckets. 
-  - Make sure you are signed in with your AWS credentials:
-  - More information: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
-    ```
-    curl "https://awscli.amazonaws.com/awscli-exe-<your-OS>.zip" -o "awscliv2.zip"
-    unzip awscliv2.zip
-    sudo ./aws/install 
-    ```
+
 #### Tabix
  * This allows mEdit to use bgzip for file compression.
    * In linux systems, install `tabix`.
