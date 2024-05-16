@@ -220,39 +220,60 @@ class DataHandler:
 
     def get_guide_set(self, name, pam, pamISfirst, win_size, guidelen,cut_site_position, BEmode):
         """
-        :param name:
+        :param name: editor name
         :param pam: pam seq ex:'NGG'
         :param pamISfirst: 5'or3'PAM ex:True/False
         :param win_size: list containing upper and lower limits of the targetable window. Ex:[4,8]
-        :param search window: intial search + or - SNV site
         :param guidelen: guide without pam length
         :return: Guide Dictionary
         """
         guides = []
-        pamlen = len(pam)
-        sitelen = guidelen + pamlen
-        snv_rel_pos = int(len(self.extracted_seq)/2)
         scores = {'azimuth':'-',
                   'deepcas9':'-',
                   'deepcpf1':'-',
                   'oof':'-'}
+
+        pamlen = len(pam)
+        sitelen = guidelen + pamlen
+        var_relative_pos = int(len(self.extracted_seq)/2)
+
         if BEmode:
+            # Adjust window to 5' spacer
+            # Example Base editing window = 4-8
+            #     4   8
+            #  XXXXXXXXXXXXXXXXXXXXNGGxxxxxx
             win_size = [win_size[0] - guidelen,win_size[1] -guidelen]
-            pam_min, pam_max = int((snv_rel_pos + abs(win_size[1])))+1, int((snv_rel_pos + abs(win_size[0])))+1
+            pam_min, pam_max = int((var_relative_pos + abs(win_size[1]))), int((var_relative_pos + abs(win_size[0]))) + 1
 
         else:
-            pam_min, pam_max = int((snv_rel_pos - abs(win_size[1])))+1, int((snv_rel_pos + abs(win_size[0])))
+            # Adjust window to 3' PAM
+            # Example cas9 editing window  with cut site position -3 and dist 7= -10 and +4
+            #           -10        1   4
+            #  XXXXXXXXXXXXXXXXXXXXNGGxxxxxx
+
+            x = int((var_relative_pos - abs(win_size[1])))
+            pam_min, pam_max = x, (x + abs(win_size[1] - win_size[0]))
             if pamISfirst == True:
-                pam_min, pam_max = int((snv_rel_pos - abs(win_size[1]))), int((snv_rel_pos - abs(win_size[0])))-1
+                # Adjust window to 5' PAM
+                # Example cas12 editing window  with cut site position 18 and dist 7 = 15 and +29
+                #  1             15             29
+                #  TTTVXXXXXXXXXXXXXXXXXXXXxxxxxx
                 pam_min, pam_max = pam_min - pamlen, pam_max - pamlen
 
         # Narrow based on guide params
-        for search_strand in ["-", "+"]:
+        for search_strand in ["+", "-"]:
             search_seq = Seq(self.extracted_seq) if search_strand == "+" else Seq(self.extracted_seq).reverse_complement()
+            snv_rel_pos = var_relative_pos
+            if search_strand == "-":
+                pam_start, pam_end = pam_min, pam_max - 1
+                if not BEmode:
+                    snv_rel_pos = var_relative_pos - 1
+            else:
+                pam_start, pam_end = pam_min + 1, pam_max
             pam_index = SeqUtils.nt_search(str(search_seq).upper(), pam)[1:]
 
             for i in pam_index:
-                if i in range(pam_min, pam_max+1):
+                if i in range(pam_start, pam_end+1):
                     scores = {'azimuth': '-',
                               'deepcas9': '-',
                               'deepcpf1': '-',
@@ -261,20 +282,10 @@ class DataHandler:
                         target_start = i - guidelen
                         guide = search_seq[i - guidelen:i]
                         extended_guide = str(search_seq[target_start - 3:target_start + sitelen + 4])
-                        snvpos = int([guide.index(x)+1 for x in guide if x.lower()][0])
-
-
                         if not BEmode:
-
-                            snvpos = ((pam_min-1 + pam_max) / 2) - i
-                            if search_strand == "-":
-                                if i >= ((pam_min-1 + pam_max) / 2):
-                                    snvpos = snvpos - 1
-
-                            if search_strand == "+":
-                                if i < ((pam_min-1 + pam_max) / 2):
-                                    snvpos += 1
-
+                            snvpos = snv_rel_pos - (i + cut_site_position)
+                            if snvpos >= 0:
+                                snvpos += 1
                             if pam == 'NGG' and guidelen == 20:
                                 #Azmith only accurate for NGG pams
                                 scores['azimuth'] = scoring.azimuth([extended_guide.upper()],
@@ -283,6 +294,8 @@ class DataHandler:
                                                            self.models_dir)[0][0],2)
                             #oof_score use only for DSB
                             mh_score, scores['oof'] = scoring.oofscore(str(search_seq[target_start - 20:target_start + sitelen + 20]).upper())
+                        else:
+                            snvpos = int([guide.index(x) + 1 for x in guide if x.islower()][0])
 
                         pam_found = str(search_seq[i:i + pamlen])
 
@@ -292,13 +305,9 @@ class DataHandler:
                         guide = search_seq[guide_start: guide_start + guidelen]
                         pam_found = search_seq[i:guide_start]
                         extended_guide = str(search_seq[i - 5:i + sitelen + 4])
-                        snvpos = snv_rel_pos - (i+pamlen+cut_site_position)
-                        if search_strand == "-":
-                            if i >= ((pam_min+1+ pam_max) / 2):
-                                snvpos = snvpos - 1
-                        if search_strand == "+":
-                            if i < ((pam_min+1+ pam_max) / 2):
-                                snvpos += 1
+                        snvpos = snv_rel_pos - (i + pamlen + cut_site_position)
+                        if snvpos >= 0:
+                            snvpos += 1
                         if 'Cas12a' in name:
                             scores['deepcpf1'] = round(scoring.deepcpf1([extended_guide.upper()],
                                                               self.models_dir)[0][0], 2)
@@ -309,7 +318,7 @@ class DataHandler:
                     start = self.SNV_chr_pos + start_diff
                     end = start + sitelen
                     
-
+                    #print(pam_min,pam_max,name,i,snvpos, extended_guide)
                     guides.append([name, guide, pam_found, search_strand, int(snvpos), scores,extended_guide, start, end])
                     if not BEmode:
                         self.add_guides(name, guide, pam_found, search_strand, int(snvpos), scores ,extended_guide, start, end)

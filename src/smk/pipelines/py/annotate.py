@@ -2,13 +2,19 @@
 import gzip
 from subprocess import Popen, PIPE
 import os
+
 # Installed Modules
 from Bio.Seq import Seq
-# Project Modules
 
+########
+###      Transcript Class is used to compute/retrieve transcript information based on a list of coordinates
+###      1: Load list of genomic coordinates and ncbiRefSeq.bed file path
+###      2: Call upon any of these coordinates using the NCBI transcript ID or coordinates
+###         to retreive  gene names, features, reading frame, feature positions and transcript sequence
+########
 
 class Transcript:
-    tx_lib = {} #tid : []
+    tx_lib = {}
     coord2tid = {}
     labels = ['chrom', 'txStart', 'txEnd', 'strand', 'tid', 'eid', 'name',
               'cdsStart', 'cdsEnd', 'exonStarts', 'exonEnds', 'exonFrames']
@@ -37,29 +43,18 @@ class Transcript:
         self.txseq = None
 
     @classmethod
-    def transcript(cls, snvcoord):
-        if snvcoord in cls.coord2tid.keys():
-            tid = cls.coord2tid[snvcoord]
-            start, end = snvcoord.split(':')[1].split('-')
-            pos = int((int(start) + int(end)) /2)
-            obj = cls.tx_lib[tid]
-            obj.find_feature(pos)
-            return obj
-        else:
-            return 'intergenic'
+    def load_transcripts(cls, annote_path, snvcoords):
+        '''
+        Must be initiated before annotating!
+        Loads coordinates into Transcript Class
+        '''
+        temp_bedfname = f"temp{snvcoords[0][-1]}_in.bed"
 
-    @classmethod
-    def load_transcripts(cls, annote_path,snvcoords):
-        # print('DANIEL WE MIGHT NEED TO MAKE A TEMP FOLDER')
-        # print('SEE load_transcripts in annotate.py')
-        temp_bedfname = "temp_in.bed"
-        bed_entries = None
-
-        #reset dict
+        # reset dict
         cls.coord2tid = {}
         cls.tx_lib = {}
 
-        with open(temp_bedfname, 'w') as tempbed:
+        with open(temp_bedfname, 'w') as tempbed: # create bed with coordinates
             for coord in snvcoords:
                 coord_field = coord.split(':')
                 chrom = coord_field[0]
@@ -80,38 +75,53 @@ class Transcript:
             for bed_entry in bed_entries:
                 tokens = bed_entry.split('\t')
                 tokens = tokens[:-1] + tokens[-1].split('|')
-                snvcoord = f'{tokens[0]}:{tokens[1]}-{tokens[2]}'
+                coord = f'{tokens[0]}:{tokens[1]}-{tokens[2]}'
                 entry = dict(zip(cls.labels, tokens[-12:]))
 
                 if entry['chrom'] != '.':
-                    if snvcoord not in cls.coord2tid.keys():
-                        cls.coord2tid[snvcoord] = entry['tid']
+                    if coord not in cls.coord2tid.keys():
+                        cls.coord2tid[coord] = entry['tid']
                         cls.tx_lib[entry['tid']] = cls(entry)
                     # adjusting for overlaps to retrieve the most up to date transcript
                     else:
                         new_tid = entry['tid']
-                        oldtid = cls.coord2tid[snvcoord]
+                        oldtid = cls.coord2tid[coord]
 
                         if new_tid.startswith('NR') and oldtid.startswith('NM'):
                             pass
 
                         elif new_tid[0:2] == oldtid[0:2]:
                             if entry['eid'] != '-' or (float(oldtid.split('_')[-1]) < float(new_tid.split('_')[-1])):
-                                cls.coord2tid[snvcoord] = new_tid
+                                cls.coord2tid[coord] = new_tid
                                 obj = cls(entry)
                                 obj.overlapping_transcripts.append(oldtid)
                                 cls.tx_lib[entry['tid']] = obj
                         else:
-                            cls.coord2tid[snvcoord] = new_tid
+                            cls.coord2tid[coord] = new_tid
                             obj = cls(entry)
                             obj.overlapping_transcripts.append(oldtid)
                             cls.tx_lib[entry['tid']] = obj
 
                 else:
-                    cls.coord2tid[snvcoord] = 'intergenic'
+                    cls.coord2tid[coord] = 'intergenic'
         os.remove(temp_bedfname)
+
+
+    @classmethod
+    def transcript(cls, snvcoord):
+        if snvcoord in cls.coord2tid.keys():
+            tid = cls.coord2tid[snvcoord]
+            start, end = snvcoord.split(':')[1].split('-')
+            pos = int((int(start) + int(end)) /2)
+            obj = cls.tx_lib[tid]
+            obj.find_feature(pos)
+            return obj
+        else:
+            return 'intergenic'
+
     def __dict__(self):
         return self.entry
+
     def get_utrs(self):
         exon_starts = self.entry['exonStarts'][:-1].split(',')
         exon_ends = self.entry['exonEnds'][:-1].split(',')
@@ -253,8 +263,8 @@ class Transcript:
 annote_path = '/groups/clinical/projects/editability/tables/processed_tables/ncbiRefSeq.bed.gz'
 snvcoords = ['chr11:5225460-5225460','chr11:5226676-5226676',
              'chr3:136250375-136250375','chr16:57744390-57744390',
-             'chr16:136330169-136330169','chr18:58671560-58671560'
-             ]
+             'chr16:136330169-136330169','chr18:58671560-58671560']
+             
 Transcript.load_transcripts(annote_path,snvcoords)
 for snv in snvcoords:
     pos_in_transcript = Transcript.transcript(snv)
@@ -263,6 +273,7 @@ for snv in snvcoords:
         print(pos_in_transcript.feature)
     else:
         print('intergenic', snv)
+        
 #('ENST00000335295.4', 'NM_000518.5', 'HBB', '-', 5225463)
 #flanking-downstream
 #('ENST00000335295.4', 'NM_000518.5', 'HBB', '-', 5225463)
@@ -276,53 +287,3 @@ for snv in snvcoords:
 
 
 '''
-
-#    def get_refseq_entry(term, field):
-#        '''
-#        Using ncbiRefSeq.bed.gz to find cds features by either interval, gene name or transcript ID
-#        example input:
-#        term, field = 'NM_000532.5', 'tid'
-#        term, field = 'PCCB','name'
-#        term,field =  'chr3:136250339-136330169','interval'
-#        annote_path = '/groups/clinical/projects/editability/tables/processed_tables/ncbiRefSeq.bed.gz'
-#        '''
-#
-#        labels = ['chrom', 'txStart', 'txEnd','strand','tid','eid,','name',
-#                  'cdsStart', 'cdsEnd','exonStart','exonEnd', 'exonFrames']
-#
-#        if field != 'interval':
-#            not_found = True
-#            for line in gzip.open(annote_path, 'rt'):
-#                tokens = line.split('\t')
-#                entry = dict(zip(labels, tokens))
-#                if term in entry[field]:
-#                    not_found = False
-#                    break
-
-#            if not_found:
-#                entry = None
-#                print(f"{term} not found in refseq data")
-
- #               if '.' in term:
- #                   new_term = term.split('.')[0]
- #                   print(f'searching for {new_term} instead')
- #                   entry = get_refseq_entry(new_term, field,annote_path)
-
- #       else:  # only used for intervals search
- #           not_found = True
- #           ch = term.split(":")[0]
- #           start, end = term.split(":")[1].split('-')
- #           pos = int((int(start) + int(end)) / 2)
-
- #           for line in gzip.open(annote_path, 'rt'):
- #               tokens = line.split('\t')
- #               entry = dict(zip(labels, tokens))
- #               if ch == entry['chrom']:
- #                   if pos in range(int(entry['txStart']), int(entry['txEnd'])):
- #                       not_found = False
- #                       break
- #           if not_found:
- #               entry = None
- #               print(f"{term} not found in refseq data")
- #       return entry
-

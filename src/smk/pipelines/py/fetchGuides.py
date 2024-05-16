@@ -8,7 +8,6 @@ from copy import deepcopy
 # from zlib import error
 # Installed Modules
 import pandas as pd
-# from Bio import SeqIO, SeqUtils
 from Bio.Seq import Seq
 # Project Modules
 from dataH import DataHandler
@@ -91,8 +90,10 @@ class Fetch_Guides:
 		self.search_params = self.configure_search_params()
 
 		# configure BE options
+		self.BE_search_params = {}
 		if self.be_request != 'off':
 			self.BE_search_params = self.set_BE_params()
+
 
 		# ---------------Ouputs--------------------------#
 		self.all_variant = pd.DataFrame()
@@ -199,6 +200,12 @@ class Fetch_Guides:
 		# 'editor', 'pam', '5prime_pam','guide_length', 'DSB site', 'notes'
 		with open(outfile, 'ab') as gfile:
 			pickle.dump(self.search_params, gfile)
+
+	def write_gsearch_params(self, outfile):
+		# writes pickle of selected guide search params for later use in process_genome
+		# 'editor', 'pam', '5prime_pam','guide_length', 'DSB site', 'notes'
+		with open(outfile, 'ab') as gfile:
+			pickle.dump(self.BE_search_params, gfile)
 
 	def write_snv_site_info(self, outfile):
 		'''

@@ -61,7 +61,7 @@ def cas_offinder_bulge(input_filename, output_filename,cas_off_expath,bulge):
         with open(input_filename) as f:
             chrom_path = f.readline()
             pattern, bulge_dna, bulge_rna = f.readline().strip().split()
-            isreversed = False
+            isreversed = False ## PAM 5 or 3 prime
             for i in range(int(len(pattern) / 2)):
                 if pattern[i] == 'N' and pattern[len(pattern) - i - 1] != 'N':
                     isreversed = False
@@ -106,12 +106,13 @@ def cas_offinder_bulge(input_filename, output_filename,cas_off_expath,bulge):
                         for i in range(1, len(target)-bulge_size):
                             bg_tgt = 'N' * (bulge_dna + bulge_size) + target[:i] + target[i+bulge_size:] + 'N' * len_pam
                             bg_tgts[bg_tgt].add(mismatch)
-                            rnabulge_dic[bg_tgt].append( (i, int(mismatch), target[i:i+bulge_size]) )
+                            rnabulge_dic[bg_tgt].append((i, int(mismatch), target[i:i+bulge_size]))
                             id_dict[bg_tgt] = gid
             if isreversed:
                 seq_pam = pattern[:len_pam]
             else:
                 seq_pam = pattern[-len_pam:]
+
         with open(fnhead + '_bulge.txt', 'w') as f:
             f.write(chrom_path)
             if isreversed:
@@ -124,6 +125,7 @@ def cas_offinder_bulge(input_filename, output_filename,cas_off_expath,bulge):
                 cnt+=1
         # THIS FILE PATH IS SUPPLIED TO CASOFF-FINDER
         casin = fnhead + '_bulge.txt'
+
     else:
         nobulge_dict = {}
         with open(input_filename) as inf:
@@ -138,7 +140,6 @@ def cas_offinder_bulge(input_filename, output_filename,cas_off_expath,bulge):
     # THIS FILE PATH IS SUPPLIED TO CASOFF-FINDER
     outfn = fnhead + '_temp.txt'
     print("Running Cas-OFFinder (output file: %s)..." % outfn)
-
 
     p = Popen([cas_off_expath, casin, 'C', outfn])
     ret = p.wait()
@@ -156,7 +157,6 @@ def cas_offinder_bulge(input_filename, output_filename,cas_off_expath,bulge):
             entries = line.strip().split('\t')
             ncnt = 0
 
-
             if bulge == False:
                 gid, mm = nobulge_dict[entries[0]]
                 coord = f'{entries[1]}:{entries[2]}-{int(entries[2]) + len(entries[0])}'
@@ -167,6 +167,7 @@ def cas_offinder_bulge(input_filename, output_filename,cas_off_expath,bulge):
                     for c in entries[0][::-1]:
                         if c == 'N':
                             ncnt += 1
+                        else:
                             break
                     if ncnt == 0:
                         ncnt = -len(entries[0])
@@ -218,22 +219,21 @@ def cas_offinder_bulge(input_filename, output_filename,cas_off_expath,bulge):
         editor = gid.split('_')[0]
         print(f'{len(ot_coords)} off targets found for {editor}')
 
-def score_ot(crrna,otseq,editor):
-    score = '.'
-    if 'spCas9' in editor:
-        # TODO: NEEDS
-        raise Exception("The function scoring.cfd_score requires a path to the model files")
-        score = scoring.cfd_score(crrna[:-3], otseq[:-4])
+def score_ot(crrna,otseq,models_dir):
+    score = 0
+    if '-' not in crrna[:-3]:
+        if '-' not in otseq[:-4]:
+            # TODO: NEEDS
+            #raise Exception("The function scoring.cfd_score requires a path to the model files")
+            score = scoring.cfd_score(crrna[:-3].upper(), otseq.upper(),models_dir)
     return score
 
 
-
-def annotate_ots(output_filename,annote_path):
+def annotate_ots(output_filename,annote_path,models_dir):
     '''
     Reads output, Scores each off-target seq and annotates each off_target
     '''
-    #annote_path = "/groups/clinical/projects/editability/tables/processed_tables/ncbiRefSeq.bed.gz"
-    #output_filename = '/groups/clinical/projects/editability/medit_queries/medit_test/test_out/hg38_hg38_spCas9_casoffinder_output.txt'
+
     editor = output_filename.split('_casoff')[0].split('_')[-1]
     coords = []
     scores = []
@@ -243,13 +243,13 @@ def annotate_ots(output_filename,annote_path):
         line = line.strip().split('\t')
         coords.append(line[0])
         if line[2] not in spec_scores.keys():
-            spec_scores[line[2]] = 0
-        score = score_ot(line[4], line[5],editor)
-        if score != '.':
-            if score != 1:
+            spec_scores[line[2]] = 0 if editor == 'spCas9' else '.'
+        if editor == 'spCas9':
+            score = score_ot(line[4], line[5],models_dir)
+            if score > 0 and score != 1:
                 spec_scores[line[2]] = spec_scores[line[2]] + score
         else:
-            spec_scores[line[2]] = '.'
+            score = '.'
         scores.append(score)
 
     Transcript.load_transcripts(annote_path,coords)
@@ -279,7 +279,10 @@ def annotate_ots(output_filename,annote_path):
 
     if editor == 'spCas9':
         for gid, sum_score in spec_scores.items():
-            spec_scores[gid] = scoring.cfd_spec_score(sum_score)
+            if sum_score!= 0:
+                spec_scores[gid] = scoring.cfd_spec_score(sum_score)
+        else:
+            spec_scores[gid] = "."
     #remove(output_filename)
     return new_lines, spec_scores
 
@@ -316,7 +319,7 @@ def write_out_res(ots,gdf,casoff_params,resultsfolder,guide_tab_fname):
     # Update main guides table with specifity Scoress
     spec_scores = df.T.sort_index()['spec_score']
     df =df.drop(index = 'spec_score')
-
+    df = df.astype('int')
     #Add off_targets summary
     df.index = pd.MultiIndex.from_tuples(list(df.index), names=['BulgeType', 'Number of Mismatches'])
     df = df.reset_index()
@@ -327,7 +330,6 @@ def write_out_res(ots,gdf,casoff_params,resultsfolder,guide_tab_fname):
     gdf = gdf.sort_values('Guide_ID')
     gdf['Off Target Score'] = list(spec_scores)
     gdf['Num Off Targets per MM'] = list(ot_per_mm)
-
 
     # create off_target summary of totals
     if casoff_params[1] == 0:
@@ -351,9 +353,11 @@ def run_casoffinder(resultsfolder,
                     genome_name,
                     guide_src_name,
                     casoff_params,
-                    annote_path):
-    #guide_tab_fname = '/groups/clinical/projects/editability/medit_queries/medit_test/test_out/hg38_Guides_found.csv'
+                    annote_path,
+                    models_dir):
+    #guide_tab_fname = '/groups/clinical/projects/editability/medit_queries/medit_showcase/out/hg38_Guides_found.csv'
     gdf = pd.read_csv(guide_tab_fname)
+    #gdf = gdf.iloc[0,:]
     ots = {}
     gpr = gdf.groupby('Editor')
     if casoff_params[1:3] == (0, 0):
@@ -362,10 +366,20 @@ def run_casoffinder(resultsfolder,
         bulge = True
     # for each editor type find off_targets
     for editor, stats in gpr:
-        infile = f"{resultsfolder}{genome_name}_{guide_src_name}_{editor}_casoffinder_input.txt"
-        pam, pamISfirst, guidelen = search_params[editor][0:3]
+
+        try:
+            pam, pamISfirst, guidelen = search_params[editor][0:3]
+        except:
+            # BE search params
+            pam, pamISfirst, guidelen = search_params[editor][0][0:3]
+
         guides, gnames = list(stats.gRNA), list(stats.Guide_ID)
+        guides =[g.upper() for g in guides]
+
         # make input file
+        infile = f"{resultsfolder}{genome_name}_{editor}_casoffinder_input.txt"
+
+
         make_casoffinder_input(infile,
                                fasta_fname,
                                pam,
@@ -376,9 +390,10 @@ def run_casoffinder(resultsfolder,
                                casoff_params)
 
         output_filename = infile.replace('_input.txt', '_output.txt')
+
         cas_offinder_bulge(infile, output_filename, cas_off_expath, bulge)
 
-        new_lines, spec_scores = annotate_ots(output_filename,annote_path)
+        new_lines, spec_scores = annotate_ots(output_filename,annote_path,models_dir)
 
         ot_dict = agg_results(new_lines,casoff_params[0])#sum off-targets
         for k, v in ot_dict.items():
@@ -430,7 +445,6 @@ def main():
 
     # Guide search params
     search_params = pickle.load(open(guide_search_params, 'rb'))
-    # search_params = pickle.load(open(resultsfolder + "guide_search_params.pkl", 'rb'))
 
     # hg38 or consensus sequence
     fasta_fname = fasta_ref
@@ -441,7 +455,6 @@ def main():
     # hg38 guides found (but could be {alt_genome}_differences.csv
     guide_tab_fname = guides_report
     guides_src_name = guideref_name
-    # guide_tab_fname = resultsfolder + 'Guides_found.csv'
     # guide_src_name = 'hg38'
 
     ### Daniel---> Pycharm is not find subprocess.Popen(casoffinder...) without an absolute path. so I'm adding this
@@ -451,12 +464,15 @@ def main():
     # defaults - we may allow users to change these cas-offinder settings?
     # according to Gorodkin et al. and Lin et al.  DNA bulges are even more tolerated than mismatches alone
     # https://www.nature.com/articles/s41467-022-30515-0
-    # RNAbb = 0  # RNA bulge, a deletion in the off-target
+    # RNAbb = 1  # RNA bulge, a deletion in the off-target
     # DNAbb = 1  # DNA bulge, an insertion in the off-target
-    # mm = 3  # max allowable mismatch
+    # mm = 4  # max allowable mismatch
     # PU = 'C'  # G = GPU C = CPU A = Accelerators -- I don't really know which should be default?
-    #casoff_params = (3, 0, 0, "C")
-    casoff_params = (mm, RNAbb, DNAbb, PU)
+
+    # guide_tab_fname = gout
+    #search_params = pickle.load(open(resultsfolder + "guide_search_params.pkl", 'rb'))
+    # mm, RNAbb, DNAbb, PU = 6,2,2,"C"
+    # models_dir = '/home/thudson/projects/editability/src/pkl/models/'
 
     run_casoffinder(resultsfolder,
                     fasta_fname,
@@ -464,8 +480,10 @@ def main():
                     search_params,
                     cas_off_expath,
                     genome_name,
-                    guides_src_name,
-                    casoff_params)
+                    guide_src_name,
+                    casoff_params,
+                    annote_path,
+                    models_dir)
 
 
 if __name__ == "__main__":
