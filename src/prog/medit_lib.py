@@ -9,6 +9,7 @@ import pytz
 import os
 import os.path
 import re
+import requests
 import pathlib
 from pathlib import Path
 import pickle
@@ -19,6 +20,9 @@ from importlib_resources import files
 from Bio import SeqIO
 import boto3
 from botocore.exceptions import NoCredentialsError
+from botocore import UNSIGNED
+from botocore.config import Config
+
 import pandas as pd
 # == Project Modules ==
 
@@ -67,13 +71,13 @@ def download_s3_objects(s3_bucket_name: str, s3_object_name: str, destination_pa
 	:param destination_path:
 	:return:
 	"""
-	s3 = boto3.client('s3')
+	s3 = boto3.client('s3', config=Config(signature_version=UNSIGNED))
 	try:
 		response = s3.list_objects_v2(Bucket=s3_bucket_name, Prefix=s3_object_name)
 		content = response.get('Contents', [])
 		clean_content = consolidate_s3_download(content, s3_object_name)  # Skip the S3 object that denotes the parent folder
 	except NoCredentialsError:
-		prRed("AWS Credentials not available. Please sign in then try again!")
+		prRed("AWS issued credentials error. This is not an expected behavior. Please notify log this error on GitHub")
 		exit(0)
 	with alive_bar(len(clean_content), title=f'Downloading s3://{s3_bucket_name}/{s3_object_name}') as bar:
 		for content_idx in range(0, len(clean_content)):
@@ -84,6 +88,7 @@ def download_s3_objects(s3_bucket_name: str, s3_object_name: str, destination_pa
 				print(f"Skipping existing file: {destination_file}")
 				bar()
 				continue
+			# == This downloads the data from the S3 Bucket without requiring AWS credentials
 			pathlib.Path(destination_path).mkdir(parents=True, exist_ok=True)
 			s3.download_file(s3_bucket_name, key, destination_file)
 			bar()
