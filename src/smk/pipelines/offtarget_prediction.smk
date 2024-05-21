@@ -12,8 +12,8 @@ import glob
 # noinspection SmkAvoidTabWhitespace
 rule all:
 	input:
-		expand("{fasta_root_path}/{sequence_id}.fa",
-			fasta_root_path=config["fasta_root_path"], sequence_id=config["sequence_id"]),
+		# expand("{fasta_root_path}/{sequence_id}.fa",
+		# 	fasta_root_path=config["fasta_root_path"], sequence_id=config["sequence_id"]),
 		# Prepare input files for casoffinder on a per-editor basis
 		expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/input_files/{editing_tool}_casoff_in.txt",
 			root_dir=config["output_directory"],mode=config["processing_mode"],
@@ -43,10 +43,18 @@ rule decompress_genome:
 	priority: 50
 	message:
 		"""
+		# === PREPARING REFERENCE GENOMES FOR CASOFFINDER === #
+		Inputs used:
+		Compressed genome reference: {input.assembly_path}
+		Outputs:
+		Target directoru: {params.link_directory}
+		Decompressed genome reference: {output.decompressed_assembly_symlink}
+		Wildcards in this rule:
+		{wildcards}
 		"""
 	shell:
 		"""
-		gzip -kdv {input.assembly_path}
+		gzip -kdvf {input.assembly_path}
 		ln --symbolic -t {params.link_directory} {params.decompressed_assembly_path}
 		"""
 
@@ -97,7 +105,7 @@ rule casoff_run:
 	conda:
 		"../envs/casoff.yaml"
 	threads:
-		config["threads"]
+		int(config["threads"])
 	message:
 		"""
 # === PREDICT OFFTARGET EFFECT === #

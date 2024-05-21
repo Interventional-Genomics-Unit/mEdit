@@ -2,7 +2,7 @@
 # Email address required for Entrez queries
 entrez_login: ""
 # Default thread number for processing in this and associated SMK pipeline
-threads: "1"
+threads: 1
 # Run name | the run names must follow the naming standard:
 # <date>_<medit_version>
 # ::date+time:: -> YYMMDDHHMMSSf

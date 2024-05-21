@@ -11,7 +11,7 @@ latest_reference: ""
 # == Informs mEdit whether the user has provided a custom reference or not
 custom_reference: ""
 # == Current hg38 assembly accession
-assembly_acc: "GCF_000001405.40"
+assembly_acc: "GCA_000001405.15"
 
 # == PROCESSED TABLES ==
 # Main path for processed tables
