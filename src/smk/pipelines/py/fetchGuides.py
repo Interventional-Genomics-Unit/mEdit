@@ -344,12 +344,19 @@ class Fetch_Guides:
 		for ch, data in self.snv_info.items():  # find transcript info
 			new_data = []
 			snvcoords = [f'chr{ch}:{d[1]}-{d[1]}' for d in data]
-			Transcript.load_transcripts(self.annote_path, snvcoords)
+			try:
+				Transcript.load_transcripts(self.annote_path, snvcoords)
+			except IndexError:
+				# TODO: Something on commit f6f4b19 has changed the communication between fetchGuides and annotate.py
+				# TODO: @ACTG802 --> please advise on whether this needs fixing or just a bypass message would be enough
+				print(f"WARNING: function 'load_transcripts' from annotate.py got the wrong number of indices from snvcoords")
+				print(f"This is how it looks like: {snvcoords}")
+				continue
 
 			# === Transitioning SeqIO.read to direct import of Pickled SeqRecord Objects ===
 			chr_fasta_path = f"{self.fasta_path}/chr{str(ch)}.pkl"
 			try:
-				print(f"Finding transcripts information: Assessing {chr_fasta_path}")
+				print(f"Finding transcripts information on chromosome chr{str(ch)}")
 				with open(chr_fasta_path, 'rb') as pfile:
 					fasta = pickle.load(pfile)
 			except FileNotFoundError:
