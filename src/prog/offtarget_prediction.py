@@ -117,6 +117,7 @@ def offtarget_prediction(args, jobtag):
 						 f"--configfile {config_db_path} "
 						 f"{dynamic_config_guidepred_path} {dynamic_config_off_path} "
 						 f"--use-conda "
+						 f"--rerun-incomplete "
 						 f"{dryrun_setup} ",
 						 smk_verbosity
 						 )

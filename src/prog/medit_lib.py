@@ -115,7 +115,11 @@ def group_guide_table(guide_table_path: pathlib.Path, editor_filter: (list, str)
 	guides_df = pd.read_csv(guide_table_path)
 	if editor_filter:
 		guides_df = guides_df[guides_df['Editor'].isin(editor_filter)]
-	grouped_guides_df = guides_df.groupby('Editor')
+	try:
+		grouped_guides_df = guides_df.groupby('Editor')
+	except KeyError:
+		print("Column name 'Editor' not found in <Guides_found.csv>. Please check the file path and try again.")
+		exit(0)
 	editor_expanded_dictionary = {}
 	for editor, stats in grouped_guides_df:
 		editor_expanded_dictionary.setdefault(editor, []).append(stats)

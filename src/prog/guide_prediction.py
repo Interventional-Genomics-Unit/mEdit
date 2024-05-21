@@ -164,6 +164,7 @@ def guide_prediction(args, jobtag):
 			                 f"--configfile {config_db_path} "
 			                 f"{dynamic_config_path} "
 			                 f"--use-conda "
+							 f"--rerun-incomplete "
 			                 f"{dryrun_setup}",
 			                 smk_verbosity[smk_setup_idx]
 			                 )

@@ -49,6 +49,9 @@ def dbset(args):
 	# config_db_template["clinvar_update"] = f"{processed_tables}/{config_db_template['clinvar_update']}"
 	config_db_template["refseq_table"] = f"{processed_tables}/{config_db_template['refseq_table']}"
 
+	# === Pull values from config variables
+	standard_ref_prefix = config_db_template["assembly_acc"]
+
 	#   == Parse the Raw Tables folder and its contents ==
 	# raw_tables = f"{db_path_full}/{config_db_template['raw_tables']}"
 	# config_db_template["raw_tables"] = f"{raw_tables}"
@@ -60,12 +63,21 @@ def dbset(args):
 	#   == SeqRecord Pickles
 	print("# ---*--- Database of Genomic References ---*---")
 	download_s3_objects("medit.db", "genome_pkl", fasta_root_path)
+	if not latest_genome_download:
+		standard_ref_path = f"{fasta_root_path}/hg38_{standard_ref_prefix}.fa"
+		launch_shell_cmd(f"bgzip -df -@ {threads} {standard_ref_path}.gz > {standard_ref_path}",
+						 message="Decompressing HPRC-compliant human reference genome")
+		pickle_chromosomes(standard_ref_path, fasta_root_path)
+		launch_shell_cmd(f"bgzip -cf -@ {threads} {standard_ref_path} > {standard_ref_path}.gz",
+						 message="Compressing human reference genome")
+		launch_shell_cmd(f"rm {standard_ref_path}",
+						 message="Cleaning up unused files")
 	# == Download the latest human reference genome by request
 	if latest_genome_download:
 		download_s3_objects("medit.db", "latest_genome_ref", fasta_root_path)
 		local_latest_ref_path = f"{fasta_root_path}/latest_hg38.fa"
 		pickle_chromosomes(local_latest_ref_path, fasta_root_path)
-		launch_shell_cmd(f"bgzip -c -@ {threads} {local_latest_ref_path} > {local_latest_ref_path}.gz",
+		launch_shell_cmd(f"bgzip -cf -@ {threads} {local_latest_ref_path} > {local_latest_ref_path}.gz",
 						 message="Compressing human reference genome")
 		launch_shell_cmd(f"rm {local_latest_ref_path}",
 						 message="Cleaning up unused files")

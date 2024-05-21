@@ -4,6 +4,7 @@ from os.path import abspath, isdir
 # == Installed Modules
 import yaml
 # == Project Modules
+from prog.medit_lib import file_exists
 
 
 def ls_editors(args):
@@ -15,11 +16,8 @@ def ls_editors(args):
 	db_path_full = f"{abspath(args.db_path)}/medit_database"
 	config_db_path = f"{db_path_full}/config_db/config_db.yaml"
 
-	try:
-		isdir(db_path_full)
-	except Exception:
+	if not file_exists(db_path_full):
 		print("The database path directory could not be found.")
-	else:
 		exit(0)
 
 	# === Load configuration file ===
