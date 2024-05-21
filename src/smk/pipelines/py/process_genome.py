@@ -86,7 +86,7 @@ def find_overlapping_variants(vcf_fname, altgenome_name, models_path, hg38_snvin
             try:
                 query, tid, eid, strand, hgref, hgalt, feature_annotation, hg38extracted_seq, codons, hg38coord = d
             except ValueError:
-                print(f"WARNING: The query below has the wrong number of values to unpack. "
+                print(f"WARNING: process_genome.py --> The query below has the wrong number of values to unpack. "
                       f"Needs further investigation:\n{d}")
                 continue
 

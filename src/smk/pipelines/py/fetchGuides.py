@@ -461,7 +461,7 @@ class Fetch_Guides:
 					query, tid, eid, gname, strand, ref, alt, feature_annotation, extracted_seq, codons, coord = d
 				except ValueError:
 					print(
-						f"WARNING: The query below has the wrong number of values to unpack. Needs further investigation:\n{d}")
+						f"WARNING: fetchGuides.py --> The query below has the wrong number of values to unpack. Needs further investigation:\n{d}")
 					continue
 				dh = DataHandler(query, strand, ref, alt, feature_annotation, models_dir, extracted_seq, codons, coord,
 								 gname, self.dist_from_cutsite)
