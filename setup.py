@@ -1,16 +1,21 @@
 # == Native Modules
-
+# read the contents of your README file
+from pathlib import Path
 # == Installed Modules
 from setuptools import setup, find_packages
 # == Project Modules
-
+# == Readme setup
+this_directory = Path(__file__).parent
+long_description = (this_directory / "README.md").read_text()
 
 setup(
     name='meditability',
-    version='0.2.3-alpha',
+    version='0.2.4',
     description='',
-    author='Interventional Genomics Unit',
-    author_email='',
+    long_description=long_description,
+    long_description_content_type='text/markdown',
+    author='Daniel Bellieny, Taylor Hudson',
+    author_email='bellieny@berkeley.edu, thudson@berkeley.edu',
     entry_points={
         "console_scripts": [
             "medit = prog:main",
