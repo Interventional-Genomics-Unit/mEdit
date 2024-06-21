@@ -256,12 +256,12 @@ class Fetch_Guides:
 
 		tempgene = pd.read_csv(f"{self.processed_tables}/gene_tables/gene_tables.csv.gz")
 		self.all_gene = tempgene.loc[tempgene['TranscriptID'].isin(list(all_tids))]
-		print(f"\n READY TO PRINT GENE OUT TO: {gene_out}\n ")
+		# print(f"\n READY TO PRINT GENE OUT TO: {gene_out}\n ")
 		self.all_gene.to_csv(gene_out, index=False)
 
 		if self.qtype == 'hgvs':
 			# variant_out = f"{self.resultsfolder}/Variant_Report.csv"
-			print(f"\nREADY TO PRINT VARIANT OUT TO: {variant_out}\n")
+			# print(f"\nREADY TO PRINT VARIANT OUT TO: {variant_out}\n")
 			self.all_variant.to_csv(variant_out, index=False)
 
 	def add_not_found(self, nfqueries, reason):
@@ -436,7 +436,8 @@ class Fetch_Guides:
 		standardizes input coordinate and checks formatting
 		'''
 		# q = 'chr11:5226778C>T'
-		coord_fmt = r'(chr[0-9XYM]*:\d*(A|T|C|G)>(A|T|C|G))'
+		# coord_fmt = r'(chr[0-9XYM]*:\d*(A|T|C|G)>(A|T|C|G))'
+		coord_fmt = r'(chr[0-9XYM]*:\d*([ATCG]{1,10})>([ATCG]{1,10})'
 		validated_queries = []
 		for q in set(queries):
 			if re.search(coord_fmt, q):
@@ -557,7 +558,7 @@ def main():
 	print(f"""
 	Currently running fetchGuides.py
 	INPUT VARIABLES:
-		Queries:\n{queries}
+		n of Queries:\n{len(queries)}
 		Query Type: {qtype}
 		be_request: {be_request}
 		editor_request: {editor_request}
