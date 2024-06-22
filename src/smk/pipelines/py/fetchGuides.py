@@ -1,14 +1,10 @@
 # Native Modules
-# import gzip
-# import zlib
 import pickle
 import os
 import re
 from copy import deepcopy
-# from zlib import error
 # Installed Modules
 import pandas as pd
-from Bio.Seq import Seq
 # Project Modules
 from dataH import DataHandler
 from annotate import Transcript
@@ -216,10 +212,9 @@ class Fetch_Guides:
 			pickle.dump(self.snv_info, sfile)
 
 	def write_not_found(self, outfile):
-		if len(self.not_found.keys()) > 0:
-			pd.Series(data=self.not_found.values(), index=self.not_found.keys()).to_csv(outfile)
+		pd.Series(data=self.not_found.values(), index=self.not_found.keys()).to_csv(outfile)
 
-	def write_extracted_sequences(self, extracted_seq_outfile):  # Taylor's been Walter Whiting here.
+	def write_extracted_sequences(self, extracted_seq_outfile):
 		'''
 		writes tab-deliminated file of 100-mer sequence in which each
 		each variant was found.
@@ -408,7 +403,6 @@ class Fetch_Guides:
 						[query, tid, eid, gname, strand, ref, alt, feature_annotation, extracted_seq, rf,
 						 f"chr{str(ch)}:{str(snvpos)}"])
 
-					print('Query term & annoation:', query, feature_annotation)
 				else:
 					self.add_not_found(query, 'ref or alt allele contain non-ATCG characters')
 			self.snv_info[ch] = new_data
@@ -437,7 +431,7 @@ class Fetch_Guides:
 		'''
 		# q = 'chr11:5226778C>T'
 		# coord_fmt = r'(chr[0-9XYM]*:\d*(A|T|C|G)>(A|T|C|G))'
-		coord_fmt = r'(chr[0-9XYM]*:\d*([ATCG]{1,10})>([ATCG]{1,10})'
+		coord_fmt = r'(chr[0-9XYM]*:\d*([ATCG]{1,10})>([ATCG]{1,10}))'
 		validated_queries = []
 		for q in set(queries):
 			if re.search(coord_fmt, q):
@@ -488,9 +482,7 @@ class Fetch_Guides:
 						for k, v in guides.items():
 							self.all_guides[k] += v
 
-					print(len((guides['gRNA'])), ' guides found for ', query)
 				else:
-					print(f"No guides found for the query {query}")
 					self.add_not_found([query], 'no guides found')
 
 		guidedf, BEdf = None, None
@@ -521,6 +513,7 @@ def main():
 	guides_report = str(snakemake.output.guides_report_out)
 	guide_search_params_path = str(snakemake.output.guide_search_params)
 	snv_site_info_path = str(snakemake.output.snv_site_info)
+	guides_not_found_path = str(snakemake.output.guides_not_found_out)
 	# === Params ===
 	resultsfolder = set_export(str(snakemake.params.main_out))
 	gene_report = f"{resultsfolder}/{str(snakemake.params.gene_report)}"
@@ -558,7 +551,7 @@ def main():
 	print(f"""
 	Currently running fetchGuides.py
 	INPUT VARIABLES:
-		n of Queries:\n{len(queries)}
+		n of Queries: {len(queries)}
 		Query Type: {qtype}
 		be_request: {be_request}
 		editor_request: {editor_request}
@@ -591,6 +584,9 @@ def main():
 
 	# == Export Variant and Gene tables ==
 	fg.add_clininfo(gene_report, variant_report)
+
+	# == Export Not Found table
+	fg.write_not_found(guides_not_found_path)
 
 
 if __name__ == "__main__":

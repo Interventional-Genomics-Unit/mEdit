@@ -1,14 +1,5 @@
-# **** Variables ****
-# configfile: "config/guide_prediction_private_template.yaml"
-# configfile: "config/preprocessing_configuration.yaml"
-
-# configfile: "config/aws_download.yaml"
-
-# **** Imports ****
+# **** Import Packages ****
 import glob
-
-# Cluster run template
-# nohup snakemake --snakefile guide_prediction.smk -j 1 --cluster "sbatch -t {cluster.time} -n {cluster.cores}" --cluster-config config/cluster.yaml --use-conda &
 
 # Description:
 
@@ -39,7 +30,8 @@ rule predict_guides:
 	output:
 		guides_report_out = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/Guides_found.csv",
 		guide_search_params = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params/guide_search_params.pkl",
-		snv_site_info = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params/snv_site_info.pkl"
+		snv_site_info = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params/snv_site_info.pkl",
+		guides_not_found_out = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/Guides_not-found.csv"
 	params:
 		# == Main output path
 		main_out = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref",
