@@ -99,7 +99,7 @@ def export_guides_by_editor(guide_df_by_editor_dict: dict, output_dir: (str, Pat
 	for editor in guide_df_by_editor_dict:
 		editors_list.append(editor)
 		guide_df = pd.DataFrame(guide_df_by_editor_dict[editor][0])
-		filepath = f"{output_dir}/{editor}.pkl"
+		filepath = f"{output_dir}{editor}.pkl"
 		# Create output directory if non-existent
 		set_export(output_dir)
 		with open(filepath, 'wb') as guide_df_handle:
@@ -127,6 +127,19 @@ def group_guide_table(guide_table_path: pathlib.Path, editor_filter: (list, str)
 
 
 def handle_shell_exception(subprocess_result, shell_command, verbose: bool):
+	# === Silverplate Errors
+	#   == File not found
+	if re.search("FileNotFound", str(subprocess_result)):
+		if verbose:
+			prRed(f"QUERY FILEPATH NOT FOUND: Please note:"
+				  f"- This is the invalid filepath: {shell_command}"
+				  f"- If providing more than one query path make sure the paths are comma-separated")
+			return
+	#	== Config Not Found
+	if re.search("ConfigNotFound", str(subprocess_result)):
+		if verbose:
+			prRed(f" Couldn't find the file {shell_command}."
+				  f" Please double-check the path to <medit_database> and provide the path via '-d' option")
 	# === Handle SMK exceptions through subprocess
 	#   == Unlock directory if necessary for SMK run
 	if re.findall("Directory cannot be locked.", subprocess_result.stdout):
@@ -134,6 +147,10 @@ def handle_shell_exception(subprocess_result, shell_command, verbose: bool):
 		unlock_smk_command = f"{shell_command} --unlock"
 		launch_shell_cmd(unlock_smk_command, verbose)
 		launch_shell_cmd(shell_command, verbose)
+		return
+	#	== Handle Missing Output Error in Snakemake
+	if re.findall("MissingOutputException", subprocess_result.stdout):
+		prRed("--> The association between Inputs/Outputs is not valid. Outputs may not be generated")
 		return
 	#   == Skipping rule call that has already been completed
 	if re.findall(r"ValueError: min\(\) arg is an empty sequence", subprocess_result.stderr):

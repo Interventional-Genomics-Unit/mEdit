@@ -1,17 +1,20 @@
 # == Native Modules ==
 import subprocess
+from copy import copy
 from os.path import abspath
+from pathlib import Path
 import sys
 # == Installed Modules ==
 import yaml
 # == Project Modules ==
 from prog.medit_lib import (compress_file,
-                            file_exists,
-                            launch_shell_cmd,
-                            project_file_path,
-                            prRed,
-                            set_export,
-                            write_yaml_to_file
+							file_exists,
+							handle_shell_exception,
+							launch_shell_cmd,
+							project_file_path,
+							prRed,
+							set_export,
+							write_yaml_to_file
                             )
 
 
@@ -22,6 +25,7 @@ def guide_prediction(args, jobtag):
 	root_dir = abspath(args.output)
 	db_path_full = f"{abspath(args.db_path)}/medit_database"
 	mode = args.mode
+	mode_name = copy(mode)
 	private_genomes = args.private_genome
 	qtype = args.qtype_request
 	editor_request = args.editor_request
@@ -41,7 +45,38 @@ def guide_prediction(args, jobtag):
 	smk_run_triggers = ''
 	dryrun_setup = ''
 
+	# ->=== OUTPUT SETUP ===<-
+	# == Set import paths tied to the SMK pipeline
+	config_db_path = f"{db_path_full}/config_db/config_db.yaml"
+	# == Set export paths tied to the SMK pipeline ==
+	config_dir_path = f"{root_dir}/config"
+	# == Set export paths for Input Query Files
+	query_input_path = f"{root_dir}/queries"
+	# == Set export paths for dynamic YAML files ==
+	dynamic_config_path = f"{config_dir_path}/config_{jobtag}.yaml"
+	dynamic_cluster_path = f"{config_dir_path}/cluster_{jobtag}.yaml"
+	# == Create sub-folders to host VCFs, and config files ==
+	set_export(config_dir_path)
+
 	# ->=== INPUT CHECKS ===<-
+	# == Check the input paths and copy them over to mEdits Filetree
+	query_input_list = query_input.split(',')
+	formatted_query_input_list = []
+	query_index_count = 0
+	# == Check file integrity
+	for query_filename in query_input_list:
+		if not file_exists(query_filename):
+			handle_shell_exception(str('FileNotFound'), str(query_filename), True)
+			exit(0)
+	# == Copy query files in the right naming format for mEdit
+		if mode_name == 'fast':
+			mode_name = 'standard'
+		formatted_query_filename = f"{query_input_path}/{mode_name}_{jobtag}_{query_index_count}.csv"
+		formatted_query_input_list.append(formatted_query_filename)
+		query_index_count += 1
+		set_export(query_input_path)
+		#   => Create a copy of the VCF in the internal mEdit directory
+		launch_shell_cmd(f"cp {query_filename} {formatted_query_filename}", True)
 	#   == Check the presence of private genome among the inputs ==
 	if private_genomes:
 		mode = 'private'
@@ -61,16 +96,7 @@ def guide_prediction(args, jobtag):
 	if user_jobtag:
 		smk_run_triggers = '--rerun-triggers "mtime"'
 
-	# ->=== OUTPUT SETUP ===<-
-	# == Set import paths tied to the SMK pipeline
-	config_db_path = f"{db_path_full}/config_db/config_db.yaml"
-	# == Set export paths tied to the SMK pipeline ==
-	config_dir_path = f"{root_dir}/config"
-	# == Set export paths for dynamic YAML files ==
-	dynamic_config_path = f"{config_dir_path}/config_{jobtag}.yaml"
-	dynamic_cluster_path = f"{config_dir_path}/cluster_{jobtag}.yaml"
-	# == Create sub-folders to host VCFs, and config files ==
-	set_export(config_dir_path)
+
 
 	# ->=== CONFIG FILES IMPORT ===<-
 	#   == Load template configuration files ==
@@ -86,8 +112,8 @@ def guide_prediction(args, jobtag):
 		with open(config_db_path, 'r') as config_db_handle:
 			config_db = yaml.safe_load(config_db_handle)
 	except FileNotFoundError:
-		prRed(f"Couldn't fund the file {config_db_path}. "
-		      f"Please double-check the path to <medit_database> and provide the path via '-d' option")
+		handle_shell_exception("ConfigNotFound", config_db_path, True)
+		exit(0)
 
 	# ->=== CHECK RUN MODE ===<-
 	if mode == 'private':
@@ -134,7 +160,8 @@ def guide_prediction(args, jobtag):
 	config_template['support_tables'] = db_path_full
 	config_template['processing_mode'] = mode
 	config_template['output_directory'] = root_dir
-	config_template['variant_query_dir'] = query_input
+	config_template['variant_query'] = list(formatted_query_input_list)
+	config_template['query_index'] = list(range(len(formatted_query_input_list)))
 	# Assign run parameters to config
 	config_template['qtype'] = qtype
 	config_template['editor_request'] = editor_request

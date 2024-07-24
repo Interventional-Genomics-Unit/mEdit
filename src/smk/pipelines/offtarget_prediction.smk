@@ -15,19 +15,19 @@ rule all:
 		# expand("{fasta_root_path}/{sequence_id}.fa",
 		# 	fasta_root_path=config["fasta_root_path"], sequence_id=config["sequence_id"]),
 		# Prepare input files for casoffinder on a per-editor basis
-		expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/input_files/{editing_tool}_casoff_in.txt",
+		expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/input_files/{query_index}_{editing_tool}_casoff_in.txt",
 			root_dir=config["output_directory"],mode=config["processing_mode"],
 			run_name=config["run_name"], sequence_id=config["sequence_id"],
-			editing_tool=config["editors_list"]),
+			editing_tool=config["editors_list"], query_index=config['query_index']),
 		# Run Cas-Offinder
-		expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/{editing_tool}_casoff.txt",
+		expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/{query_index}_{editing_tool}_casoff.txt",
 			root_dir=config["output_directory"],mode=config["processing_mode"],
 			run_name=config["run_name"], sequence_id=config["sequence_id"],
-			editing_tool=config["editors_list"]),
-		expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/{editing_tool}_casoff_parsed.txt",
+			editing_tool=config["editors_list"], query_index=config['query_index']),
+		expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/{query_index}_{editing_tool}_casoff_parsed.txt",
 			root_dir=config["output_directory"],mode=config["processing_mode"],
 			run_name=config["run_name"], sequence_id=config["sequence_id"],
-			editing_tool=config["editors_list"])
+			editing_tool=config["editors_list"], query_index=config['query_index'])
 
 
 rule decompress_genome:
@@ -61,12 +61,12 @@ rule decompress_genome:
 # noinspection SmkAvoidTabWhitespace
 rule casoff_input_formatting:
 	input:
-		guides_per_editor_path = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/{editing_tool}.pkl",
-		guide_search_params = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params/guide_search_params.pkl",
+		guides_per_editor_path = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/{query_index}_{editing_tool}.pkl",
+		guide_search_params = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params/{query_index}_guide_search_params.pkl",
 		decompressed_assembly_symlink = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/{sequence_id}.fa",
 	output:
-		casoff_input = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/input_files/{editing_tool}_casoff_in.txt",
-		casoff_support = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/input_files/{editing_tool}_casoff_support.txt"
+		casoff_input = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/input_files/{query_index}_{editing_tool}_casoff_in.txt",
+		casoff_support = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/input_files/{query_index}_{editing_tool}_casoff_support.txt"
 	params:
 		rna_bulge = config["RNAbb"],
 		dna_bulge= config["DNAbb"],
@@ -94,9 +94,9 @@ Wildcards in this rule:
 # noinspection SmkAvoidTabWhitespace
 rule casoff_run:
 	input:
-		casoff_input="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/input_files/{editing_tool}_casoff_in.txt"
+		casoff_input="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/input_files/{query_index}_{editing_tool}_casoff_in.txt"
 	output:
-		casoff_out = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/{editing_tool}_casoff.txt"
+		casoff_out = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/{query_index}_{editing_tool}_casoff.txt"
 	params:
 		rna_bulge=config["RNAbb"],
 		dna_bulge=config["DNAbb"],
@@ -132,10 +132,10 @@ Wildcards in this rule:
 # noinspection SmkAvoidTabWhitespace
 rule casoff_output_formatting:
 	input:
-		casoff_out = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/{editing_tool}_casoff.txt",
-		casoff_support = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/input_files/{editing_tool}_casoff_support.txt",
+		casoff_out = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/{query_index}_{editing_tool}_casoff.txt",
+		casoff_support = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/input_files/{query_index}_{editing_tool}_casoff_support.txt",
 	output:
-		formatted_casoff_out = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/{editing_tool}_casoff_parsed.txt"
+		formatted_casoff_out = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/{query_index}_{editing_tool}_casoff_parsed.txt"
 	params:
 		rna_bulge=config["RNAbb"],
 		dna_bulge=config["DNAbb"],

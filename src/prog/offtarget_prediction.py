@@ -78,50 +78,52 @@ def offtarget_prediction(args, jobtag):
 	# === Import Variables from Configuration File ===
 	run_name = str(dynamic_config_guidepred['run_name'])
 	mode = str(dynamic_config_guidepred['processing_mode'])
+	query_index = list(dynamic_config_guidepred['query_index'])
 	root_dir = str(dynamic_config_guidepred['output_directory'])
 	# == mEdit offtarget prediction will only process one reference genome in this version ==
 	sequence_id = str(dynamic_config_guidepred['sequence_id'][0])
 
-	# == Set output paths ==
-	guides_per_editor_path = str(
-		f"{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction")
+	for index in query_index:
+		# == Set output paths ==
+		guides_per_editor_path = str(
+			f"{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/{index}_")
 
-	# == Recover Guide Prediction filepath ==
-	guides_report_path = Path(f"{root_dir}/{mode}/jobs/{run_name}/"
-							  f"guide_prediction-{sequence_id}/guides_report_ref/Guides_found.csv")
+		# == Recover Guide Prediction filepath ==
+		guides_report_path = Path(f"{root_dir}/{mode}/jobs/{run_name}/"
+								  f"guide_prediction-{sequence_id}/guides_report_ref/{index}_Guides_found.csv")
 
-	# == Group guides by editor and export DF as pickles by editor
-	grouped_guide_dict = group_guide_table(guides_report_path, editing_tool_request)
-	editors_list = export_guides_by_editor(grouped_guide_dict, guides_per_editor_path)
+		# == Group guides by editor and export DF as pickles by editor
+		grouped_guide_dict = group_guide_table(guides_report_path, editing_tool_request)
+		editors_list = export_guides_by_editor(grouped_guide_dict, guides_per_editor_path)
 
-	# === Export Variables to Configuration File ===
-	config_template['guides_per_editor_path'] = guides_per_editor_path
-	config_template['editors_list'] = editors_list
-	config_template['tmp_processing_casoff'] = f"{root_dir}/{config_template['tmp_processing_casoff']}"
+		# === Export Variables to Configuration File ===
+		config_template['guides_per_editor_path'] = guides_per_editor_path
+		config_template['editors_list'] = editors_list
+		config_template['tmp_processing_casoff'] = f"{root_dir}/{config_template['tmp_processing_casoff']}"
 
-	# == Set the temporary directory up for CasOffinder ==
-	set_export(config_template['tmp_casoff_path'])
+		# == Set the temporary directory up for CasOffinder ==
+		set_export(config_template['tmp_casoff_path'])
 
-	# === Write YAML configs to mEdit Root Directory ===
-	write_yaml_to_file(config_template, dynamic_config_off_path)
+		# === Write YAML configs to mEdit Root Directory ===
+		write_yaml_to_file(config_template, dynamic_config_off_path)
 
-	# === Invoke SMK Pipelines ===
-	print("# == Calling Off-Target Prediction pipeline == #")
-	try:
-		# --> When cluster submission is switched on,
-		launch_shell_cmd(f"snakemake "
-						 f"--snakefile {project_file_path('smk.pipelines', 'offtarget_prediction.smk')} "
-						 f"{smk_run_triggers} "
-						 f"-j {ncores} "
-						 f"{cluster_smk_setup} "
-						 f"--configfile {config_db_path} "
-						 f"{dynamic_config_guidepred_path} {dynamic_config_off_path} "
-						 f"--use-conda "
-						 f"--rerun-incomplete "
-						 f"{dryrun_setup} ",
-						 smk_verbosity
-						 )
-	except subprocess.CalledProcessError as e:
-		print(f"Error: {e}")
-	except ValueError:
-		print(f"Process completed in a previous run. Moving to the next one...")
+		# === Invoke SMK Pipelines ===
+		print("# == Calling Off-Target Prediction pipeline == #")
+		try:
+			# --> When cluster submission is switched on,
+			launch_shell_cmd(f"snakemake "
+							 f"--snakefile {project_file_path('smk.pipelines', 'offtarget_prediction.smk')} "
+							 f"{smk_run_triggers} "
+							 f"-j {ncores} "
+							 f"{cluster_smk_setup} "
+							 f"--configfile {config_db_path} "
+							 f"{dynamic_config_guidepred_path} {dynamic_config_off_path} "
+							 f"--use-conda "
+							 f"--rerun-incomplete "
+							 f"{dryrun_setup} ",
+							 smk_verbosity
+							 )
+		except subprocess.CalledProcessError as e:
+			print(f"Error: {e}")
+		except ValueError:
+			print(f"Process completed in a previous run. Moving to the next one...")

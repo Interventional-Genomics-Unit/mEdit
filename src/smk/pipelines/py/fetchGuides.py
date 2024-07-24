@@ -191,17 +191,18 @@ class Fetch_Guides:
 
 		return self.BE_search_params
 
-	def write_gsearch_params(self, outfile):
-		# writes pickle of selected guide search params for later use in process_genome
-		# 'editor', 'pam', '5prime_pam','guide_length', 'DSB site', 'notes'
-		with open(outfile, 'ab') as gfile:
-			pickle.dump(self.search_params, gfile)
 
 	def write_gsearch_params(self, outfile):
 		# writes pickle of selected guide search params for later use in process_genome
 		# 'editor', 'pam', '5prime_pam','guide_length', 'DSB site', 'notes'
+		# Create a copy of search_params
+		merged_search_params = self.search_params.copy()
+		# Update the copy with BE_search_params
+		merged_search_params.update(self.BE_search_params)
+		# Export Search Params
 		with open(outfile, 'ab') as gfile:
-			pickle.dump(self.BE_search_params, gfile)
+			pickle.dump(merged_search_params, gfile)
+
 
 	def write_snv_site_info(self, outfile):
 		'''
@@ -243,7 +244,6 @@ class Fetch_Guides:
 
 	def add_clininfo(self, gene_out, variant_out):
 		# writes
-		# TODO: The path to gene_tables will ideally be imported as a snakemake variable
 		all_tids = []
 		for k in self.snv_info.keys():
 			for v in self.snv_info[k]:
@@ -251,12 +251,9 @@ class Fetch_Guides:
 
 		tempgene = pd.read_csv(f"{self.processed_tables}/gene_tables/gene_tables.csv.gz")
 		self.all_gene = tempgene.loc[tempgene['TranscriptID'].isin(list(all_tids))]
-		# print(f"\n READY TO PRINT GENE OUT TO: {gene_out}\n ")
 		self.all_gene.to_csv(gene_out, index=False)
 
 		if self.qtype == 'hgvs':
-			# variant_out = f"{self.resultsfolder}/Variant_Report.csv"
-			# print(f"\nREADY TO PRINT VARIANT OUT TO: {variant_out}\n")
 			self.all_variant.to_csv(variant_out, index=False)
 
 	def add_not_found(self, nfqueries, reason):
@@ -511,14 +508,14 @@ def main():
 	fasta_path = str(snakemake.input.assembly_dir_path)
 	# === Outputs ===
 	guides_report = str(snakemake.output.guides_report_out)
+	gene_report = str(snakemake.output.gene_report)
+	variant_report = str(snakemake.output.variant_report)
+	be_report = str(snakemake.output.be_report)
 	guide_search_params_path = str(snakemake.output.guide_search_params)
 	snv_site_info_path = str(snakemake.output.snv_site_info)
 	guides_not_found_path = str(snakemake.output.guides_not_found_out)
 	# === Params ===
 	resultsfolder = set_export(str(snakemake.params.main_out))
-	gene_report = f"{resultsfolder}/{str(snakemake.params.gene_report)}"
-	variant_report = f"{resultsfolder}/{str(snakemake.params.variant_report)}"
-	be_report = f"{resultsfolder}/{str(snakemake.params.be_report)}"
 	#   == Processed tables branch ==
 	datadir = str(snakemake.params.support_tables)
 	annote_path = str(snakemake.params.annote_path)
@@ -536,6 +533,14 @@ def main():
 	# BEmode = 'off'
 	# editor = 'all'
 	# == == ==
+
+	# == Create dummy files for optional outputs
+	optional_outputs = [be_report, variant_report, gene_report]
+	for report in optional_outputs:
+		# Create an empty DataFrame
+		df = pd.DataFrame()
+		# Export the empty DataFrame to a CSV file
+		df.to_csv(str(report))
 
 	# == Input Setup ==
 	df = pd.read_csv(input_file)

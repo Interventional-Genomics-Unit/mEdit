@@ -10,6 +10,9 @@ threads: 1
 run_name: ""
 # Must be the same as specified for the run_name
 processing_mode: ""
+# mEdit can process more than one query file at a time
+#   This index keeps track of the possible different query processing branches
+query_index: ""
 
 # == RUN PARAMETERS ==
 # Any applicable defaults are defined at prog/arguments.py
@@ -21,21 +24,10 @@ distance_from_cutsite: ""
 # === I/O PATHS ===
 # == DIRECTORIES ==
 # Directory that holds the query HGVSs
-variant_query_dir: ""
+variant_query: ""
 
 # Parent database folder
 support_tables: ""
-
-# == FILENAMES ==
-# Outputs
-gene_report: "Gene_Report.csv"
-variant_report: "Variant_Report.csv"
-be_report: "BaseEditors_found.csv"
-
-# Path where downloaded references are temporarily stored
-#fasta_download_path: "/groups/clinical/projects/clinical_shared_data/hprc/aws2"
-# Intermediate path where compression routine temporaries are saved
-#fasta_compressed_path: "/groups/clinical/projects/clinical_shared_data/hprc/bgzipped_fasta"
 
 # === DOWNLOAD PARAMETERS ===
 aws_url: "https://s3-us-west-2.amazonaws.com/human-pangenomics/working/HPRC"

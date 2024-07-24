@@ -26,7 +26,7 @@ output_directory: "/groups/clinical/projects/medit_analysis"
 # Parent output directory where background data and DBs are stored
 db_path: "/groups/clinical/projects/medit_database"
 # Directory that holds the query HGVSs
-variant_query_dir: "/groups/doudna/projects/daniel_projects/editability/jobs/query" # "/groups/clinical/projects/editability/medit_queries/medit_test/test_in"
+variant_query: "/groups/doudna/projects/daniel_projects/editability/jobs/query" # "/groups/clinical/projects/editability/medit_queries/medit_test/test_in"
 
 # == FILENAMES ==
 # Outputs
