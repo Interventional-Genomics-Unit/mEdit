@@ -106,10 +106,20 @@ Wildcards in this rule:
 	shell:
 		"""
 		# Prepare directories:
+		# 1) If Depth is present in FORMAT filter > 5
         # 2) filter GAT1 or GAT2 samples (samples where one haplotype has a sequence depth = 0)
-        # & filter reference & variant alleles > 5nt
+        # 3) filter reference & variant alleles > 1nt (SNVS only for now)
+        # 4) Filter quality score > 15
         # Create index file
-        bcftools filter -O z -o {output.filtered_vcf} -e 'GT="." || ILEN <= -5 || ILEN >= 5' {input.source_vcf} 
+        
+        if bcftools view -h {input.source_vcf} | grep -n '##FORMAT=<ID=DP' >0; then
+        	bcftools filter -O z -o {output.filtered_vcf} -e 'GT="." || ILEN <= -1 || ILEN >= 1 || QUAL<15 || FMT/DP<5' {input.source_vcf}
+		else
+			bcftools filter -O z -o {output.filtered_vcf} -e 'GT="." || ILEN <= -1 || ILEN >= 1 || QUAL<15' {input.source_vcf}
+		fi
+		
+        # bcftools filter -O z -o {output.filtered_vcf} -e 'GT="." || ILEN <= -5 || ILEN >= 5 || QUAL<15 || (FMT/DP && FMT/DP<5)' {input.source_vcf} 
+        
         bcftools index -f -t {output.filtered_vcf}
 
         # 3) Making a consensus
@@ -135,9 +145,10 @@ rule process_altgenomes:
 		)),
 		guides_report_out= "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/{query_index}_Guides_found.csv",
 		guide_search_params= "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params/{query_index}_guide_search_params.pkl",
-		snv_site_info= "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params/{query_index}_snv_site_info.pkl"
+		snv_site_info= "{root_dir}/{mode}/jobs/{run_name}/guide_predictiqon-{sequence_id}/dynamic_params/{query_index}_snv_site_info.pkl"
 	output:
 		diff_guides = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_{vcf_id}/{query_index}_Guide_differences.csv",
+		alt_var= "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_{vcf_id}/{query_index}_nearby_variants.csv"
 	params:
 		idx_filtered_vcf = "{root_dir}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.filtered.vcf.gz.tbi",
 		models_path= config["models_path"]
@@ -156,6 +167,7 @@ Inputs used:
 
 Outputs generated:
 --> Guide differences report output on:\n {output.diff_guides}
+--> Alt genome variants found nearyby reported on:\n {output.diff_guides}
 Wildcards in this rule:
 --> {wildcards}
 		"""

@@ -9,214 +9,258 @@ import vcf
 from dataH import DataHandler
 
 #################################
-# searches for changes in guides found in hg38 based on variants in a user submitted VCF
+# Compares ALT VCF to Guide found in Hg38
+# Searches and compares changes in either guide or pam
+# If new guide is created --> submits query back to Fetch guides
 #################################
 
-## assumption that the VCF imported. Has the Alternate gene specified
-## A deletion greater than 5
-
-
-def extract_vcf_record(snv_coord, vcf_fname, window=30):
+def extract_vcf_record(REFcoord, vcf_fname, window):
     '''
-    seraches for an alternate genome variant in the +/-60bp of snv query position
+    searches for overlapping variant at the provided REF genome coordinate $ window
     '''
-    #snv_coord = 'chr11:5226788'
-    #extracted_seq = 'ATCCCCAAAGGACTCAAAGAACCTCTGGGTTCAAGGGTAGACCACCAGCAGCCTAAGGGT'
-    ch, pos = snv_coord.split(':')
     records_found = []
-    print(ch,pos)
-
+    ch, pos = REFcoord.split(':')
     vcf_reader = vcf.Reader(filename = vcf_fname, compressed = True)
     for record in vcf_reader.fetch(ch, int(pos) - window, int(pos) + window):
         records_found.append(record)
-        print(record)
     return records_found
 
 
-def extract_variant_info(record, hg38extracted_seq, hg38coord):
+def make_ALTseq(extracted_seq, pos, ref, alt):
+    '''
+    Given the Reference Genome sequence (variant incorporated), adds mutations from ALT VCF to the sequence
+    :param extracted_seq: Ref sequence
+    :param pos: Alt genome variant start pos
+    :param ref: Reference Allele
+    :param alt: Alt Genome alt allele
+    '''
+    if len(ref) == len(alt):  ##substitution
+        variant_seq = (extracted_seq[0:pos] + alt.lower() + extracted_seq[pos + len(alt):])
+    else:
+        print("SNV sites only accepted at this time")
+    return variant_seq
+
+def extract_variant_info(record, REFextracted_seq, REFcoord):
     '''
     for a given alt record found determine the ALT information
     and create a new extracted sequence incorporating the ALT allele
     '''
-    vt = record.var_type
-    x = record.samples[0]
-    alt_alleles = record.ALT
-    #print(record.ALT,record.REF)
-    zyg = 'heterozygous' if x.is_het else 'homozygous'
-    if len(alt_alleles) == 2:
+    ## RECORD INFO FOR SAMPLE =1
+    ALTalt_list, ALTref =record.ALT,record.REF
+    call = record.samples[0]
+    zyg = 'heterozygous' if call.is_het else 'homozygous'
+    window = int(len(REFextracted_seq)/2)
+
+    ## if there is more than 2 ALT alleles
+    if len(ALTalt_list) == 2:
         zyg = zyg + '-biallelic'
-    if len(alt_alleles) > 2:
+    if len(ALTalt_list) > 2:
         zyg = zyg + '-multiallelic'
 
-    alt = alt_alleles[0]
-    hg38_start = int(hg38coord.split(':')[1]) - int(len(hg38extracted_seq)/2)
-    vstart, vend = record.start, record.end #reference range
-    rel_pos = ((vstart -hg38_start)+ 1,(vend-hg38_start)+1)
-    #print(rel_pos)
-    #print(vstart,vend)
-    #print(alt.type)
-    if len(record.REF) == len(alt): ## substitution
-        vt = vt + '-sub'
-        new_seq = hg38extracted_seq[0:rel_pos[0]] + alt.sequence + hg38extracted_seq[rel_pos[1]:]
+    ## THE first alt allele info
+    vtype = record.ALT[0].type
+    ALTalt = ALTalt_list[0].sequence ### <-- this program only incorporates the first alternative allele
+    REFstart = int(REFcoord.split(':')[1]) - window
+    ALTstart, ALTend = record.start, record.end
+    ALTcoord = f'{record.CHROM}:{record.POS}'
+    rel_pos = (ALTstart -REFstart)+ 1
+    ALTalts = ",".join([str(x) for x in record.samples[0].site.alleles][1:])
+    ALTid = f'{ALTcoord}:{ALTref}>{ALTalts}'
+
+    #print('alt, ref',record.ALT, record.REF)
+    #print('relative position',rel_pos)
+    #print('check extracted seq == ref',REFextracted_seq[rel_pos],record.REF)
+    #print('ALT starts and stop',ALTstart,ALTend)
+
+    #if len(record.REF) == len(alt): ## substitution
+    #    vtype = vtype + '-sub'
+    #    new_seq = REFextracted_seq[0:rel_pos[0]] + alt.sequence + REFextracted_seq[rel_pos[1]:]
         #print(new_seq)
 
-    elif len(record.REF) > len(alt): # deletion
-        vt = vt + '-del'
+    #elif len(record.REF) > len(alt): # deletion
+    #    vt = vtype + '-del'
         #new_seq = hg38extracted_seq[0:rel_pos[0]] + alt.sequence + hg38extracted_seq[rel_pos[1]:]
-        new_seq = 'undetermined'
+    #    new_seq = 'undetermined'
 
-    elif len(record.REF) < len(alt): # insertion
-        vt = vt + '-ins'
-        new_seq = hg38extracted_seq[0:rel_pos[0]] + alt.sequence + hg38extracted_seq[rel_pos[1]:]
-        new_seq = new_seq[0:len(hg38extracted_seq)-1]
-        #print(new_seq)
-
-    else:
-        new_seq = 'undetermined'
-
-    return record.REF, alt.sequence, zyg, vt, new_seq
+    #elif len(record.REF) < len(alt): # insertion
+    #    vt = vtype + '-ins'
+    #    new_seq = REFextracted_seq[0:rel_pos[0]] + alt.sequence + REFextracted_seq[rel_pos[1]:]
+    #    new_seq = new_seq[0:len(REFextracted_seq)-1]
 
 
-def find_overlapping_variants(vcf_fname, altgenome_name, models_path, hg38_snvinfo, search_params):
+    #else:
+    #    new_seq = 'undetermined'
 
-    new_guides = {}
-    v_info = [[],[],[],[],[],[],[]]
+    return ALTref, ALTalt, ALTalts, ALTcoord,zyg, vtype, rel_pos, ALTid
+
+
+def find_overlapping_variants(filtered_vcf, models_path, hg38_snvinfo, search_params):
+    ALTguides_dict = {}
+    ALTinfo = {}
+
     for ch, data in hg38_snvinfo.items():
         for d in data:
             try:
-                query, tid, eid, strand, hgref, hgalt, feature_annotation, hg38extracted_seq, codons, hg38coord = d
+                query, tid, eid, gname,strand, REFref, REFalt, feature_annotation, REFextracted_seq, codons, REFcoord = d
             except ValueError:
                 print(f"WARNING: process_genome.py --> The query below has the wrong number of values to unpack. "
                       f"Needs further investigation:\n{d}")
                 continue
-
-            # Check VCF if variant exsists in hg38 extracted_seq
-            records_found = extract_vcf_record(snv_coord=hg38coord, vcf_fname = vcf_fname, window=30)
+            # Check VCF if variant exists in hg38 extracted_seq
+            window = len(REFextracted_seq)/2
+            records_found = extract_vcf_record(REFcoord=REFcoord, vcf_fname = filtered_vcf, window=window)
 
             if len(records_found) > 0:
-                # Create new variant incorporated extracted seq
+
+                ALTseq = REFextracted_seq
+
                 for rec in records_found:
-                    ref, alt, zyg, vtype, var_seq = extract_variant_info(rec,str(hg38extracted_seq),hg38coord)
-                    v_info[0].append(query)
-                    v_info[1].append(vtype)
-                    alts = ",".join([str(x) for x in rec.samples[0].site.alleles][1:])
-                    v_info[2].append(f'{ref}|{alts}')
-                    v_info[3].append(alt)
-                    v_info[4].append(f'chr{ch}:{rec.POS}')
-                    v_info[5].append(zyg)
-                    if var_seq != 'undetermined':
-                        dh = DataHandler(query, strand, hgref, hgalt, feature_annotation, var_seq, codons, hg38coord)
-                        new_guides_set, be_none = dh.get_Guides(search_params)
-                        if len(new_guides_set['gRNA']) > 0:
-                            if len(new_guides.keys()) == 0:
-                                for k, v in new_guides_set.items():
-                                    new_guides[k] = v
-                            else:
-                                for k, v in new_guides_set.items():
-                                    new_guides[k] += v
-                        v_info[6].append('placeholder')
-                    else:
-                        v_info[6].append('undetermined')
+                    ALTref, ALTalt, ALTalts, ALTcoord, zyg, vtype, rel_pos, ALTid= extract_variant_info(rec,str(REFextracted_seq),REFcoord)
 
-    labels = ['QueryTerm',f'{altgenome_name}_Variant_Type','REF|ALT','Examined_ALT','Var_Position', f'{altgenome_name}_Zygosity',f'{altgenome_name}_guide_impact']
-    variants_found = dict(zip(labels,v_info))
+                    if rel_pos != window: #make sure the alt genome mutation is not the same as the one in clinvar or it will be duplicated
+                        ALTinfo[query] = {ALTid : [ALTid,ALTref, ALTalt, ALTalts, ALTcoord, zyg, vtype, window -rel_pos if rel_pos>window else -1*rel_pos]}
+                        ALTseq = make_ALTseq(extracted_seq = ALTseq, pos = rel_pos, ref = REFalt, alt = ALTalt)
 
-    return variants_found, new_guides
+                if ALTseq != REFextracted_seq:
+                    # find quides
+                    dh = DataHandler(query, strand, REFref, REFalt, feature_annotation, models_path, ALTseq, codons,
+                                     REFcoord, gname)
+                    new_guides_set, be_none = dh.get_Guides(search_params)
 
+                    if len(new_guides_set['gRNA']) > 0:
 
-def write_results(hg38guide_results, variants_found, new_guides_dict, altgenome_name, refgenome_name, outfile):
+                        for k, v in new_guides_set.items():
+                            if k not in ALTguides_dict.keys():
+                                ALTguides_dict[k] = []
+                            ALTguides_dict[k]+= [x for x in v]
+
+    return ALTinfo, ALTguides_dict
+
+def guide_compare(guides_report,ALTguides_dict,ALTinfo,refgenome_name,altgenome_name):
     '''
-    compares guides found in new genome and ref genome.
-    Drops unchanged guides and labels guides impacted by ALT
+    Compares the guides generated from the ALT and REf genomes.
+    Creates a DF that shows the ALT genomes impact on REF guides
+
+    :param guides_report: Reference Genome guide CSV
+    :param ALTguides_dict: Guide found with variations found in ALT genome
+    :param ALTinfo: ALT genome VCF variant into
+    :param refgenome_name: example 'Hg68'
+    :param altgenome_name: example 'H02557'
     '''
 
-    if len(variants_found['QueryTerm']) > 1:
-        hg38_gdf = pd.read_csv(hg38guide_results)
-        var_df = pd.DataFrame(variants_found).set_index('QueryTerm')
-        new_guides = pd.DataFrame(new_guides_dict).drop(columns=[ 'Guide_ID','SNV Position', 'Ref>Alt','Annotation'])
-        hg38_gdf = hg38_gdf.loc[hg38_gdf.QueryTerm.isin(set(variants_found['QueryTerm']))]
-        hg38_gdf = hg38_gdf.drop(columns=['SNV Position', 'Ref>Alt'])
-        old_guides = hg38_gdf.join(var_df, how='outer', on='QueryTerm').reset_index(drop=True)
+    new_guides = []
 
-        new_info = new_guides.to_dict('tight')['data']
-        print('            ')
-        print('Guide Impacts')
-        new_rows = []
-        for idx, row in old_guides.iterrows():
-            cnt = 1
-            query, ed, coord, grna, pam = row['QueryTerm'],row['Editor'],row['Coordinates'],row['gRNA'],row['Pam']
-            print('--------------------------------------')
-            print('QUERY Editor QUERY_POS REF|ALT')
-            print(query, ed, coord, row['REF|ALT'])
-            if row[f'{altgenome_name}_guide_impact'] == 'undetermined':  # guide never determined (ALT is deletion)
-                new_rows.append(list(row[0:8]) + ['-','-','-','undetermined'] + list(row[9:14]))
-                print('impact;undetermined')
-                cnt -= 1
-            else:
-                for n in new_info:
-                    if ed == n[1]:
-                        if [query,pam,grna] == [n[0],n[5],n[4]]:  # unchanged
-                            print('impact;unchanged', pam, '->', n[5], grna, '->', n[4])
-                            new_info.remove(n)
-                            cnt -= 1
-                            break
-                        elif [query,pam] == [n[0],n[5]]:  # same pam which means change is in grna
-                            new_rows.append(list(row[0:8]) + [n[4], n[5], n[6], 'grna_changed_conserved'] + list(row[9:14]))
-                            print('impact;grna_changed_conserved', pam, '->', n[5], grna, '->', n[4])
-                            new_info.remove(n)
-                            cnt -= 1
-                            break
-                        elif[query,grna] == [n[0],n[4]]:
-                            new_rows.append(
-                                list(row[0:8]) + [n[4], n[5], n[6], 'pam_changed_conserved'] + list(row[9:14]))
-                            print('impact;pam_changed_conserved', pam, '->', n[5], grna, '->', n[4])
-                            new_info.remove(n)
-                            cnt -= 1
-                            break
-                        else:
-                            pass
-                if cnt < 0:  # old guides remaining and not matched == no longer exsist
-                    new_rows.append(list(row[0:8]) + ['removed', 'removed', 'removed', 'pam_changed_removed'] + list(row[9:14]))
-                    print('impact;pam_changed_removed', pam, '->', '-', grna, '->', '-')
+    altgdf = pd.DataFrame(ALTguides_dict)
+    refgdf = pd.read_csv(guides_report)
+    refgdf = refgdf[refgdf['QueryTerm'].isin(list(ALTinfo.keys()))]
+    REFrows = refgdf.to_dict('tight')['data']
+    ALTrows = altgdf.to_dict('tight')['data']
 
-        if len(new_info) > 0:  # new guides remaining and not matched == new guides are made
-            id_cnt = 1
-            for n in new_info:
-                x = [n[0],n[1],f'{n[1]}_NEW{id_cnt}',n[2],n[3],'-', '-', '-','-',
-                                 n[4], n[5], n[6]] + list(var_df.loc[n[0]])
-                new_rows.append(x[:-1])
-                print('impact;pam_changed_added', '-', '->', n[5], '-', '->', n[4])
-                id_cnt += 1
-        cols = ['QueryTerm', 'Editor', 'Guide_ID', 'Coordinates', 'Strand', f'{refgenome_name}_gRNA',
-       f'{refgenome_name}_Pam', f'{refgenome_name}_Doench Score',f'{refgenome_name}_gRNA',
-       f'{altgenome_name}_Pam', f'{altgenome_name}_Doench Score',f'{altgenome_name}_Guide_Impact',
-        'Variant_Type', 'REF|ALT','Examined_ALT', f'{altgenome_name}Var_Position', f'{altgenome_name}_Zygosity']
-        df = pd.DataFrame(new_rows, columns=cols)
-        df.to_csv(outfile, index=False)
+    rename_columns = [f'{altgenome_name} {x}' if 'Score' in x else x for x in altgdf.columns[8:]]
+    columns = ['QueryTerm','GeneName', 'Editor',f'{altgenome_name} Guide Impact',
+               'Coordinates','Strand',f'{altgenome_name} gRNA', f'{altgenome_name} Pam',
+               f'{refgenome_name} gRNA', f'{refgenome_name} Pam'] + rename_columns
+
+    for rrow in REFrows:
+        query, gene,ed,gid,coord,strand, REFgrna, REFpam = rrow[0:8]
+
+        cnt = 1
+        for arow in ALTrows:
+            if query == arow[0] and ed ==arow[2]:
+                ALTgrna, ALTpam = arow[6:8]
+
+                if [REFpam, REFgrna] == [ALTpam, ALTgrna]:  # unchanged
+                    #print('impact;unchanged', REFpam, '->', ALTpam, REFgrna, '->', ALTgrna)
+                    ALTrows.remove(arow)
+                    cnt -= 1
+                    break
+
+                elif REFpam == ALTpam and ALTgrna != REFgrna:  # same pam which means change is in grna
+                    newrow = rrow[0:3] + ['protospacer changed & conserved'] + rrow[4:6] + arow[6:8] + rrow[6:8] + arow[8:]
+                    new_guides.append(newrow)
+                    #print('impact;grna_changed_conserved', REFpam, '->', ALTpam, REFgrna, '->', ALTgrna)
+                    ALTrows.remove(arow)
+                    cnt -= 1
+                    break
+
+                elif REFgrna == ALTgrna:  # pam is changed but conserved
+                    newrow = rrow[0:3] + ['PAM changed & conserved'] + rrow[4:6] + arow[6:8] + rrow[6:8] + arow[8:]
+                    new_guides.append(newrow)
+                    #print('impact;pam_changed_conserved', REFpam, '->', ALTpam, REFgrna, '->', ALTgrna)
+                    ALTrows.remove(arow)
+                    cnt -= 1
+                    break
+                else:
+                    pass
+
+        if cnt == 1:  # old guides remaining and not matched == no longer exsist
+            newrow = rrow[0:3] + ['PAM changed & removed'] + rrow[4:6] +["-","-"] + rrow[6:8] + len(rrow[8:]) * ['-']
+            new_guides.append(newrow)
+            #print('impact;pam_changed_removed', REFpam, '->', '-', REFgrna, '->', '-')
 
 
-def fetch_ALT_guides(vcf_fname, ref_guide_report, searchp_path, models_path, sitep_path, diffguides_report, altgenome_name, refgenome_name):
+    if len(ALTrows) > 0:  # new guides remaining and not matched == new guides are made
+        for arow in ALTrows:
+            newrow = arow[0:3] + ['PAM changed & added'] + arow[4:8] + ["-", "-"] + arow[8:]
+            new_guides.append(newrow)
+           # print('impact;pam_changed_added', '-', '->', arow[8], '-', '->', arow[7])
 
-    # Get search parameters and the results from the reference assembly
-    hg38guide_results = ref_guide_report
-    search_params = pickle.load(open(searchp_path, 'rb'))
-    # get hg38_snv_info (60bp extracted sequence, translation info, hg38_coordinates etc.
-    hg38_snvinfo = pickle.load(open(sitep_path, 'rb'))
+    ALTguides_df = pd.DataFrame(new_guides, columns=columns)
+    return ALTguides_df
 
-    variants_found, new_guides_dict = find_overlapping_variants(vcf_fname, altgenome_name, models_path, hg38_snvinfo, search_params)
+def create_ALTvcf_report(ALTinfo,altgenome_name):
+    columns = ['QueryTerm',f'{altgenome_name} VCF Variant ID',
+               'REF Allele','ALT Examined','ALT allele(s)',
+               'Variant Coordinates','Zygosity','Variant Type','Relative Position to Query']
+    rows = []
+    for query in ALTinfo.keys():
+        #{ALTid : [ALTid,ALTref, ALTalt, ALTalts, ALTcoord, zyg, vtype, rel_pos]}
+        for variant, info in ALTinfo[query].items():
+            rows.append([query]+info)
 
-    if len(variants_found['QueryTerm']) > 0:
-        write_results(hg38guide_results,
-                      variants_found,
-                      new_guides_dict,
-                      altgenome_name,
-                      refgenome_name,
-                      diffguides_report)
+    nearby_variants_df = pd.DataFrame(rows,columns=columns)
+    return nearby_variants_df
+
+
+def fetch_ALT_guides(filtered_vcf,
+                     guides_report,
+                     guide_search_params,
+                     models_path,
+                     snv_site_info,
+                     diffguides_out,
+                     altvar_out,
+                     altgenome_name,
+                     refgenome_name):
+
+
+    ## Get search parameters and the results from the reference assembly
+    # {'spCas9': ('NGG', False, 20, -3, 'requirements work for SpCas9-HF1, eSpCas9 1.1,spyCas9'),
+    search_params = pickle.load(open(guide_search_params, 'rb'))
+
+    ## get REF variant info
+    # {'X': [['NM_004208.4:c.696+3G>A', 'NM_145812.3', '-', 'AIFM1', '-', 'C', 'T', 'intron', 'GGCTGG...
+    hg38_snvinfo = pickle.load(open(snv_site_info, 'rb'))
+
+    print("Searching for ALT genome changes")
+    ALTinfo, ALTguides_dict   = find_overlapping_variants(filtered_vcf, models_path, hg38_snvinfo, search_params)
+
+    if len(ALTinfo.values()) > 0:
+
+        nearby_variants_df = create_ALTvcf_report(ALTinfo,altgenome_name)
+        nearby_variants_df.to_csv(altvar_out, index = False)
+        if len(ALTguides_dict.values()) > 0:
+
+            ALTguides_df = guide_compare(guides_report, ALTguides_dict, ALTinfo, refgenome_name, altgenome_name)
+            ALTguides_df.to_csv(diffguides_out,index = False)
+        else:
+
+            print(f'no overlapping variants detected in {altgenome_name}')
+            with open(diffguides_out, 'w') as f:
+                f.write(f"No guide differences found based on the VCF {altgenome_name}")
     else:
         print(f'no overlapping variants detected in {altgenome_name}')
-        with open(diffguides_report, 'w') as f:
-            f.write(f"No guide differences found based on the VCF {altgenome_name}")
-
+        with open(altvar_out, 'w') as f:
+            f.write(f"No Nearby variants found based on the VCF {altgenome_name}")
 
 def main():
     # SNAKEMAKE IMPORTS
@@ -227,6 +271,7 @@ def main():
     snv_site_info = str(snakemake.input.snv_site_info)
     # === Outputs ===
     diffguides_out = str(snakemake.output.diff_guides)
+    altvar_out = str(snakemake.output.alt_var)
     # === Params ===
     idx_filtered_vcf = str(snakemake.params.idx_filtered_vcf)
     # ==* The models_path ideally should not be here.
@@ -236,14 +281,6 @@ def main():
     altgenome_name = str(snakemake.wildcards.vcf_id)
     refgenome_name = str(snakemake.wildcards.sequence_id)
 
-    # resultsfolder = "/groups/clinical/projects/editability/medit_queries/medit_test/test_out/"
-    # datadir = "/groups/clinical/projects/editability/tables/"
-    # filtered_vcf = f"{datadir}raw_tables/VCFs/HG02257.filtered.vcf.gz"
-    # models_path = "/home/thudson/projects/editability/scr/pkl/models/"
-    # snv_site_info, guide_search_params  = f'{resultsfolder}snv_site_info.pkl',f'{resultsfolder}guide_search_params.pkl'
-    # guides_report = f'{resultsfolder}hg38_Guides_found.csv'
-    # altgenome_name,refgenome_name  = 'HG02257','HG38'
-    # diffguides_out = f'{resultsfolder}HG02257_guide_differences.csv'
 
     # Generate vcf index with tabix
     print(f"Generate tabix file on:\n {idx_filtered_vcf}")
@@ -255,6 +292,7 @@ def main():
                      models_path,
                      snv_site_info,
                      diffguides_out,
+                     altvar_out,
                      altgenome_name,
                      refgenome_name)
 
