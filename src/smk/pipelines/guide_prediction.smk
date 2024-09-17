@@ -16,10 +16,10 @@ rule all:
 			meditdb_path=config["meditdb_path"],mode=config["processing_mode"],
 			vcf_id=config["vcf_id"],sequence_id=config["sequence_id"]),
 		# Predicted guides on alternative genomes based on the reference listed above
-		expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_{vcf_id}/{query_index}_Guide_differences.csv",
+		expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/{query_index}_Guide_differences.csv",
 			root_dir=config["output_directory"],mode=config["processing_mode"],
 			run_name=config["run_name"],sequence_id=config["sequence_id"],
-			vcf_id=config["vcf_id"], query_index=config['query_index'])
+			query_index=config['query_index'])
 
 # noinspection SmkAvoidTabWhitespace
 rule predict_guides:
@@ -78,7 +78,7 @@ rule consensus_fasta:
 	input:
 		assembly_path=lambda wildcards: glob.glob("{fasta_root_path}/{sequence_id}.fa.gz".format(
 			fasta_root_path=config["fasta_root_path"],sequence_id=wildcards.sequence_id)),
-		source_vcf="{meditdb_path}/{mode}/source_vcfs/{vcf_id}.vcf.gz",
+		source_vcf="{meditdb_path}/{mode}/source_vcfs/{vcf_id}.vcf.gz"
 	output:
 		consensus_fasta="{meditdb_path}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.fa",
 		filtered_vcf="{meditdb_path}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.filtered.vcf.gz"
@@ -129,18 +129,17 @@ Wildcards in this rule:
 # noinspection SmkAvoidTabWhitespace
 rule process_altgenomes:
 	input:
-		filtered_vcf = lambda wildcards: glob.glob("{meditdb_path}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.filtered.vcf.gz".format(
-			meditdb_path=config["meditdb_path"],mode=wildcards.mode,
-			vcf_id=wildcards.vcf_id,sequence_id=wildcards.sequence_id
-		)),
+		filtered_vcf = expand("{meditdb_path}/{{mode}}/consensus_refs/{{sequence_id}}/{vcf_id}.filtered.vcf.gz",
+			meditdb_path=config["meditdb_path"], vcf_id=config["vcf_id"]),
 		guides_report_out= "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/{query_index}_Guides_found.csv",
 		guide_search_params= "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params/{query_index}_guide_search_params.pkl",
 		snv_site_info= "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params/{query_index}_snv_site_info.pkl"
 	output:
-		diff_guides = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_{vcf_id}/{query_index}_Guide_differences.csv",
+		diff_guides = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/{query_index}_Guide_differences.csv",
 	params:
-		idx_filtered_vcf = "{root_dir}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.filtered.vcf.gz.tbi",
-		models_path= config["models_path"]
+		# idx_filtered_vcf = "{root_dir}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.filtered.vcf.gz.tbi",
+		vcf_id = config['vcf_id'],
+		models_path = config["models_path"]
 	# 	# == Main output path
 	# 	main_out = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_{vcf_id}/"
 	conda:

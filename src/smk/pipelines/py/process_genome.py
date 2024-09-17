@@ -203,6 +203,7 @@ def fetch_ALT_guides(vcf_fname, ref_guide_report, searchp_path, models_path, sit
     # get hg38_snv_info (60bp extracted sequence, translation info, hg38_coordinates etc.
     hg38_snvinfo = pickle.load(open(sitep_path, 'rb'))
 
+    #LOOP THROUGH A LIST OF n>=1 items
     variants_found, new_guides_dict = find_overlapping_variants(vcf_fname, altgenome_name, models_path, hg38_snvinfo, search_params)
 
     if len(variants_found['QueryTerm']) > 0:
@@ -221,14 +222,15 @@ def fetch_ALT_guides(vcf_fname, ref_guide_report, searchp_path, models_path, sit
 def main():
     # SNAKEMAKE IMPORTS
     # === Inputs ===
-    filtered_vcf = str(snakemake.input.filtered_vcf)
+    filtered_vcf_list = list(snakemake.input.filtered_vcf)
     guides_report = str(snakemake.input.guides_report_out)
     guide_search_params = str(snakemake.input.guide_search_params)
     snv_site_info = str(snakemake.input.snv_site_info)
     # === Outputs ===
     diffguides_out = str(snakemake.output.diff_guides)
     # === Params ===
-    idx_filtered_vcf = str(snakemake.params.idx_filtered_vcf)
+    vcf_id = list(snakemake.params.vcf_id)
+    # idx_filtered_vcf = str(snakemake.params.idx_filtered_vcf)
     # ==* The models_path ideally should not be here.
     #       Once the DataHandler class is properly instantiated this can be removed
     models_path = str(snakemake.params.models_path)
@@ -245,18 +247,22 @@ def main():
     # altgenome_name,refgenome_name  = 'HG02257','HG38'
     # diffguides_out = f'{resultsfolder}HG02257_guide_differences.csv'
 
-    # Generate vcf index with tabix
-    print(f"Generate tabix file on:\n {idx_filtered_vcf}")
-    subprocess.run(f"tabix {filtered_vcf}", shell=True)
+    # Loop through the list of genomes of size n>=1
+    for filtered_vcf in filtered_vcf_list:
+        # Generate vcf index with tabix
+        tbi_filepath = f"{filtered_vcf}.tbi"
+        print(f"Generate tabix file on:\n {tbi_filepath}")
+        subprocess.run(f"tabix {filtered_vcf}", shell=True)
 
-    fetch_ALT_guides(filtered_vcf,
-                     guides_report,
-                     guide_search_params,
-                     models_path,
-                     snv_site_info,
-                     diffguides_out,
-                     altgenome_name,
-                     refgenome_name)
+        # ::TAYLOR:: I suppose this is now part of the above loop?
+        fetch_ALT_guides(filtered_vcf,
+                         guides_report,
+                         guide_search_params,
+                         models_path,
+                         snv_site_info,
+                         diffguides_out,
+                         altgenome_name,
+                         refgenome_name)
 
 
 if __name__ == "__main__":
