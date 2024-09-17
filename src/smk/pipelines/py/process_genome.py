@@ -273,7 +273,7 @@ def main():
 	diffguides_out = str(snakemake.output.diff_guides)
 	altvar_out = str(snakemake.output.alt_var)
 	# === Params ===
-	vcf_id = list(snakemake.params.vcf_id)
+	vcf_id_list = list(snakemake.params.vcf_id)
 	# idx_filtered_vcf = str(snakemake.params.idx_filtered_vcf)
 	# ==* The models_path ideally should not be here.
 	#       Once the DataHandler class is properly instantiated this can be removed
@@ -290,6 +290,9 @@ def main():
 		print(f"Generate tabix file on:\n {tbi_filepath}")
 		subprocess.run(f"tabix {filtered_vcf}", shell=True)
 
+        # ::TAYLOR:: Not the most elegant solution, but still solid:
+		#       Use the vcf_id_list to re.search the vcf filenames while
+		#       you're looping them to obtain a clean label string that can be used in the output column
 		fetch_ALT_guides(filtered_vcf,
 						 guides_report,
 						 guide_search_params,
