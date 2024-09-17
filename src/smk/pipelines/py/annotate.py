@@ -1,5 +1,4 @@
 # Native Modules
-import gzip
 from subprocess import Popen, PIPE
 import os
 
@@ -25,16 +24,18 @@ class Transcript:
         '''
 
         self.entry = entry
-        for k in ['txStart', 'txEnd','cdsStart', 'cdsEnd']:
-            self.entry[k] = int(self.entry[k])
+        for k in ['txStart', 'txEnd', 'cdsStart', 'cdsEnd']:
+            if k in self.entry.keys():
+                self.entry[k] = int(self.entry[k])
 
         self.overlapping_transcripts = []
 
         ##output
-        #mapping transcript features (relative to transcript start)
-        self.exons= self.get_exons()
-        self.utrs = self.get_utrs()
-        self.tx_len = self.entry['txEnd'] - self.entry['txStart']  # 1608
+        # mapping transcript features (relative to transcript start)
+        if 'exonStarts' in self.entry.keys():
+            self.exons = self.get_exons()
+            self.utrs = self.get_utrs()
+        self.tx_len = self.entry['txEnd'] - self.entry['txStart']
         self.flanking = [(-50, 0), (self.tx_len, self.tx_len + 50)]
 
         self.feature = None
@@ -69,7 +70,11 @@ class Transcript:
         ret = bed_popen.wait()
         if ret != 0:
             print("Bedtools process was interrupted!")
-        if bedtools_out != '':
+
+        if bedtools_out == '':
+            print("Bedtools failed to process output")
+
+        else:
             bed_entries = bedtools_out.split('\n')[:-1]
 
             for bed_entry in bed_entries:
@@ -102,21 +107,25 @@ class Transcript:
                             obj.overlapping_transcripts.append(oldtid)
                             cls.tx_lib[entry['tid']] = obj
 
-                else:
-                    cls.coord2tid[coord] = 'intergenic'
+               # else:
+               #     cls.coord2tid[coord] = 'intergenic'
+               #     cls.tx_lib['intergenic'] = cls('intergenic')
         os.remove(temp_bedfname)
 
 
     @classmethod
-    def transcript(cls, snvcoord):
-        if snvcoord in cls.coord2tid.keys():
-            tid = cls.coord2tid[snvcoord]
-            start, end = snvcoord.split(':')[1].split('-')
+    def transcript(cls, coord):
+        # Call upon specific coords that were loaded with bedtools
+        if coord in cls.coord2tid.keys():
+            tid = cls.coord2tid[coord]
+            start, end = coord.split(':')[1].split('-')
             pos = int((int(start) + int(end)) /2)
             obj = cls.tx_lib[tid]
             obj.find_feature(pos)
             return obj
-        else:
+
+        else: # bedtools never annotated
+        #    obj = cls('intergenic')
             return 'intergenic'
 
     def __dict__(self):
@@ -125,11 +134,19 @@ class Transcript:
     def get_utrs(self):
         exon_starts = self.entry['exonStarts'][:-1].split(',')
         exon_ends = self.entry['exonEnds'][:-1].split(',')
+        exon_frames = self.entry['exonFrames'].replace("\n", "")[:-1].split(',')
+        utrs = None
+
         if self.exons:
             ogexons = [(int(exon_starts[i]) - self.entry['txStart'], int(exon_ends[i]) - self.entry['txStart']) for i in range(len(exon_ends))]
-            utrs= [(ogexons[0][0],self.exons[0][0]-1),(self.exons[-1][1],ogexons[-1][1]-1)]
-        else:
-            utrs = None
+
+            utrs = [(ogexons[0][0], self.exons[0][0] - 1),(self.exons[-1][1], ogexons[-1][1] - 1)]
+
+            if exon_frames[-1] == '-1':  # -1 means entire exon is UTR
+                utrs[1] = ogexons[-1]
+            if exon_frames[0] == '-1':
+                utrs[0] = ogexons[0]
+
         return utrs
 
     def get_exons(self):
@@ -179,7 +196,7 @@ class Transcript:
         translates into cds
         '''
         # Determine the stop and start of UTR
-        if self.tx.seq:
+        if self.tx_seq:
             cds = Seq(''.join([str(self.tx_seq)[a:b] for a, b in self.exons]))
             if self.entry['strand'] == '-':
                 cds = cds.reverse_complement()
@@ -202,10 +219,12 @@ class Transcript:
     def find_feature(self, pos):
         feature, rf = None, None
         t_snvpos = int(pos) - self.entry['txStart']
-        #cdstart, cdsend = self.cds_start, self.cds_end
 
         if self.entry['tid'].startswith('NR'):
             feature = 'non-coding RNA'
+
+        elif 'cdsStart' not in self.entry.keys():
+            feature = 'Not Found'
 
         elif self.exons == None or t_snvpos < -50 or t_snvpos > self.tx_len + 50:
             # not in transcript - shouldn't happen or else no entry would be found
@@ -237,7 +256,8 @@ class Transcript:
             for x in self.exons:
                 # if in exon find reading frame
                 if t_snvpos in range(x[0], x[1] + 1):
-                    feature = 'exon'
+                    exon_trans_num = exon_n + 1 if self.entry['strand'] == '+' else (len(self.exons) - exon_n) + 1
+                    feature = f'exon {str(exon_trans_num)}'
                     dist = sum([e[1] - e[0] for e in self.exons[0:exon_n]])
                     dist_from_cds_start = dist + (t_snvpos - x[0])
                     len_cds = sum([e[1] - e[0] for e in self.exons])

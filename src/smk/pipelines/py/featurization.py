@@ -21,69 +21,6 @@ def countGC(s, length_audit=True):
     return len(s[4:24].replace('A', '').replace('T', ''))
 
 
-def nucleotide_features(s, order, include_pos_independent, max_index_to_use, prefix="", feature_type='all',
-                        raw_alphabet=['A', 'T', 'C', 'G']):
-    '''
-    compute position-specific order-mer features for the 4-letter alphabet
-    (e.g. for a sequence of length 30, there are 30*4 single nucleotide features
-          and (30-1)*4^2=464 double nucleotide features
-    '''
-    assert feature_type in ['all', 'pos_independent', 'pos_dependent']
-    if max_index_to_use <= len(s):
-        # print "WARNING: trimming max_index_to use down to length of string=%s" % len(s)
-        max_index_to_use = len(s)
-    if max_index_to_use is not None:
-        s = s[:max_index_to_use]
-    # assert(len(s)==30, "length not 30")
-    # s = s[:30] #cut-off at thirty to clean up extra data that they accidentally left in, and were instructed to ignore in this way
-    alphabet = get_alphabet(order, raw_alphabet=raw_alphabet)
-    features_pos_dependent = np.zeros(len(alphabet) * (len(s) - (order - 1)))
-    features_pos_independent = np.zeros(np.power(len(raw_alphabet), order))
-
-    index_dependent = []
-    index_independent = []
-
-    for position in range(0, len(s) - order + 1, 1):
-        for l in alphabet:
-            index_dependent.append('%s%s_%d' % (prefix, l, position))
-
-    for l in alphabet:
-        index_independent.append('%s%s' % (prefix, l))
-
-    for position in range(0, len(s) - order + 1, 1):
-        nucl = s[position:position + order]
-        features_pos_dependent[alphabet.index(nucl) + (position * len(alphabet))] = 1.0
-        features_pos_independent[alphabet.index(nucl)] += 1.0
-
-        # this is to check that the labels in the pd df actually match the nucl and position
-        assert index_dependent[alphabet.index(nucl) + (position * len(alphabet))] == '%s%s_%d' % (
-        prefix, nucl, position)
-        assert index_independent[alphabet.index(nucl)] == '%s%s' % (prefix, nucl)
-
-    # index_independent = ['%s_pi.Order%d_P%d' % (prefix, order,i) for i in range(len(features_pos_independent))]
-    # index_dependent = ['%s_pd.Order%d_P%d' % (prefix, order, i) for i in range(len(features_pos_dependent))]
-
-    if np.any(np.isnan(features_pos_dependent)):
-        raise Exception("found nan features in features_pos_dependent")
-    if np.any(np.isnan(features_pos_independent)):
-        raise Exception("found nan features in features_pos_independent")
-
-    if feature_type == 'all' or feature_type == 'pos_independent':
-        if feature_type == 'all':
-            res = pd.Series(features_pos_dependent, index=index_dependent), pd.Series(features_pos_independent,
-                                                                                      index=index_independent)
-            assert not np.any(np.isnan(res.values))
-            return res
-        else:
-            res = pd.Series(features_pos_independent, index=index_independent)
-            assert not np.any(np.isnan(res.values))
-            return res
-
-    res = pd.Series(features_pos_dependent, index=index_dependent)
-    assert not np.any(np.isnan(res.values))
-    return res
-
-
 def Tm_feature(data, pam_audit=True, learn_options=None):
     '''
     assuming '30-mer'is a key
