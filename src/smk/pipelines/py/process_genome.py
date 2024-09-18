@@ -265,7 +265,7 @@ def fetch_ALT_guides(filtered_vcf,
 def main():
 	# SNAKEMAKE IMPORTS
 	# === Inputs ===
-	filtered_vcf_list = list(snakemake.input.filtered_vcf)
+	filtered_vcf = str(snakemake.input.filtered_vcf)
 	guides_report = str(snakemake.input.guides_report_out)
 	guide_search_params = str(snakemake.input.guide_search_params)
 	snv_site_info = str(snakemake.input.snv_site_info)
@@ -273,8 +273,7 @@ def main():
 	diffguides_out = str(snakemake.output.diff_guides)
 	altvar_out = str(snakemake.output.alt_var)
 	# === Params ===
-	vcf_id_list = list(snakemake.params.vcf_id)
-	# idx_filtered_vcf = str(snakemake.params.idx_filtered_vcf)
+	idx_filtered_vcf = str(snakemake.params.idx_filtered_vcf)
 	# ==* The models_path ideally should not be here.
 	#       Once the DataHandler class is properly instantiated this can be removed
 	models_path = str(snakemake.params.models_path)
@@ -282,26 +281,20 @@ def main():
 	altgenome_name = str(snakemake.wildcards.vcf_id)
 	refgenome_name = str(snakemake.wildcards.sequence_id)
 
+	# Generate vcf index with tabix
+	print(f"Generate tabix file on:\n {idx_filtered_vcf}")
+	subprocess.run(f"tabix {filtered_vcf}", shell=True)
 
-	# Loop through the list of genomes of size n>=1
-	for filtered_vcf in filtered_vcf_list:
-		# Generate vcf index with tabix
-		tbi_filepath = f"{filtered_vcf}.tbi"
-		print(f"Generate tabix file on:\n {tbi_filepath}")
-		subprocess.run(f"tabix {filtered_vcf}", shell=True)
-
-        # ::TAYLOR:: Not the most elegant solution, but still solid:
-		#       Use the vcf_id_list to re.search the vcf filenames while
-		#       you're looping them to obtain a clean label string that can be used in the output column
-		fetch_ALT_guides(filtered_vcf,
-						 guides_report,
-						 guide_search_params,
-						 models_path,
-						 snv_site_info,
-						 diffguides_out,
-						 altvar_out,
-						 altgenome_name,
-						 refgenome_name)
+	fetch_ALT_guides(filtered_vcf,
+					 guides_report,
+					 guide_search_params,
+					 models_path,
+					 snv_site_info,
+					 diffguides_out,
+					 altvar_out,
+					 altgenome_name,
+					 refgenome_name
+					 )
 
 
 if __name__ == "__main__":
