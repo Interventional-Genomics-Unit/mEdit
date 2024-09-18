@@ -10,6 +10,11 @@ tmp_casoff_path: "tmp_casoff"
 # List of editors ingested by offtarget_prediction.py based on a previous mEdit run
 editors_list: ""
 
+# List of genomes that will be processed on CasOFFinder
+offtarget_genomes: ""
+offtarget_extended: ""
+reference_id: ""
+
 # RNA bulge, a deletion in the off-target
 RNAbb: "0"
 # DNA bulge, an insertion in the off-target

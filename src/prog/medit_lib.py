@@ -207,6 +207,20 @@ def list_files_by_extension(root_path, extension: str):
 	return file_list
 
 
+def offtarget_mode_formatting(mode, dynamic_config_guidepred):
+	"""
+	This function retrieves the relevant sequence IDs of VCFs and reference
+	genome to help build the offtarget configuration file
+	:param mode: current mEdit run mode
+	:param dynamic_config_guidepred: YAML-imported Config dict
+	:return: Tuple of size n>=1 with the sequence IDs and respective labels: Either 'main_ref' or 'extended'
+	"""
+	sequence_id = [(dynamic_config_guidepred['sequence_id'][0]), 'main_ref']
+	if mode != 'fast':
+		sequence_id.extend((dynamic_config_guidepred['vcf_id'], 'extended_ref'))
+	return sequence_id
+
+
 def pickle_chromosomes(genome_fasta, output_dir):
 	records = SeqIO.parse(open(genome_fasta, 'rt'), "fasta")
 	with alive_bar(25, title=f'Serializing human chromosomes') as bar:

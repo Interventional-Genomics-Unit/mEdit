@@ -11,6 +11,7 @@ from prog.medit_lib import (
 	file_exists,
 	group_guide_table,
 	launch_shell_cmd,
+	offtarget_mode_formatting,
 	project_file_path,
 	set_export,
 	write_yaml_to_file
@@ -52,7 +53,7 @@ def offtarget_prediction(args, jobtag):
 
 	# == Define dynamic SMK call variables ==
 	cluster_smk_setup = ''
-	smk_verbosity = True
+	smk_verbosity = [True]
 	smk_run_triggers = ''
 	dryrun_setup = ''
 
@@ -68,6 +69,8 @@ def offtarget_prediction(args, jobtag):
 		#       it's deployed by snakemake on a SLURM node
 		cluster_smk_setup = ('--cluster "sbatch -t {cluster.time} -n {cluster.cores}" '
 							 f'--cluster-config  {config_cluster_path}')
+	# == Define dynamic SMK call variable ==
+	allowed_rules = ['']
 
 	# ->=== CONFIG FILES IMPORT ===<-
 	with open(dynamic_config_guidepred_path, 'r') as dynamic_config_handle:
@@ -80,40 +83,64 @@ def offtarget_prediction(args, jobtag):
 	mode = str(dynamic_config_guidepred['processing_mode'])
 	query_index = list(dynamic_config_guidepred['query_index'])
 	root_dir = str(dynamic_config_guidepred['output_directory'])
-	# == mEdit offtarget prediction will only process one reference genome in this version ==
-	sequence_id = str(dynamic_config_guidepred['sequence_id'][0])
+	# === mEdit offtarget prediction will process reference genome and alternate genomes ===
+	# == Set internal variables for Off-target processing
+	offtarget_genomes = offtarget_mode_formatting(mode, dynamic_config_guidepred)
+	reference_genome = str(dynamic_config_guidepred['sequence_id'][0])
 
+	# === Adjust SMK run based on processing_mode
+	if mode == 'fast':
+		allowed_rules = ['--omit-from symlink_genomes']
+
+	# == Setup core off-target variables
+	editors_list = []
+	guides_per_editor_path = ''
 	for index in query_index:
-		# == Set output paths ==
-		guides_per_editor_path = str(
-			f"{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/offtarget_prediction/{index}_")
+		for offtarget_genome, genome_type in offtarget_genomes:
+			# == Set output paths ==
+			guides_per_editor_path = str(
+				f"{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_genome}/offtarget_prediction/{offtarget_genome}/{index}_")
 
-		# == Recover Guide Prediction filepath ==
-		guides_report_path = Path(f"{root_dir}/{mode}/jobs/{run_name}/"
-								  f"guide_prediction-{sequence_id}/guides_report_ref/{index}_Guides_found.csv")
+			if genome_type == 'main_ref':
+				# == Recover Guide Prediction filepath ==
+				guides_report_path = Path(f"{root_dir}/{mode}/jobs/{run_name}/"
+										  f"guide_prediction-{reference_genome}/guides_report_ref/{index}_Guides_found.csv")
+				# == Group guides by editor and export DF as pickles by editor
+				grouped_guide_dict = group_guide_table(guides_report_path, editing_tool_request)
+				editors_list.extend(export_guides_by_editor(grouped_guide_dict, guides_per_editor_path))
 
-		# == Group guides by editor and export DF as pickles by editor
-		grouped_guide_dict = group_guide_table(guides_report_path, editing_tool_request)
-		editors_list = export_guides_by_editor(grouped_guide_dict, guides_per_editor_path)
+			# Account for alternate genomes
+			if genome_type == 'extended':
+				guides_diff_path = Path(f"{root_dir}/{mode}/jobs/{run_name}/"
+										f"guide_prediction-{reference_genome}/guides_report_{offtarget_genome}/{index}_Guide_differences.csv")
+				grouped_diff_guide_dict = group_guide_table(guides_diff_path, editing_tool_request)
+				editors_list.extend(export_guides_by_editor(grouped_diff_guide_dict, guides_per_editor_path))
 
-		# === Export Variables to Configuration File ===
-		config_template['guides_per_editor_path'] = guides_per_editor_path
-		config_template['editors_list'] = editors_list
-		config_template['tmp_processing_casoff'] = f"{root_dir}/{config_template['tmp_processing_casoff']}"
+	# === Export Variables to Configuration File ===
+	# NOTE: This whole block (until the end) was inside the index loop
+	config_template['guides_per_editor_path'] = guides_per_editor_path
+	config_template['editors_list'] = list(set(editors_list))
+	config_template['tmp_processing_casoff'] = f"{root_dir}/{config_template['tmp_processing_casoff']}"
+	config_template['offtarget_genomes'] = {str(tup[0]): str(tup[1]) for tup in offtarget_genomes}
+	config_template['offtarget_extended'] = {str(tup[0]): str(tup[1]) for tup in offtarget_genomes if
+											tup[0] == 'extended'}
+	config_template['reference_id'] = reference_genome
 
-		# == Set the temporary directory up for CasOffinder ==
-		set_export(config_template['tmp_casoff_path'])
+	# == Set the temporary directory up for CasOffinder ==
+	set_export(config_template['tmp_casoff_path'])
 
-		# === Write YAML configs to mEdit Root Directory ===
-		write_yaml_to_file(config_template, dynamic_config_off_path)
+	# === Write YAML configs to mEdit Root Directory ===
+	write_yaml_to_file(config_template, dynamic_config_off_path)
 
-		# === Invoke SMK Pipelines ===
-		print("# == Calling Off-Target Prediction pipeline == #")
+	# === Invoke SMK Pipelines ===
+	print("# == Calling Off-Target Prediction pipeline == #")
+	for smk_setup_idx in range(len(allowed_rules)):
 		try:
 			# --> When cluster submission is switched on,
 			launch_shell_cmd(f"snakemake "
 							 f"--snakefile {project_file_path('smk.pipelines', 'offtarget_prediction.smk')} "
 							 f"{smk_run_triggers} "
+							 f"{allowed_rules[smk_setup_idx]} "
 							 f"-j {ncores} "
 							 f"{cluster_smk_setup} "
 							 f"--configfile {config_db_path} "
@@ -121,7 +148,7 @@ def offtarget_prediction(args, jobtag):
 							 f"--use-conda "
 							 f"--rerun-incomplete "
 							 f"{dryrun_setup} ",
-							 smk_verbosity
+							 smk_verbosity[smk_setup_idx]
 							 )
 		except subprocess.CalledProcessError as e:
 			print(f"Error: {e}")
