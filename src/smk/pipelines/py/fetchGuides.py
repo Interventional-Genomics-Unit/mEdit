@@ -51,54 +51,51 @@ class Fetch_Guides:
 		:param fasta_path: *Unsure using chromsome seperate files right now but unsure if this will be permenant
 		:param kwargs: 'hgvscoord' , 'clin_report','gene_report'
 		"""
-		##-----------------User Inputs--------------------##
+		##-----------------User Required_Inputs--------------------##
 		if qtype == 'hgvs':
 			self.queries = self.validate_hgvs(queries)
 		if qtype == 'coord':
 			self.queries = self.validate_coord(queries)
 		self.qtype = qtype
-		self.editor_request = editor_request
-		self.be_request = be_request
-		self.kwargs = kwargs
+		self.editor_request = editor_request  ## clinical, custom, list
+		self.be_request = be_request ## off, default, custom, list
+
+		##------------Optional inputs-------------###
+		self.dist_from_cutsite, self.window = self.validate_dist_from_cutsite(dist_from_cutsite)
+
+		##----endonuclease and BE search params
 		self.editor_lib = editors
 		self.be_lib = base_editors
-		self.dist_from_cutsite = dist_from_cutsite
+		self.guidelen = 20
+		self.be_guidelen = 20
+		self.pam =str()
+		self.be_pam= str()
+		self.pamISfirst = False
+		self.be_pamISfirst = False
+		self.dsb_pos = int()
+		self.be_win = [4,8]
+		self.conversion = str()
+		self.search_params = self.configure_search_params(kwargs)
+		self.BE_search_params = self.configure_BE_params(kwargs)
+
 
 		# input paths/folders
 		self.processed_tables = f"{datadir}/processed_tables"  # folder with cleaned clinvar/hpa tabs
 		self.HGVSlookup_path = f"{self.processed_tables}/HGVSlookup.csv"
 		self.fasta_path = fasta_path
 		self.annote_path = annote_path
-		self.window = 50
-		if self.dist_from_cutsite > 7:
-			self.window = 100
-		# self.dist_from_cutsite = 7
 
-		# other variables
+		##---------------Outputs--------------------##
 		self.snv_info = {}  # {chrom: (queryterm,tid,eid,gene,strand,ref,alt,feature,extracted_seq,rf,coord)}
-
-		##---------------libraries and keys--------------------##
-		self.editor_choices = list(editors.keys())
-		self.BE_choices = list(base_editors.keys())
-
-		## ------------Defaults and settings------------------##
-		##configure editor options
-		self.search_params = self.configure_search_params()
-
-		# configure BE options
-		self.BE_search_params = {}
-		if self.be_request != 'off':
-			self.BE_search_params = self.set_BE_params()
-
-
-		# ---------------Ouputs--------------------------#
-		self.all_variant = pd.DataFrame()
-		self.all_gene = pd.DataFrame()
 		self.all_guides = {}
 		self.all_BE = {}
 		self.not_found = {}
+		self.all_variant = pd.DataFrame()
+		self.all_gene = pd.DataFrame()
+		self.nguides_df = pd.DataFrame()
 
-	def configure_search_params(self):
+
+	def configure_search_params(self,kwargs):
 		"""
 		set paramteres for the selected editor or editors(not BE editors)
 		"""
@@ -108,17 +105,16 @@ class Fetch_Guides:
 			search_params = self.editor_lib['clinical']
 		# set custom editor params
 		elif self.editor_request == 'custom':
-			search_params = self.set_params(self.kwargs)
+			search_params = self.set_custom_params(kwargs)
 
 		# search for selected subset
 		# TODO: The guide_prediction.py needs to ingest this correctly
-		elif len(self.editor_request.split(',')) >= 1:
-			user_request_editors = deepcopy(self.editor_lib['user_request'])
+		else:
 			self.editor_request = list(self.editor_request.split(','))
 			for editor in self.editor_request:
 				try:
-					search_params.setdefault(editor, user_request_editors[editor])
-				except KeyError as e:
+					search_params[editor] =  self.editor_lib['all'][editor]
+				except KeyError:
 					print(f"\n*********************************\n"
 						  f"The entry {editor} is not part of the built-in list of editing tools.\n"
 						  f"Please list one or more editors available at the current version's list.\n"
@@ -126,75 +122,144 @@ class Fetch_Guides:
 						  f"*********************************\n")
 				else:
 					continue
-		# else use single set parameters
-		else:
-			try:
-				search_params = {self.editor_request: self.editor_lib[self.editor_request]}
-			except KeyError:
-				raise Exception("Please choose a name(s) found in the editor name choices. "
-					   "For more information consult 'medit list --help")
+
+			#if len(self.editor_request.split(',')) >= 1:
+				#user_request_editors = deepcopy(self.editor_lib['user_request']) ## I'm not sure wat this is doing, thees no 'user_request' in lib
+				#self.editor_request = list(self.editor_request.split(','))
+				# for editor in self.editor_request:
+					#try:
+					#	)
+					#except KeyError as e:
+					#	print(f"\n*********************************\n"
+					#		  f"The entry {editor} is not part of the built-in list of editing tools.\n"
+					#		  f"Please list one or more editors available at the current version's list.\n"
+					#		   f"For more information consult 'medit list --help'\n "
+					#		  f"*********************************\n")
+					#else:
+					#	continue
 
 		print(f'Editor(s) set to: {[x for x in search_params.keys()]}')
 		return search_params
 
-	def set_params(self, kwargs):
-		name = 'custom'
+	def set_custom_params(self,kwargs):
+		try:
+			self.pam = kwargs['pam'].upper()
+		except KeyError:
+			print("custom editor selection MUST contain pam argument")
 
 		try:
-			pam = kwargs['pam']
-			pamISfirst = kwargs['pamISfirst']
-			guidelen = kwargs['guidelen']
-			if pamISfirst == False:
-				win_size = -2
-			else:
-				win_size = guidelen - 2
+			self.pamISfirst = kwargs['pamISfirst']
+			if not isinstance(kwargs['pamISfirst'], bool):
+				raise TypeError(f"'pamISfirst' must be of type 'bool', got {kwargs['pamISfirst'].__name__} instead.")
 		except KeyError:
-			print("custom editor selection MUST include a minimum of kwargs = pam, pamISFirst,guidelen")
+			print("custom editor selection MUST also have  pamISfirst in kwargs")
 
-		if 'name' in kwargs.keys():
-			name = kwargs['name']
-		if 'win_size' in kwargs.keys():
-			win_size = kwargs['win_size']
+		try:
+			self.guidelen= kwargs['guidelen']
+			if not isinstance(kwargs['guidelen'], int):
+				raise TypeError(f"'guidelen' must be of type 'int', got {kwargs['guidelen'].__name__} instead.")
+		except KeyError:
+			print("custom editor selection MUST also have guidelen in kwargs")
+			print(f"custom editor guide length being set to {self.guidelen}")
+			pass
+		try:
+			dsb_pos = str(kwargs['dsb_pos']).split(",")
+			self.dsb_pos = int(dsb_pos[0])
+		except KeyError:
+			print("custom editor selection MUST also have dsb_loc in kwargs")
 
-		params = {name: (pam, pamISfirst, win_size, guidelen, '')}
+		params = {'custom_endonuclease': (self.pam, self.pamISfirst, self.dsb_pos, self.guidelen, '')}
 
+		print(f'Your custom editor has a {"5 prime PAM" if self.pamISfirst else "3 prime PAM"} set to {self.pam}')
+		print(f'with a spacer length of {self.guidelen}' )
+		print(f"5'-{self.pam if self.pamISfirst else ''}{'x'*self.guidelen}{'' if self.pamISfirst else self.pam}-3'")
 		return params
 
-	def set_BE_params(self):
+	def configure_BE_params(self,kwargs):
 		# sets base editor search params, each key is a list of 2 or more; refernce seq search params,
 		# then any set that follows starts with the conversion (ex. 'AG' is A --> G) and then the base editors that have the same params
 
+		be_search_params = {}
 		if self.be_request == 'default':
-			self.BE_search_params = self.be_lib['default']
-		elif self.be_request == 'all':
-			self.BE_search_params = self.be_lib['all']
-
-		# TODO: Setup BE user-defined list processing
-		elif type(self.be_request) is list:
-			self.BE_search_params = {}
-			for e in self.be_request:
-				self.BE_search_params[e] = self.be_lib['all'][e]
-
+			be_search_params = self.be_lib['default']
+		elif self.be_request == 'off':
+			be_search_params = {}
+		elif self.be_request == 'custom':
+			be_search_params = self.set_be_custom_params(kwargs)
 		else:
-			if self.be_request not in self.BE_choices:
-				print('That is not a valid Base Editor')
-				print(f'please choose from {self.BE_choices}')
-			else:
-				for k, v in self.be_lib['all'].values():
-					if self.be_request in v[1][-1]:
-						self.BE_search_params = {self.be_request: self.be_lib['all'][k][0:2]}
+			self.be_request = list(self.be_request.split(','))
+			for be in self.be_request:
+				try:
+					be_search_params[be] =  self.be_lib['all'][be]
+				except KeyError:
+					print(f"\n*********************************\n"
+						  f"The entry {be} is not part of the built-in list of editing tools.\n"
+						  f"Please list one or more editors available at the current version's list.\n"
+						   f"For more information consult 'medit list --help'\n "
+						  f"*********************************\n")
+				else:
+					continue
 
-					if len(v) == 3:
-						if self.be_request in v[2][-1]:
-							self.BE_search_params = {
-								self.be_request: self.be_lib['all'][k][0] + self.be_lib['all'][k][2]}
+		return be_search_params
 
-		return self.BE_search_params
+	def set_be_custom_params(self, kwargs):
+		try:
+			self.be_pam = kwargs['be_pam'].upper()
+		except KeyError:
+			print("custom editor selection MUST contain be_pam argument")
+
+		try:
+			self.be_pamISfirst = kwargs['be_pamISfirst']
+			if not isinstance(kwargs['be_pamISfirst'], bool):
+				raise TypeError(f"'be_pamISfirst' must be of type 'bool', got {kwargs['be_pamISfirst'].__name__} instead.")
+		except KeyError:
+			print("custom editor selection MUST also have  be_pamISfirst in kwargs")
+			print(f"custom editor be_pamISfirst is being set to {self.be_pamISfirst}")
+			pass
+
+		try:
+			self.be_guidelen= int(kwargs['be_guidelen'])
+		except KeyError:
+			print("custom editor selection MUST also have be_guidelen in kwargs")
+			print(f"custom editor be_pamISfirst is being set to {self.be_guidelen}")
+			pass
+		try:
+			target_base = kwargs['target_base'].upper()
+			result_base = kwargs['result_base'].upper()
+			if target_base not in ['A','G','C','T'] or target_base not in ['A','G','C','T']:
+				raise TypeError("target_base or result_base need to equal 'A','C','G' or 'T'")
+			self.conversion = target_base + result_base
+		except KeyError:
+			print("custom editor selection MUST also have 'target_base' and 'result_base' in kwargs")
+
+		params = {'custom_be': [(self.be_pam, self.be_pamISfirst,  self.be_guidelen, self.be_win, ''),(self.conversion , 'custom_be')]}
+
+		print(f"Your custom base editor has a {'5 prime PAM' if self.be_pamISfirst else '3 prime PAM'} set to {self.be_pam}")
+		print(f'with a spacer length of {self.be_guidelen}')
+		print(f"The base editor window is between position {self.be_win[0]} and {self.be_win[1]}")
+		print(f"and will convert {self.conversion[0]}---->{self.conversion[1]}")
+		print(f"5'-{self.be_pam if self.be_pamISfirst else ''}{'x'*self.be_guidelen}{'' if self.be_pamISfirst else self.be_pam}-3'")
+		return params
 
 
-	def write_gsearch_params(self, outfile):
+	def validate_dist_from_cutsite(self,dist_from_cutsite):
+		'''
+		Makes sure the extracted genome window is big enough
+		to accomodate distance from cutsite
+		'''
+		if dist_from_cutsite <=7:
+			return dist_from_cutsite, 50
+		elif dist_from_cutsite > 7 and dist_from_cutsite <=200:
+			return dist_from_cutsite, 50 + (dist_from_cutsite - 7)
+		else:
+			print('!!! The dist_from_cutsite must be under 200 !!!')
+			print(f'The current dist_from_cutsite = {self.dist_from_cutsite} is being changed  to 200')
+			return 200,50 + (200 - 7)
+			
+
+	def write_besearch_params(self, outfile):
 		# writes pickle of selected guide search params for later use in process_genome
-		# 'editor', 'pam', '5prime_pam','guide_length', 'DSB site', 'notes'
+		# 'editor', 'pam', '5prime_pam','guide_length', 'dsb_loc', 'notes'
 		# Create a copy of search_params
 		merged_search_params = self.search_params.copy()
 		# Update the copy with BE_search_params
@@ -215,26 +280,9 @@ class Fetch_Guides:
 	def write_not_found(self, outfile):
 		pd.Series(data=self.not_found.values(), index=self.not_found.keys()).to_csv(outfile)
 
-	def write_extracted_sequences(self, extracted_seq_outfile):
-		'''
-		writes tab-deliminated file of 100-mer sequence in which each
-		each variant was found.
-		'''
-		if len(self.snv_info.keys()) > 0:
-			with open(extracted_seq_outfile, "w") as out:
-				for chrom, snv_info in self.snv_info.items():
-					for value in snv_info:
-						query = value[0]
-						extracted_seq = str(value[8])
-						print(query + "\t" + extracted_seq, file=out)
 
-	def write_guide_csv(self, guides, outfile):
+	def write_guide_csv(self, guides,outfile):
 		df = pd.DataFrame(guides)
-		if 'On-Target Efficiency Score' in df.columns:
-			temp = df[df['On-Target Efficiency Score'] != '-'].sort_values(by='On-Target Efficiency Score',
-																		   ascending=False)
-			temp = temp.sort_values(by='Editor')
-			df = pd.concat([temp, df[df['On-Target Efficiency Score'] == '-']]).reset_index(drop=True)
 		df['Guide_ID'] = [y + str(x) for x, y in zip(list(df.index), list(df['Guide_ID']))]
 		df.to_csv(outfile, index=False)
 		return df
@@ -242,19 +290,35 @@ class Fetch_Guides:
 	def add_clinvar(self, gadf):
 		self.all_variant = pd.concat([self.all_variant, gadf])
 
-	def add_clininfo(self, gene_out, variant_out):
+	def write_reports(self, gene_out, variant_out,nguides_out):
+		guides_found = True if len(self.all_guides['QueryTerm']) >0 else False
+
 		# writes
 		all_tids = []
-		for k in self.snv_info.keys():
-			for v in self.snv_info[k]:
+		searched_queries = []
+		for chrom in self.snv_info.keys():
+			for v in self.snv_info[chrom]:
 				all_tids.append(v[1])
+				searched_queries.append(v[0])
 
+		#creates gene table from queries
 		tempgene = pd.read_csv(f"{self.processed_tables}/gene_tables/gene_tables.csv.gz")
 		self.all_gene = tempgene.loc[tempgene['TranscriptID'].isin(list(all_tids))]
 		self.all_gene.to_csv(gene_out, index=False)
 
+		#tallies number of guides per query
+		if guides_found:
+			allgdf = pd.DataFrame(self.all_guides)
+			nguides_per_query = allgdf.groupby(['QueryTerm']).size().reset_index()
+			nguides_per_query = nguides_per_query.rename(columns={0: 'Number of Guides Found'})
+			self.nguides_df = pd.DataFrame(searched_queries,columns = ['QueryTerm']).join(nguides_per_query.set_index('QueryTerm'), on='QueryTerm')
+			self.nguides_df['Number of Guides Found'] = self.nguides_df['Number of Guides Found'].fillna(0).astype('int')
+			self.nguides_df.to_csv(nguides_out, index=False)
+
 		if self.qtype == 'hgvs':
 			self.all_variant.to_csv(variant_out, index=False)
+
+
 
 	def add_not_found(self, nfqueries, reason):
 		# adds queries that are not found ex: no guides or hgvs not found
@@ -292,24 +356,25 @@ class Fetch_Guides:
 		# finds unique chromosome for each hgvs
 		# needs to happen in order to select right fasta file
 		hgvs_tab = pd.read_csv(self.HGVSlookup_path)
-		q_prefixes = [x.split(':')[0] for x in queries]
-		chroms = set(hgvs_tab.loc[hgvs_tab['TranscriptID'].isin(q_prefixes), 'Chr'])
+		q_prefixes = [x.split(':')[0].split('.')[0] for x in queries]
+		chroms = set(hgvs_tab.loc[hgvs_tab['HGVS_ID'].isin(q_prefixes), 'Chromosome'])
 		return chroms
 
 	def fetch_query_info(self):
 		# Gets Transcript info
-
 		# If quering by HGVSID with no other info then need to get chromsome/location/alt/ref
 		if self.qtype == 'hgvs':
 			print("Looking up HGVS in Clinvar.......")
 			chroms = self.get_chroms(self.queries)
 
 			for ch in chroms:
-				df = pd.read_csv(f"{self.processed_tables}/variant_tables/{ch}_variant.txt", low_memory=False)
+				df = pd.read_csv(f"{self.processed_tables}/variant_tables/{ch}_variant.txt",
+								 low_memory=False)
 				gadf = df.loc[df['HGVS_Simple'].isin(self.queries)]
 				self.add_clinvar(gadf)
-				self.snv_info[ch] = \
-					gadf[['HGVS_Simple', 'PositionVCF', 'RefAlleleVCF', 'AltAlleleVCF']].to_dict('tight')['data']
+				self.snv_info[ch] = gadf[['HGVS_Simple', 'PositionVCF', 'RefAlleleVCF', 'AltAlleleVCF']].to_dict('tight')['data']
+
+			#record not found
 			found = []
 			for k in self.snv_info.keys():
 				for v in self.snv_info[k]:
@@ -319,8 +384,6 @@ class Fetch_Guides:
 
 		# Else All information is given to find transcript info
 		else:
-
-			# coord_fmt = r'chr[0-9MTXY]*:(\d*)([ATCG]{1})\>([ATCG]{1})'
 			coord_fmt = r'chr[0-9MTXY]*:(\d*)([ATCG]{1,10})\>([ATCG]{1,10})'
 			for query in self.queries:
 				ch = query.split(':')[0].replace('chr', '')
@@ -363,7 +426,7 @@ class Fetch_Guides:
 
 				query, snvpos, ref, alt = d
 				if re.search('[^ATCG]', ref + alt) is None:
-					print(query, ref, alt, snvpos)
+
 					snvcoord = f'chr{ch}:{d[1]}-{d[1]}'
 					tx = Transcript.transcript(snvcoord)
 
@@ -442,7 +505,7 @@ class Fetch_Guides:
 		return validated_queries
 
 	def run_FetchGuides(self, outfile_guides, outfile_be_guides, models_dir):
-		global dh, query
+		#global dh, query
 		self.fetch_query_info()
 		self.find_transcript_info()
 		print('Finding Guides')
@@ -458,47 +521,39 @@ class Fetch_Guides:
 				dh = DataHandler(query, strand, ref, alt, feature_annotation, models_dir, extracted_seq, codons, coord,
 								 gname, self.dist_from_cutsite)
 
-				if self.be_request != 'off':
-					guides, BEguides = dh.get_Guides(self.search_params, self.BE_search_params)
-				else:
-					guides, BEguides = dh.get_Guides(self.search_params)
+				guides, BEguides = dh.get_Guides(self.search_params, self.BE_search_params)
 
-				if len(BEguides['gRNA']) > 0:
-					if len(self.all_BE.keys()) == 0:
-						for k, v in BEguides.items():
-							self.all_BE[k] = v
-					else:
-						for k, v in BEguides.items():
-							self.all_BE[k] += v
+				print(f"{len(guides['gRNA'])+len(BEguides['gRNA'])} found for {query}")
 
 				if len(guides['gRNA']) > 0:
 					if len(self.all_guides.keys()) == 0:
-						for k, v in guides.items():
-							self.all_guides[k] = v
+						self.all_guides = guides
 					else:
 						for k, v in guides.items():
 							self.all_guides[k] += v
 
-				else:
+				if len(BEguides['gRNA']) > 0:
+					if len(self.all_BE.keys()) == 0:
+						self.all_BE = BEguides
+					else:
+						for k, v in BEguides.items():
+							self.all_BE[k] += v
+
+				if len(guides['gRNA']) +  len(BEguides['gRNA']) ==0:
 					self.add_not_found([query], 'no guides found')
 
-		guidedf, BEdf = None, None
-
 		if len(self.all_guides.keys()) != 0:
-			guidedf = self.write_guide_csv(self.all_guides, outfile_guides)
+			self.write_guide_csv(self.all_guides,outfile_guides)
 		else:
-			print('No Editor Guides found for any queries')
+			print('No Endonuclease Guides found for any queries')
 
-		if self.be_request != 'off':
-			if len(self.all_BE.keys()) != 0:
-				BEdf = self.write_guide_csv(self.all_BE, outfile_be_guides)
-			else:
+
+		if len(self.all_BE.keys()) != 0:
+			self.write_guide_csv(self.all_BE, outfile_be_guides)
+		else:
+			if self.be_request != 'off':
 				print('No Base Editor Guides found for any queries')
 
-		return {'all_variant': self.all_variant,
-				'all_gene': self.all_gene,
-				'guide_table': guidedf,
-				'BE_table': BEdf}
 
 
 def main():
@@ -510,6 +565,8 @@ def main():
 	guides_report = str(snakemake.output.guides_report_out)
 	gene_report = str(snakemake.output.gene_report)
 	variant_report = str(snakemake.output.variant_report)
+	#TODO Daniel plug this nguides_report into the front end please
+	nguides_report = str(snakemake.output.nguides_report)
 	be_report = str(snakemake.output.be_report)
 	guide_search_params_path = str(snakemake.output.guide_search_params)
 	snv_site_info_path = str(snakemake.output.snv_site_info)
@@ -531,11 +588,11 @@ def main():
 	# == DEBUG BLOCK ==
 	# qtype = 'hgvs'
 	# BEmode = 'off'
-	# editor = 'all'
+	# editor = 'clinical'
 	# == == ==
 
 	# == Create dummy files for optional outputs
-	optional_outputs = [be_report, variant_report, gene_report]
+	optional_outputs = [be_report, variant_report, gene_report, nguides_report]
 	for report in optional_outputs:
 		# Create an empty DataFrame
 		df = pd.DataFrame()
@@ -581,14 +638,14 @@ def main():
 					  annote_path
 					  )
 	# == Set up object and run core methods ==
-	exports = fg.run_FetchGuides(guides_report, be_report, models_path)
+	fg.run_FetchGuides(guides_report, be_report, models_path)
 
 	# == Export Intermediate files ==
 	fg.write_snv_site_info(snv_site_info_path)
 	fg.write_gsearch_params(guide_search_params_path)
 
-	# == Export Variant and Gene tables ==
-	fg.add_clininfo(gene_report, variant_report)
+	# == Export Variant, Guide Totals and Gene tables ==
+	fg.write_reports(gene_report, variant_report,nguides_report)
 
 	# == Export Not Found table
 	fg.write_not_found(guides_not_found_path)

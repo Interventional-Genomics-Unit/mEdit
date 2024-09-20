@@ -18,7 +18,6 @@ from deepcas_models import DeepCas9
 def load_model_params(score_name: str, models_dir: str):
     try:
         # dirname = os.path.dirname(os.path.realpath(__file__)).replace('py/','')
-        dirname = '/home/thudson/projects/editability'
         if score_name == 'cfd':
             mm_scores = pickle.load(open(models_dir + '/mismatch_score.pkl', 'rb'))
             pam_scores = pickle.load(open(models_dir + '/PAM_scores.pkl', 'rb'))
@@ -252,6 +251,7 @@ def oofscore(seq):
      A score above 66 is recommended
     The higher the oof score, the more deletions have a length that is not a multiple of three
     '''
+    assert len(seq)>=60, "OOF score needs at least a 60bp sequence to process"
     length_weight = 20.0
     left = 30
     right = len(seq) - int(left)
@@ -367,7 +367,7 @@ off_target_seqs = ['GTGGGGCTGACCCAGGACCTGAG','GGGCCTCTGGCCCAGGACCTGGG']
 print('Microhomology Out-Of-Frame score: ',oofscore(seq = target60mer))
 # Ans: 3730.1, 64.2
 
-print('Azimuth on-target score: ',azimuth([target30mer])[0])
+print('Azimuth on-target score: ',azimuth([target30mer],models_dir)[0])
 #Ans: 0.38
 
 print('CFD score ',cfd_score(spacer, off_target_seqs[1],models_dir = models_dir))

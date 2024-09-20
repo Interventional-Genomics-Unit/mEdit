@@ -3,14 +3,14 @@ from argparse import ArgumentParser as argp
 from argparse import RawTextHelpFormatter
 import textwrap
 # == Installed Modules ==
-from importlib.metadata import version
+#from importlib.metadata import version
 
 
 def parse_arguments():
 	# -> === Launch argparse parser === <-
 	parser = argp(
 		prog='mEdit',
-		description=f'version {version("meditability")}',
+		#description=f'version {version("meditability")}',
 		# epilog="mEdit is pretty cool, huh? :)",
 		usage='%(prog)s ',
 		formatter_class=RawTextHelpFormatter
@@ -91,6 +91,7 @@ def parse_arguments():
 	#                           '''))
 
 	# === Guide Prediction Program ===
+
 	fguides_parser = programs.add_parser(
 		'guide_prediction',
 		help=textwrap.dedent('''
@@ -106,8 +107,7 @@ def parse_arguments():
 		required=True,
 		help=textwrap.dedent('''
 			Path to plain text file containing the query (or set of queries) 
-			of variant(s) for mEdit analysis. Must be a single nucleotide 
-			variation. See --qtype for formatting options.
+			of variant(s) for mEdit analysis. See --qtype for formatting options.
 			''')
 	)
 	in_out.add_argument(
@@ -134,6 +134,7 @@ def parse_arguments():
 	                    mEdit will generate a random jobtag by default''')
 						)
 	run_params = fguides_parser.add_argument_group("== mEdit Core Parameters ==")
+	# TODO please change private to vcf or custom vcf, we dont want to insinuate private clinical info
 	run_params.add_argument(
 		'-m',
 		dest='mode',
@@ -158,24 +159,32 @@ def parse_arguments():
 			Provide a gunzip compressed VCF file to run mEdit’s 
 			private mode''')
 	)
+	# TODO please allow for gene and rsid. I started this for you, see commented out section
 	run_params.add_argument(
 		'--qtype',
 		dest='qtype_request',
 		default='hgvs',
-		choices=['hgvs', 'coord'],
+		choices=['hgvs', 'coord'], #,'gene','rsid'],
 		help=textwrap.dedent('''
 			Set the query type provided to mEdit. [default = "hgvs"]
 			[1-] "hgvs": must at least contain the Refseq identifier 
 			followed by “:” and the commonly used HGVS nomenclature. 
-			Example: NM_000518.5:c.114G>A
-			[2-] "coord": must contain hg38 coordinates followed by 
+			Example: NM_000518.5:c.114G>A, NM_000518.5(HBB):c.114G>A(p.Trp38Ter), NG_000007.3:g.70838G>A, NC_000011.10:g.5226778C>T
+			[2-] "coord": must contain hg38 1-based coordinates followed by 
 			(ALT>REF). Alleles must be the plus strand.
-			Example: chr11:5226778C>T\n''')
+			Example: chr11:5226778C>T
+			[3-] "gene": Provide the gene name to find all the clinvar variants listed in this gene
+			Example: HBB
+			[4-] "rsid": Provide the dbSNP rsID
+			Example: rs33974936
+
+			\n''')
 	)
 	run_params.add_argument(
 		'--editor',
 		dest='editor_request',
 		default='clinical',
+		choices=['clinical','custom', 'user defined list'],
 		help=textwrap.dedent('''
 			Delimits the set of editors to be used by mEdit. 
 			[default = "clinical"]
@@ -183,9 +192,10 @@ def parse_arguments():
 			supported in each category.
 			[1-] "clinical": a short list of clinically relevant editors 
 			that are either in pre-clinical or clinical trials.
-			[2-] "custom": select guide search parameters. This requires a
-			 separate input of parameters : ‘pam’, ‘pamISfirst’,’guidelen’
-			[3-] "user defined list": - Comma-separated list of editors''')
+			[2-]"user defined list" : - Comma-separated list of editors
+			[3-] "custom": select guide search parameters. This requires a
+			 separate input of parameters : ‘pam’, ‘pamISfirst’,’guidelen’ & 'dsb_pos'
+			''')
 	)
 	run_params.add_argument(
 		'--be',
@@ -193,8 +203,14 @@ def parse_arguments():
 		choices=['off', 'default', 'custom', 'user defined list'],
 		default='default',
 		help=textwrap.dedent('''
-			Add this flag to make mEdit process base-editors. 
-			[default = off]''')
+		Add this flag to allow mEdit process base-editors. [default = off]
+		[1-] “off”: disable base editor guides searching.
+		[2-] “default”: use generic ABE and CBE with ‘NGG’ PAM and 4-8 base editing window
+		[3-] “custom”: : select base editor search parameters. 
+		This requires a separate input of parameters :
+		 ‘be_pam’, ‘be_pamISfirst’,’be_guidelen’,’be_win’,’target_base’,’result_base’
+		[4-]"user defined list": - Comma-separated list chosen from the “medit list” of base editors	
+			''')
 	)
 	run_params.add_argument(
 		'--cutdist',
@@ -204,6 +220,85 @@ def parse_arguments():
 				Max allowable window a variant start position can be from
 				the editor cut site. This option not available for base editors. 
 				[default = 7]''')
+	)
+	run_params.add_argument(
+		'-gl',
+		dest='guidelen',
+		default='20',
+		help=textwrap.dedent('''
+		endonuclease spacer length for a custom editor. [default =20]
+		Can ONLY be used for a ‘custom’ editor''')
+	)
+	run_params.add_argument(
+		'-bgl',
+		dest='be_guidelen',
+		default='20',
+		help=textwrap.dedent('''
+			base editor spacer length for a custom editor. [default =20]
+			Can ONLY be used for a ‘custom’ base editor''')
+	)
+	## TODO can this be an option that doesn't need an argument followed? like only use it if its TRUE
+
+	run_params.add_argument(
+		'--pamISfirst',
+		dest='pamISfirst',
+		default=False,
+		help=textwrap.dedent('''
+			Whether the PAM site is 5’ of target site [default = False]. 
+			Can ONLY be used for a ‘custom’ editor''')
+	)
+	run_params.add_argument(
+		'--be_pamISfirst',
+		dest='be_pamISfirst',
+		default=False,
+		help=textwrap.dedent('''
+			Whether the PAM site is 5’ of target site [default = False]. 
+			Can ONLY be used for a ‘custom’ base editor''')
+
+	)
+	run_params.add_argument(
+		'-dsb',
+		dest='dsb_pos',
+		default=-3,
+		help=textwrap.dedent('''
+			Double strand cut site relative to pam. This can be a single integer with a blunt end 
+			endonuclease or 2 integers separated by a single comma when using an endonuclease that 
+			produces staggered end cuts. for example spCas9 would be “-3” and Cas12 is “18,22”.
+			[default = -3]
+			Can ONLY be used for ‘custom’ endonuclease''')
+
+	)
+	run_params.add_argument(
+		'-be_win',
+		dest='be_win',
+		default='4,8',
+		help=textwrap.dedent('''
+			Two positive integers separated by a comma that represent the base editing window. 
+			The numbering begins at the 5’ most end.
+			ex. CBE window is “4,8"
+			Can ONLY be used for ‘custom’ base editor''')
+	)
+
+	run_params.add_argument(
+		'-tarb',
+		dest='target_base',
+		default='A',
+		help=textwrap.dedent('''
+			A single  base that the custom base editor will target.
+			ex. ABE target base is “A”
+			Can ONLY be used for ‘custom’ base editor''')
+
+
+	)
+	run_params.add_argument(
+		'-resb',
+		dest='result_base',
+		default='G',
+		help=textwrap.dedent('''
+				A single  base that the custom base editor will change the target base to.
+				ex. ABE result base is “G”
+				Can ONLY be used for ‘custom’ base editor''')
+
 	)
 	run_params.add_argument(
 		'--dry',

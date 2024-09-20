@@ -14,8 +14,7 @@ from prog.medit_lib import (compress_file,
 							project_file_path,
 							prRed,
 							set_export,
-							write_yaml_to_file
-                            )
+							write_yaml_to_file)
 
 
 def guide_prediction(args, jobtag):
@@ -31,6 +30,21 @@ def guide_prediction(args, jobtag):
 	editor_request = args.editor_request
 	be_request = args.be_request
 	cutdist = args.cutdist
+
+	# TODO Daniel please plug these in
+	# pam = args.pam
+	# be_pam = args.be_pam
+	# be_guidelen = args.bgl
+	# guide_len = args.gl
+	# pamISfirst =
+	# be_pamISfirst =
+	# target_base =
+	# result_base =
+	# dsb_pos =
+
+
+	qtype = 'hgvs'
+	BEmode = 'custom'
 
 	# == Load SLURM-related values ==
 	ncores = args.ncores

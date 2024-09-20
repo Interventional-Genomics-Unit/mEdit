@@ -88,7 +88,6 @@ class DataHandler:
                      ["K", "H", "R", "Q"]]
         codon1, codon2 = Seq(codon1), Seq(codon2)
         aa1, aa2 = codon1.translate(), codon2.translate()
-        mtype = ""
         if aa1 == aa2:
             mtype = 'Synonymous'
             if codon1 == codon2:
@@ -118,7 +117,7 @@ class DataHandler:
 
             # Converted case
             convert = str(conversion[1])
-            bystander = target_bases.count(conversion[0]) - 1
+            bystander = target_bases.upper().count(conversion[0]) - 1
 
             if self.annotation not in ['exon','start_codon','stop_codon']:
                 ctype = 'NA'
@@ -228,11 +227,6 @@ class DataHandler:
         :return: Guide Dictionary
         """
         guides = []
-        scores = {'azimuth':'-',
-                  'deepcas9':'-',
-                  'deepcpf1':'-',
-                  'oof':'-'}
-
         pamlen = len(pam)
         sitelen = guidelen + pamlen
         var_relative_pos = int(len(self.extracted_seq)/2)
@@ -324,40 +318,41 @@ class DataHandler:
                         self.add_guides(name, guide, pam_found, search_strand, int(snvpos), scores ,extended_guide, start, end)
         return guides
 
-    def get_Guides(self, search_params, BEsearch_params=None):
+    def get_Guides(self, search_params, BEsearch_params = None):
         for name, params, in search_params.items():
-            pam, pamISfirst, guidelen, cut_site_position = params[0:4]
-            win_size = [int(cut_site_position) - self.dist_from_cutsite, int(cut_site_position) + self.dist_from_cutsite]
-            guides = self.get_guide_set(name, pam, pamISfirst, win_size, guidelen,cut_site_position, BEmode=False)
+            pam, pamISfirst, guidelen, dsb_loc = params[0:4]
+            win_size = [int(dsb_loc) - self.dist_from_cutsite, int(dsb_loc) + self.dist_from_cutsite]
+            guides = self.get_guide_set(name, pam, pamISfirst, win_size, guidelen,dsb_loc, BEmode=False)
 
         # if BE mode is on
-        if BEsearch_params is not None and len(self.NC_ref_allele + self.NC_alt_allele) ==2:
-            for k, params, in BEsearch_params.items():
-                pam, pamISfirst, guidelen, win_size = params[0][0], params[0][1], params[0][2], params[0][3]
-                bguides = self.get_guide_set(k, pam, pamISfirst, win_size, guidelen,cut_site_position=100, BEmode=True)
+        if BEsearch_params is not None:
+            if len(BEsearch_params.keys()) and len(self.NC_ref_allele + self.NC_alt_allele) ==2:
+                for k, params, in BEsearch_params.items():
+                    pam, pamISfirst, guidelen, win_size = params[0][0], params[0][1], params[0][2], params[0][3]
+                    bguides = self.get_guide_set(k, pam, pamISfirst, win_size, guidelen,cut_site_position=100, BEmode=True)
 
-                # if guides are found sep neg and pos strand guides
-                if len(bguides) > 0:
-                    pos_guides, neg_guides = [], []
-                    for g in bguides:
-                        if g[3] == '+':
-                            pos_guides += [g]
-                        else:
-                            neg_guides += [g]
+                    # if guides are found sep neg and pos strand guides
+                    if len(bguides) > 0:
+                        pos_guides, neg_guides = [], []
+                        for g in bguides:
+                            if g[3] == '+':
+                                pos_guides += [g]
+                            else:
+                                neg_guides += [g]
 
-                    # See if SNV can be BE edited
-                    for p in range(1, len(params[1:]) + 1):
-                        conversion = params[p][0]  # 'CT'
-                        name = ",".join(
-                            [n for n in params[p][1:]])
+                        # See if SNV can be BE edited
+                        for p in range(1, len(params[1:]) + 1):
+                            conversion = params[p][0]  # 'CT'
+                            name = ",".join(
+                                [n for n in params[p][1:]])
 
-                        if self.NC_alt_allele == conversion[0]:
-                            if len(pos_guides) > 0:
-                                self.getBE(guides=pos_guides, conversion=conversion, win_size=win_size, name=name)
+                            if self.NC_alt_allele == conversion[0]:
+                                if len(pos_guides) > 0:
+                                    self.getBE(guides=pos_guides, conversion=conversion, win_size=win_size, name=name)
 
-                        if self.NC_alt_allele == str(Seq(conversion[0]).complement()):
-                            if len(neg_guides) > 0:
-                                self.getBE(guides=neg_guides, conversion=conversion, win_size=win_size, name=name)
+                            if self.NC_alt_allele == str(Seq(conversion[0]).complement()):
+                                if len(neg_guides) > 0:
+                                    self.getBE(guides=neg_guides, conversion=conversion, win_size=win_size, name=name)
 
         return self.guides_found, self.BEguides_found
 
@@ -368,24 +363,24 @@ datadir = "/groups/clinical/projects/editability/tables/"
 processed_tables = "/groups/clinical/projects/editability/tables/processed_tables/"
 fasta_path ="/groups/clinical/projects/clinical_shared_data/hg38/hg38.fa.gz"
 
-search_params= {'spCas9': ('NGG', False, 20, -2, 'Sp Cas9, SpCas9-HF1, eSpCas9 1.1'),
-                'saCas9': ('NNGRRT', False,21, -2, 'Cas9 S. Aureus 21 base guide'),
+search_params= {'spCas9': ('NGG', False, 20, -3, 'Sp Cas9, SpCas9-HF1, eSpCas9 1.1'),
+                'saCas9': ('NNGRRT', False,21, -3, 'Cas9 S. Aureus 21 base guide'),
                 'CasX': ('TTCN', True, 20, 18, 'Cas12e'),
-                'AsCas12a': ('TTTV', True, 23, 22, 'TTT(A/C/G)-23bp - Cas12a (Cpf1)')}
-BE_search_params = {'spCas9-def': [('NGG', False, 20, [4, 8]), ('CT', 'BE3', 'BE4', 'BE4max', 'BE4-Gam'), ('AG', 'ABE7.9', 'ABE7.10', 'ABEmax')]}
+                'Cas12a': ('TTTV', True, 23, 18, 'TTT(A/C/G)-23bp - Cas12a (Cpf1)')}
+BE_search_params = {'CBE': [('NGG', False, 20, [4, 8], ''), ('CT', 'CBE')], 'ABE': [('NGG', False, 20, [4, 8], ''), ('AG', 'ABE')]}
 
-snv_info = {'11': [['NM_000518.5:c.114G>A', '-', 'C', 'T', 'exon', Seq('ATCCCCAAAGGACTCAAAGAACCTCTGGGTTCAAGGGTAGACCACCAGCAGCCTAAGGGT'), -2, 'chr11:5226778']], 
-            '3': [['NM_000532.5:c.1316A>G', '+', 'A', 'G', 'exon', Seq('TGGATCTGTTTTAGGCCTATGGAGGTGCCTGTGATGTCATGAGCTCTAAGCACCTTTGTG'), 1, 'chr3:136327650']],
-            '16': [['NM_000517.6:c.99G>A', '+', 'G', 'A', 'exon', Seq('CACCCCTCACTCTGCTTCTCCCCGCAGGATATTCCTGTCCTTCCCCACCACCAAGACCTA'), 2, 'chr16:173128'], 
-                   ['NM_005886.3:c.1A>G', '+', 'A', 'G', 'exon', Seq('GTGGGGCTTCAGGTGCCAGCCAGCTGAAGGGTGGCCACCCCTGTGGTCACCAAGACAGCC'), 2, 'chr16:57737244']]}
+snv_info = {'11': [['NM_000518.5:c.114G>A', 'NM_000518.5', 'ENST00000335295.4', 'HBB', '-', 'C', 'T', 'exon 3','ACAGCATCAGGAGTGGACAGATCCCCAAAGGACTCAAAGAACCTCTGGGTtCAAGGGTAGACCACCAGCAGCCTAAGGGTGGGAAAATAGACCAATAGGC', 2, 'chr11:5226778']], 
+            '3': [['NM_000532.5:c.1316A>G', 'NM_001178014.2', '-', 'PCCB', '+', 'A', 'G', 'exon 14', 'AGGCTCTAACACTCAGCATTTGGATCTGTTTTAGGCCTATGGAGGTGCCTgTGATGTCATGAGCTCTAAGCACCTTTGTGGTGATACCAACTATGCCTGG', 1, 'chr3:136327650']],
+            '16':[['NM_001605.3:c.902A>G', 'NM_001605.3', 'ENST00000261772.13', 'AARS1', '-', 'T', 'C', 'exon 7', 'TGTTGTCAGGCCGGCCACCATCAGCCAGTGCCACAGTGATGGTCCGAGCGcGGTCAGCCAGCACCCGGTAGGCCATGTCAATCCCATCGGCATCCTCAGC', 1, 'chr16:70269678'], 
+            ['NM_020686.6:c.*430C>T', 'NM_001386616.1', '-', 'ABAT', '+', 'C', 'T', '3utr', 'GTGCCAGTCCATCTCAAGTGCCATATTCTGTGATCACGGATGTTGGCTCCtCCTCGCCCTATGCAAGCAAACACACTCTCACCTCCTCTCCCAGCCTCCC', None, 'chr16:8781860']]}
 
-for ch, data in fg.snv_info.items():
+for ch, data in snv_info.items():
     for d in data:
-        query, tid, eid, strand, ref, alt, feature_annotation, extracted_seq, codons, coord = d
+       query, tid, eid, gname, strand, ref, alt, feature_annotation, extracted_seq, codons, coord = d
         print(f'----------{query}--------------')
-        dh = DataHandler(query, strand, ref, alt, feature_annotation, extracted_seq, codons, coord)
-    guides_found, BEguides_found = dh.get_Guides(fg.search_params,fg.BE_search_params)
-        print(len(guides_found['gRNA'])
+        dh = DataHandler(query, strand, ref, alt, feature_annotation, models_dir, extracted_seq, codons, coord,gname,dist_from_cutsite = 7)
+    guides_found, BEguides_found = dh.get_Guides(search_params,BE_search_params)
+        print(len(guides_found['gRNA']))
             #for k,v in guides_found:
     #    print(k,v)
     #for k,v in BEguides_found.items():
