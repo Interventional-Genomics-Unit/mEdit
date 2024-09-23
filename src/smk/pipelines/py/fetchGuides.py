@@ -565,7 +565,6 @@ def main():
 	guides_report = str(snakemake.output.guides_report_out)
 	gene_report = str(snakemake.output.gene_report)
 	variant_report = str(snakemake.output.variant_report)
-	#TODO Daniel plug this nguides_report into the front end please
 	nguides_report = str(snakemake.output.nguides_report)
 	be_report = str(snakemake.output.be_report)
 	guide_search_params_path = str(snakemake.output.guide_search_params)
@@ -642,10 +641,10 @@ def main():
 
 	# == Export Intermediate files ==
 	fg.write_snv_site_info(snv_site_info_path)
-	fg.write_gsearch_params(guide_search_params_path)
+	fg.write_besearch_params(guide_search_params_path)
 
 	# == Export Variant, Guide Totals and Gene tables ==
-	fg.write_reports(gene_report, variant_report,nguides_report)
+	fg.write_reports(gene_report, variant_report, nguides_report)
 
 	# == Export Not Found table
 	fg.write_not_found(guides_not_found_path)
