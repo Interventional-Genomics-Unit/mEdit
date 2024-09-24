@@ -47,6 +47,14 @@ rule predict_guides:
 		base_editors = config["base_editors"],
 		models_path= config["models_path"],
 		distance_from_cutsite = config["distance_from_cutsite"],
+		# == Custom Editor Parameters
+		pam = config["pam"],
+		guide_length = config["guide_length"],
+		pam_is_first = config["pam_is_first"],
+		dsb_position = config["dsb_position"],
+		editing_window = config["editing_window"],
+		target_base = config["target_base"],
+		result_base = config["result_base"],
 		# == Run Parameters ==
 		qtype = config["qtype"],
 		be_request = config["be_request"],

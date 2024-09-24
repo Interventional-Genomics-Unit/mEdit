@@ -20,6 +20,14 @@ qtype: ""
 be_request: ""
 editor_request: ""
 distance_from_cutsite: ""
+# Custom editor parameters required according to prog/arguments.py
+pam: ""
+guide_length: ""
+pam_is_first: ""
+dsb_position: ""
+editing_window: ""
+target_base: ""
+result_base: ""
 
 # === I/O PATHS ===
 # == DIRECTORIES ==

@@ -18,41 +18,37 @@ from prog.medit_lib import (compress_file,
 
 
 def guide_prediction(args, jobtag):
-	# == Load Run Parameters values ==
+	# === Load Run Parameters values ===
+	# == Inputs and File tree setup
 	query_input = args.query_input
 	user_jobtag = args.user_jobtag
 	root_dir = abspath(args.output)
 	db_path_full = f"{abspath(args.db_path)}/medit_database"
+	# == Mode and associated values
 	mode = args.mode
 	mode_name = copy(mode)
 	private_genomes = args.private_genome
 	qtype = args.qtype_request
+	# == Editor request and associated values
 	editor_request = args.editor_request
 	be_request = args.be_request
 	cutdist = args.cutdist
+	# == Custom editor required values
+	pam = args.pam
+	guide_length = args.guide_length
+	pam_is_first = args.pam_is_first
+	target_base = args.target_base
+	result_base = args.result_base
+	dsb_position = args.dsb_position
+	editing_window = args.editing_window
 
-	# TODO Daniel please plug these in
-	# pam = args.pam
-	# be_pam = args.be_pam
-	# be_guidelen = args.bgl
-	# guide_len = args.gl
-	# pamISfirst =
-	# be_pamISfirst =
-	# target_base =
-	# result_base =
-	# dsb_pos =
-
-
-	qtype = 'hgvs'
-	BEmode = 'custom'
-
-	# == Load SLURM-related values ==
+	# === Load SLURM-related values ===
 	ncores = args.ncores
 	maxtime = args.maxtime
 	parallel_processes = args.parallel_processes
 	dry_run = args.dry_run
 
-	# == Define dynamic SMK call variables ==
+	# === Define dynamic SMK call variables ===
 	allowed_rules = ['']
 	cluster_smk_setup = ['']
 	smk_verbosity = [True]
@@ -82,7 +78,7 @@ def guide_prediction(args, jobtag):
 		if not file_exists(query_filename):
 			handle_shell_exception(str('FileNotFound'), str(query_filename), True)
 			exit(0)
-	# == Copy query files in the right naming format for mEdit
+		# == Copy query files in the right naming format for mEdit
 		if mode_name == 'fast':
 			mode_name = 'standard'
 		formatted_query_filename = f"{query_input_path}/{mode_name}_{jobtag}_{query_index_count}.csv"
@@ -101,7 +97,7 @@ def guide_prediction(args, jobtag):
 		# --> That's because samtool's conda package crashes on a libcrypto error when
 		#       it's deployed by snakemake on a SLURM node
 		cluster_smk_setup = ['', '--cluster "sbatch -t {cluster.time} -n {cluster.cores}" '
-		                         '--cluster-config config/medit_cluster.yaml']
+								 '--cluster-config config/medit_cluster.yaml']
 		allowed_rules = ['--until "consensus_fasta"', '']
 		smk_verbosity = [False, True]
 	#   == Check the dry run request
@@ -109,8 +105,6 @@ def guide_prediction(args, jobtag):
 		dryrun_setup = '-n'
 	if user_jobtag:
 		smk_run_triggers = '--rerun-triggers "mtime"'
-
-
 
 	# ->=== CONFIG FILES IMPORT ===<-
 	#   == Load template configuration files ==
@@ -181,6 +175,14 @@ def guide_prediction(args, jobtag):
 	config_template['editor_request'] = editor_request
 	config_template['be_request'] = be_request
 	config_template['distance_from_cutsite'] = cutdist
+	# Assign custom editor parameters to config
+	config_template['pam'] = pam
+	config_template['guide_length'] = guide_length
+	config_template['pam_is_first'] = pam_is_first
+	config_template['dsb_position'] = dsb_position
+	config_template['editing_window'] = editing_window
+	config_template['target_base'] = target_base
+	config_template['result_base'] = result_base
 	# Assign cluster options
 	cluster_template['__default__']['cores'] = ncores
 	cluster_template['__default__']['time'] = maxtime
@@ -196,20 +198,20 @@ def guide_prediction(args, jobtag):
 		try:
 			# --> When cluster submission is switched on,
 			launch_shell_cmd(f"snakemake "
-			                 f"--snakefile {project_file_path('smk.pipelines', 'guide_prediction.smk')} "
-			                 # f"--directory {project_file_path('smk.pipelines', 'guide_prediction.smk')} "
-			                 f"-j {ncores} "
-			                 f"{smk_run_triggers} "
-			                 f"{allowed_rules[smk_setup_idx]} "
-			                 f"{cluster_smk_setup[smk_setup_idx]} "
-			                 f"--configfile {config_db_path} "
-			                 f"{dynamic_config_path} "
-			                 f"--use-conda "
+							 f"--snakefile {project_file_path('smk.pipelines', 'guide_prediction.smk')} "
+							 # f"--directory {project_file_path('smk.pipelines', 'guide_prediction.smk')} "
+							 f"-j {ncores} "
+							 f"{smk_run_triggers} "
+							 f"{allowed_rules[smk_setup_idx]} "
+							 f"{cluster_smk_setup[smk_setup_idx]} "
+							 f"--configfile {config_db_path} "
+							 f"{dynamic_config_path} "
+							 f"--use-conda "
 							 f"--keep-going "
 							 f"--rerun-incomplete "
-			                 f"{dryrun_setup}",
-			                 smk_verbosity[smk_setup_idx]
-			                 )
+							 f"{dryrun_setup}",
+							 smk_verbosity[smk_setup_idx]
+							 )
 		except subprocess.CalledProcessError as e:
 			print(f"Error: {e}")
 		except ValueError:

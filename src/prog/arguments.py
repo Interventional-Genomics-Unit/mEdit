@@ -232,6 +232,14 @@ def parse_arguments():
 
 	custom_options = fguides_parser.add_argument_group("== Custom Editor Options ==")
 	custom_options.add_argument(
+		'--pam',
+		dest='pam',
+		help=textwrap.dedent('''
+	        Specifies the PAM sequence to be used for custom guide or base editor searches. 
+	        Required if "--editor custom" or "--be custom" is used.
+	    ''')
+	)
+	custom_options.add_argument(
 		'--guidelen',
 		dest='guide_length',
 		type=int,
@@ -241,7 +249,7 @@ def parse_arguments():
 	    ''')
 	)
 	custom_options.add_argument(
-		'--pamISfirst',
+		'--pam-is-first',
 		dest='pam_is_first',
 		action='store_true',
 		help=textwrap.dedent('''
