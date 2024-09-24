@@ -2,15 +2,17 @@
 from argparse import ArgumentParser as argp
 from argparse import RawTextHelpFormatter
 import textwrap
+
+
 # == Installed Modules ==
-#from importlib.metadata import version
+# from importlib.metadata import version
 
 
 def parse_arguments():
 	# -> === Launch argparse parser === <-
 	parser = argp(
 		prog='mEdit',
-		#description=f'version {version("meditability")}',
+		# description=f'version {version("meditability")}',
 		# epilog="mEdit is pretty cool, huh? :)",
 		usage='%(prog)s ',
 		formatter_class=RawTextHelpFormatter
@@ -164,7 +166,7 @@ def parse_arguments():
 		'--qtype',
 		dest='qtype_request',
 		default='hgvs',
-		choices=['hgvs', 'coord'], #,'gene','rsid'],
+		choices=['hgvs', 'coord'],  # ,'gene','rsid'],
 		help=textwrap.dedent('''
 			Set the query type provided to mEdit. [default = "hgvs"]
 			[1-] "hgvs": must at least contain the Refseq identifier 
@@ -184,7 +186,7 @@ def parse_arguments():
 		'--editor',
 		dest='editor_request',
 		default='clinical',
-		choices=['clinical','custom', 'user defined list'],
+		choices=['clinical', 'custom', 'user defined list'],
 		help=textwrap.dedent('''
 			Delimits the set of editors to be used by mEdit. 
 			[default = "clinical"]
@@ -217,95 +219,78 @@ def parse_arguments():
 		dest='cutdist',
 		default='7',
 		help=textwrap.dedent('''
-				Max allowable window a variant start position can be from
-				the editor cut site. This option not available for base editors. 
-				[default = 7]''')
-	)
-	run_params.add_argument(
-		'-gl',
-		dest='guidelen',
-		default='20',
-		help=textwrap.dedent('''
-		endonuclease spacer length for a custom editor. [default =20]
-		Can ONLY be used for a ‘custom’ editor''')
-	)
-	run_params.add_argument(
-		'-bgl',
-		dest='be_guidelen',
-		default='20',
-		help=textwrap.dedent('''
-			base editor spacer length for a custom editor. [default =20]
-			Can ONLY be used for a ‘custom’ base editor''')
-	)
-	## TODO can this be an option that doesn't need an argument followed? like only use it if its TRUE
-
-	run_params.add_argument(
-		'--pamISfirst',
-		dest='pamISfirst',
-		default=False,
-		help=textwrap.dedent('''
-			Whether the PAM site is 5’ of target site [default = False]. 
-			Can ONLY be used for a ‘custom’ editor''')
-	)
-	run_params.add_argument(
-		'--be_pamISfirst',
-		dest='be_pamISfirst',
-		default=False,
-		help=textwrap.dedent('''
-			Whether the PAM site is 5’ of target site [default = False]. 
-			Can ONLY be used for a ‘custom’ base editor''')
-
-	)
-	run_params.add_argument(
-		'-dsb',
-		dest='dsb_pos',
-		default=-3,
-		help=textwrap.dedent('''
-			Double strand cut site relative to pam. This can be a single integer with a blunt end 
-			endonuclease or 2 integers separated by a single comma when using an endonuclease that 
-			produces staggered end cuts. for example spCas9 would be “-3” and Cas12 is “18,22”.
-			[default = -3]
-			Can ONLY be used for ‘custom’ endonuclease''')
-
-	)
-	run_params.add_argument(
-		'-be_win',
-		dest='be_win',
-		default='4,8',
-		help=textwrap.dedent('''
-			Two positive integers separated by a comma that represent the base editing window. 
-			The numbering begins at the 5’ most end.
-			ex. CBE window is “4,8"
-			Can ONLY be used for ‘custom’ base editor''')
-	)
-
-	run_params.add_argument(
-		'-tarb',
-		dest='target_base',
-		default='A',
-		help=textwrap.dedent('''
-			A single  base that the custom base editor will target.
-			ex. ABE target base is “A”
-			Can ONLY be used for ‘custom’ base editor''')
-
-
-	)
-	run_params.add_argument(
-		'-resb',
-		dest='result_base',
-		default='G',
-		help=textwrap.dedent('''
-				A single  base that the custom base editor will change the target base to.
-				ex. ABE result base is “G”
-				Can ONLY be used for ‘custom’ base editor''')
-
+					Max allowable window a variant start position can be from
+					the editor cut site. This option not available for base editors. 
+					[default = 7]''')
 	)
 	run_params.add_argument(
 		'--dry',
 		dest='dry_run',
 		action='store_true',
 		help=textwrap.dedent('''
-			Perform a dry run of mEdit.'''))
+				Perform a dry run of mEdit.'''))
+
+	custom_options = fguides_parser.add_argument_group("== Custom Editor Options ==")
+	custom_options.add_argument(
+		'--guidelen',
+		dest='guide_length',
+		type=int,
+		help=textwrap.dedent('''
+	        Specifies the length of the guide sequence for both custom endonuclease and base editor searches.
+	        Required if "--editor custom" or "--be custom" is used.
+	    ''')
+	)
+	custom_options.add_argument(
+		'--pamISfirst',
+		dest='pam_is_first',
+		action='store_true',
+		help=textwrap.dedent('''
+	        Indicates if the PAM is positioned before the guide for both custom endonuclease and base editor searches. 
+	        Required if "--editor custom" or "--be custom" is used.
+	    ''')
+	)
+	custom_options.add_argument(
+		'--dsb_pos',
+		dest='dsb_position',
+		type=int,
+		help=textwrap.dedent('''
+	        Double strand cut site relative to pam. This can be a single integer with a blunt end 
+			endonuclease or 2 integers separated by a single comma when using an endonuclease that 
+			produces staggered end cuts. For example spCas9 would be “-3” and Cas12 is “18,22”.
+	        Required if "--editor custom" is used.
+	    ''')
+	)
+	custom_options.add_argument(
+		'--edit_win',
+		dest='editing_window',
+		help=textwrap.dedent('''
+	        Specifies the size of the editing window for custom base editor search.
+	        Two positive integers separated by a comma that represent the base editing window. 
+			The numbering begins at the 5’ most end. For example: CBE window is “4,8"
+	        Required if "--be custom" is used.
+	    ''')
+	)
+	custom_options.add_argument(
+		'--target_base',
+		dest='target_base',
+		choices=['A', 'C', 'G', 'T'],
+		help=textwrap.dedent('''
+	        Specifies the target base for base editor modification.
+	        For example: ABE target base is “A”
+	        Required if "--be custom" is used.
+	    ''')
+	)
+	custom_options.add_argument(
+		'--result_base',
+		dest='result_base',
+		choices=['A', 'C', 'G', 'T'],
+		help=textwrap.dedent('''
+	        Specifies the base that the target base will be converted to for base editor searches.
+	        For example: ABE result base is “G”
+	        Required if "--be custom" is used.
+	    ''')
+	)
+
 	cluster_opt = fguides_parser.add_argument_group("== SLURM Options ==")
 	cluster_opt.add_argument(
 		'-p',
