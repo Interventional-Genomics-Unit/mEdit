@@ -27,7 +27,7 @@ def guide_prediction(args, jobtag):
 	# == Mode and associated values
 	mode = args.mode
 	mode_name = copy(mode)
-	private_genomes = args.private_genome
+	custom_vcfs = args.custom_vcf
 	qtype = args.qtype_request
 	# == Editor request and associated values
 	editor_request = args.editor_request
@@ -87,10 +87,10 @@ def guide_prediction(args, jobtag):
 		set_export(query_input_path)
 		#   => Create a copy of the VCF in the internal mEdit directory
 		launch_shell_cmd(f"cp {query_filename} {formatted_query_filename}", True)
-	#   == Check the presence of private genome among the inputs ==
-	if private_genomes:
-		mode = 'private'
-		private_genomes = args.private_genome.split(",")
+	#   == Check the presence of custom vcf genome among the inputs ==
+	if custom_vcfs:
+		mode = 'vcf'
+		custom_vcfs = args.custom_vcf.split(",")
 	#   == Check the request to run on a cluster
 	if parallel_processes:
 		# --> Upon SLURM run request, the guide_prediction.smk is split in two separate runs
@@ -124,12 +124,12 @@ def guide_prediction(args, jobtag):
 		exit(0)
 
 	# ->=== CHECK RUN MODE ===<-
-	if mode == 'private':
-		# == Enforce presence of private genome in this mode ==
-		if not private_genomes:
-			print("Please provide a VCF input file to run mEdit's private mode")
+	if mode == 'vcf':
+		# == Enforce presence of custom vcf genome in this mode ==
+		if not custom_vcfs:
+			print("Please provide a VCF input file to run mEdit's vcf mode")
 			sys.exit(1)
-		# == Create a private VCF directory when a private run is issued
+		# == Create a custom VCF directory when a vcf run is issued
 		vcf_dir_path = f"{config_db['meditdb_path']}/{mode}/source_vcfs"
 		set_export(vcf_dir_path)
 		# == Check the config_db file for instructions on which human genome version should be used
@@ -139,23 +139,23 @@ def guide_prediction(args, jobtag):
 			config_template['sequence_id'] = ["latest_hg38"]
 		if custom_reference:
 			config_template['sequence_id'] = ["custom_reference"]
-		# == VCF ID adjustment for private vcf run ==
+		# == VCF ID adjustment for custom vcf run ==
 		#   => Import VCF file prefix information to config file
 		tagged_genomes = []
 		count_tag = 1
-		for private_genome in private_genomes:
+		for custom_vcf in custom_vcfs:
 			loop_tag = f"{jobtag}_{count_tag}"
 			vcf_filename = f"{loop_tag}.vcf"
 			tagged_genomes.append(loop_tag)
-			#   => Avoid re-creating private VCF mirrors within the medit DB
+			#   => Avoid re-creating custom VCF mirrors within the medit DB
 			if not file_exists(f"{vcf_dir_path}/{vcf_filename}"):
 				if not file_exists(f"{vcf_dir_path}/{vcf_filename}.gz"):
 					#   => Create a copy of the VCF in the internal mEdit directory
-					launch_shell_cmd(f"cp {private_genome} {vcf_dir_path}/{vcf_filename}", True)
+					launch_shell_cmd(f"cp {custom_vcf} {vcf_dir_path}/{vcf_filename}", True)
 					#   => Check VCF file compression and compress if necessary
 					compress_file(f"{vcf_dir_path}/{vcf_filename}")
 			count_tag += 1
-		#   => Add any amount of private genomes to the config file
+		#   => Add any amount of custom vcf genomes to the config file
 		config_template["vcf_id"] = tagged_genomes
 	elif mode == 'fast':
 		allowed_rules = ['--until "predict_guides" --omit-from consensus_fasta']

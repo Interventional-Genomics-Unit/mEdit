@@ -136,12 +136,11 @@ def parse_arguments():
 	                    mEdit will generate a random jobtag by default''')
 						)
 	run_params = fguides_parser.add_argument_group("== mEdit Core Parameters ==")
-	# TODO please change private to vcf or custom vcf, we dont want to insinuate private clinical info
 	run_params.add_argument(
 		'-m',
 		dest='mode',
 		default='standard',
-		choices=['fast', 'standard', 'private'],
+		choices=['fast', 'standard', 'vcf'],
 		help=textwrap.dedent('''
 			The MODE option determines how mEdit will run your job. 
 			[default = "standard"]
@@ -150,18 +149,17 @@ def parse_arguments():
 			[2-] "standard": will find and process guides based on a 
 			reference human genome assembly along with a diverse set of 
 			pangenomes from HPRC.
-			[3-] "private": requires a private VCF file that will be 
+			[3-] "vcf": requires a custom VCF file that will be 
 			 processed for guide prediction.''')
 	)
 	run_params.add_argument(
-		'-g',
-		dest='private_genome',
+		'-v',
+		dest='custom_vcf',
 		default=None,
 		help=textwrap.dedent('''
 			Provide a gunzip compressed VCF file to run mEdit’s 
-			private mode''')
+			vcf mode''')
 	)
-	# TODO please allow for gene and rsid. I started this for you, see commented out section
 	run_params.add_argument(
 		'--qtype',
 		dest='qtype_request',
