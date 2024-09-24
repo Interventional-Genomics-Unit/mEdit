@@ -41,7 +41,7 @@ class Fetch_Guides:
 		  --> hgvs assumes the query is already in clinvar and will generate a variant report with the gene report,
 		  --> if 'coord' then just gene report is created
 		:param editor_request: 'clinical', 'custom', name (list/str from editor choices)
-		--> custom must contain kwargs - pam, pamISFirst,guidelen (optional:name,win_size)
+		--> custom must contain kwargs - pam, pam_is_first,guide_length (optional:name,win_size)
 		:param be_request: 'off','default','all', or select BE editor for base editor choices below
 		:param editors: Dictionary containing information on the current set of editors supported by mEdit
 		:param base_editors: Dictionary containing information on the current set of base editors supported by mEdit
@@ -49,7 +49,7 @@ class Fetch_Guides:
 		:param genome: genome used
 		:param datadir: folder where tables and pre-computed data live
 		:param fasta_path: *Unsure using chromsome seperate files right now but unsure if this will be permenant
-		:param kwargs: 'hgvscoord' , 'clin_report','gene_report'
+		:param kwargs:
 		"""
 		##-----------------User Required_Inputs--------------------##
 		if qtype == 'hgvs':
@@ -66,14 +66,11 @@ class Fetch_Guides:
 		##----endonuclease and BE search params
 		self.editor_lib = editors
 		self.be_lib = base_editors
-		self.guidelen = 20
-		self.be_guidelen = 20
+		self.guide_length = 20
 		self.pam =str()
-		self.be_pam= str()
-		self.pamISfirst = False
-		self.be_pamISfirst = False
-		self.dsb_pos = int()
-		self.be_win = [4,8]
+		self.pam_is_first = False
+		self.dsb_position = int()
+		self.editing_window = [4,8]
 		self.conversion = str()
 		self.search_params = self.configure_search_params(kwargs)
 		self.BE_search_params = self.configure_BE_params(kwargs)
@@ -148,31 +145,31 @@ class Fetch_Guides:
 			print("custom editor selection MUST contain pam argument")
 
 		try:
-			self.pamISfirst = kwargs['pamISfirst']
-			if not isinstance(kwargs['pamISfirst'], bool):
-				raise TypeError(f"'pamISfirst' must be of type 'bool', got {kwargs['pamISfirst'].__name__} instead.")
+			self.pam_is_first = kwargs['pam_is_first']
+			if not isinstance(kwargs['pam_is_first'], bool):
+				raise TypeError(f"'pam_is_first' must be of type 'bool', got {kwargs['pam_is_first'].__name__} instead.")
 		except KeyError:
-			print("custom editor selection MUST also have  pamISfirst in kwargs")
+			print("custom editor selection MUST also have  pam_is_first in kwargs")
 
 		try:
-			self.guidelen= kwargs['guidelen']
-			if not isinstance(kwargs['guidelen'], int):
-				raise TypeError(f"'guidelen' must be of type 'int', got {kwargs['guidelen'].__name__} instead.")
+			self.guide_length= kwargs['guide_length']
+			if not isinstance(kwargs['guide_length'], int):
+				raise TypeError(f"'guide_length' must be of type 'int', got {kwargs['guide_length'].__name__} instead.")
 		except KeyError:
-			print("custom editor selection MUST also have guidelen in kwargs")
-			print(f"custom editor guide length being set to {self.guidelen}")
+			print("custom editor selection MUST also have guide_length in kwargs")
+			print(f"custom editor guide length being set to {self.guide_length}")
 			pass
 		try:
-			dsb_pos = str(kwargs['dsb_pos']).split(",")
-			self.dsb_pos = int(dsb_pos[0])
+			dsb_position = str(kwargs['dsb_position']).split(",")
+			self.dsb_position = int(dsb_position[0])
 		except KeyError:
 			print("custom editor selection MUST also have dsb_loc in kwargs")
 
-		params = {'custom_endonuclease': (self.pam, self.pamISfirst, self.dsb_pos, self.guidelen, '')}
+		params = {'custom_endonuclease': (self.pam, self.pam_is_first, self.dsb_position, self.guide_length, '')}
 
-		print(f'Your custom editor has a {"5 prime PAM" if self.pamISfirst else "3 prime PAM"} set to {self.pam}')
-		print(f'with a spacer length of {self.guidelen}' )
-		print(f"5'-{self.pam if self.pamISfirst else ''}{'x'*self.guidelen}{'' if self.pamISfirst else self.pam}-3'")
+		print(f'Your custom editor has a {"5 prime PAM" if self.pam_is_first else "3 prime PAM"} set to {self.pam}')
+		print(f'with a spacer length of {self.guide_length}' )
+		print(f"5'-{self.pam if self.pam_is_first else ''}{'x'*self.guide_length}{'' if self.pam_is_first else self.pam}-3'")
 		return params
 
 	def configure_BE_params(self,kwargs):
@@ -204,24 +201,24 @@ class Fetch_Guides:
 
 	def set_be_custom_params(self, kwargs):
 		try:
-			self.be_pam = kwargs['be_pam'].upper()
+			self.pam = kwargs['pam'].upper()
 		except KeyError:
-			print("custom editor selection MUST contain be_pam argument")
+			print("custom editor selection MUST contain pam argument")
 
 		try:
-			self.be_pamISfirst = kwargs['be_pamISfirst']
-			if not isinstance(kwargs['be_pamISfirst'], bool):
-				raise TypeError(f"'be_pamISfirst' must be of type 'bool', got {kwargs['be_pamISfirst'].__name__} instead.")
+			self.pam_is_first = kwargs['pam_is_first']
+			if not isinstance(kwargs['pam_is_first'], bool):
+				raise TypeError(f"'pam_is_first' must be of type 'bool', got {kwargs['pam_is_first'].__name__} instead.")
 		except KeyError:
-			print("custom editor selection MUST also have  be_pamISfirst in kwargs")
-			print(f"custom editor be_pamISfirst is being set to {self.be_pamISfirst}")
+			print("custom editor selection MUST also have  pam_is_first in kwargs")
+			print(f"custom editor pam_is_first is being set to {self.pam_is_first}")
 			pass
 
 		try:
-			self.be_guidelen= int(kwargs['be_guidelen'])
+			self.guide_length= int(kwargs['guide_length'])
 		except KeyError:
-			print("custom editor selection MUST also have be_guidelen in kwargs")
-			print(f"custom editor be_pamISfirst is being set to {self.be_guidelen}")
+			print("custom editor selection MUST also have guide_length in kwargs")
+			print(f"custom editor pam_is_first is being set to {self.guide_length}")
 			pass
 		try:
 			target_base = kwargs['target_base'].upper()
@@ -232,13 +229,13 @@ class Fetch_Guides:
 		except KeyError:
 			print("custom editor selection MUST also have 'target_base' and 'result_base' in kwargs")
 
-		params = {'custom_be': [(self.be_pam, self.be_pamISfirst,  self.be_guidelen, self.be_win, ''),(self.conversion , 'custom_be')]}
+		params = {'custom_be': [(self.pam, self.pam_is_first,  self.guide_length, self.editing_window, ''),(self.conversion , 'custom_be')]}
 
-		print(f"Your custom base editor has a {'5 prime PAM' if self.be_pamISfirst else '3 prime PAM'} set to {self.be_pam}")
-		print(f'with a spacer length of {self.be_guidelen}')
-		print(f"The base editor window is between position {self.be_win[0]} and {self.be_win[1]}")
+		print(f"Your custom base editor has a {'5 prime PAM' if self.pam_is_first else '3 prime PAM'} set to {self.pam}")
+		print(f'with a spacer length of {self.guide_length}')
+		print(f"The base editor window is between position {self.editing_window[0]} and {self.editing_window[1]}")
 		print(f"and will convert {self.conversion[0]}---->{self.conversion[1]}")
-		print(f"5'-{self.be_pam if self.be_pamISfirst else ''}{'x'*self.be_guidelen}{'' if self.be_pamISfirst else self.be_pam}-3'")
+		print(f"5'-{self.pam if self.pam_is_first else ''}{'x'*self.guide_length}{'' if self.pam_is_first else self.pam}-3'")
 		return params
 
 
@@ -317,7 +314,6 @@ class Fetch_Guides:
 
 		if self.qtype == 'hgvs':
 			self.all_variant.to_csv(variant_out, index=False)
-
 
 
 	def add_not_found(self, nfqueries, reason):
@@ -555,7 +551,6 @@ class Fetch_Guides:
 				print('No Base Editor Guides found for any queries')
 
 
-
 def main():
 	# SNAKEMAKE IMPORTS
 	# === Inputs ===
@@ -584,11 +579,14 @@ def main():
 	qtype = str(snakemake.params.qtype)
 	be_request = str(snakemake.params.be_request)
 	editor_request = str(snakemake.params.editor_request)
-	# == DEBUG BLOCK ==
-	# qtype = 'hgvs'
-	# BEmode = 'off'
-	# editor = 'clinical'
-	# == == ==
+	# 	== Custom Editor Parameters ==
+	pam = str(snakemake.params.pam)
+	guide_length = str(snakemake.params.guide_length)
+	pam_is_first = str(snakemake.params.pam_is_first)
+	dsb_position = str(snakemake.params.dsb_position)
+	editing_window = str(snakemake.params.editing_window)
+	target_base = str(snakemake.params.target_base)
+	result_base = str(snakemake.params.result_base)
 
 	# == Create dummy files for optional outputs
 	optional_outputs = [be_report, variant_report, gene_report, nguides_report]
@@ -634,7 +632,14 @@ def main():
 					  distance_from_cutsite,
 					  datadir,
 					  fasta_path,
-					  annote_path
+					  annote_path,
+					  pam=pam,
+					  pam_is_first=pam_is_first,
+					  guide_length=guide_length,
+					  dsb_position=dsb_position,
+					  editing_window=editing_window,
+					  target_base=target_base,
+					  result_base=result_base
 					  )
 	# == Set up object and run core methods ==
 	fg.run_FetchGuides(guides_report, be_report, models_path)
