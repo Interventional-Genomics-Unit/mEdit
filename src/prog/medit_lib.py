@@ -18,6 +18,7 @@ from alive_progress import alive_bar
 import yaml
 from importlib_resources import files
 from Bio import SeqIO
+from Bio.Data import IUPACData
 import boto3
 from botocore.exceptions import NoCredentialsError
 from botocore import UNSIGNED
@@ -47,6 +48,34 @@ def consolidate_s3_download(content, parent_folder):
 		if key != f"{parent_folder}/":
 			consolidated_downloadable.append(content[content_idx])
 	return consolidated_downloadable
+
+
+def check_format(variable, data_type, paramater_name, default_value):
+	if isinstance(variable, data_type):
+		if variable == default_value:
+			print(f"Please specify a value for the option --{paramater_name}.")
+			exit(0)
+		if data_type == str:
+			if not check_iupac(variable):
+				print(f"The string provided in --{paramater_name} is not a valid IUPAC representation: {variable}")
+				exit(0)
+		return data_type(variable)
+	else:
+		if data_type != str:
+			try:
+				data_type(variable)
+				return data_type(variable)
+			except ValueError:
+				print(f"Invalid data type for {paramater_name}: '{variable}'. Please double-check the documentation.")
+				exit(0)
+
+
+def check_iupac(sequence):
+	# Get the valid IUPAC characters (both unambiguous and ambiguous nucleotides)
+	iupac_nucleotides = set(IUPACData.ambiguous_dna_letters)
+
+	# Convert the sequence to uppercase and check if all characters are valid
+	return all(base in iupac_nucleotides for base in sequence.upper())
 
 
 def date_tag():

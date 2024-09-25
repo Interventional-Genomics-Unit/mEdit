@@ -264,7 +264,11 @@ class DataHandler:
                     snv_rel_pos = var_relative_pos - 1
             else:
                 pam_start, pam_end = pam_min + 1, pam_max
-            pam_index = SeqUtils.nt_search(str(search_seq).upper(), pam)[1:]
+            try:
+                pam_index = SeqUtils.nt_search(str(search_seq).upper(), pam)[1:]
+            except KeyError:
+                print(f"The value {pam} is not a nucleotide. Please double check your input values.")
+                exit(0)
 
             for i in pam_index:
                 if i in range(pam_start, pam_end+1):

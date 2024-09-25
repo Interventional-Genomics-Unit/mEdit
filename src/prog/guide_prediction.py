@@ -8,6 +8,7 @@ import sys
 import yaml
 # == Project Modules ==
 from prog.medit_lib import (compress_file,
+							check_format,
 							file_exists,
 							handle_shell_exception,
 							launch_shell_cmd,
@@ -105,6 +106,19 @@ def guide_prediction(args, jobtag):
 		dryrun_setup = '-n'
 	if user_jobtag:
 		smk_run_triggers = '--rerun-triggers "mtime"'
+	# == Check custom editors parameters
+	if editor_request == 'custom':
+		pam = check_format(pam, str, 'pam', 'XXX')
+		pam_is_first = check_format(pam_is_first, bool, 'pamisfirst', None)
+		guide_length = check_format(guide_length, int, 'guidelen', -1)
+		dsb_position = check_format(dsb_position, int, 'dsb_pos', -10000)
+	elif be_request == 'custom':
+		pam = check_format(pam, str, 'pam', 'XXX')
+		pam_is_first = check_format(pam_is_first, bool, 'pamisfirst', None)
+		guide_length = check_format(guide_length, int, 'guidelen', -1)
+		editing_window = check_format(editing_window, tuple, 'edit_win', (0, 0))
+		target_base = check_format(target_base, str, 'target_base', 'X')
+		result_base = check_format(result_base, str, 'result_base', 'X')
 
 	# ->=== CONFIG FILES IMPORT ===<-
 	#   == Load template configuration files ==

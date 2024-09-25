@@ -147,7 +147,7 @@ class Fetch_Guides:
 		try:
 			self.pam_is_first = kwargs['pam_is_first']
 			if not isinstance(kwargs['pam_is_first'], bool):
-				raise TypeError(f"'pam_is_first' must be of type 'bool', got {kwargs['pam_is_first'].__name__} instead.")
+				raise TypeError(f"'pam_is_first' must be of type 'bool', got {type(kwargs['pam_is_first'])} instead.")
 		except KeyError:
 			print("custom editor selection MUST also have  pam_is_first in kwargs")
 
@@ -208,7 +208,7 @@ class Fetch_Guides:
 		try:
 			self.pam_is_first = kwargs['pam_is_first']
 			if not isinstance(kwargs['pam_is_first'], bool):
-				raise TypeError(f"'pam_is_first' must be of type 'bool', got {kwargs['pam_is_first'].__name__} instead.")
+				raise TypeError(f"'pam_is_first' must be of type 'bool', got {type(kwargs['pam_is_first'])} instead.")
 		except KeyError:
 			print("custom editor selection MUST also have  pam_is_first in kwargs")
 			print(f"custom editor pam_is_first is being set to {self.pam_is_first}")
@@ -581,10 +581,10 @@ def main():
 	editor_request = str(snakemake.params.editor_request)
 	# 	== Custom Editor Parameters ==
 	pam = str(snakemake.params.pam)
-	guide_length = str(snakemake.params.guide_length)
-	pam_is_first = str(snakemake.params.pam_is_first)
-	dsb_position = str(snakemake.params.dsb_position)
-	editing_window = str(snakemake.params.editing_window)
+	guide_length = int(snakemake.params.guide_length)
+	pam_is_first = bool(snakemake.params.pam_is_first)
+	dsb_position = int(snakemake.params.dsb_position)
+	editing_window = tuple(snakemake.params.editing_window)
 	target_base = str(snakemake.params.target_base)
 	result_base = str(snakemake.params.result_base)
 
