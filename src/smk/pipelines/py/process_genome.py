@@ -34,11 +34,13 @@ def make_ALTseq(extracted_seq, pos, ref, alt):
 	:param ref: Reference Allele
 	:param alt: Alt Genome alt allele
 	'''
+	variant_seq = ''
 	if len(ref) == len(alt):  ##substitution
 		variant_seq = (extracted_seq[0:pos] + alt.lower() + extracted_seq[pos + len(alt):])
 	else:
 		print("SNV sites only accepted at this time")
 	return variant_seq
+
 
 def extract_variant_info(record, REFextracted_seq, REFcoord):
 	'''
@@ -232,17 +234,16 @@ def fetch_ALT_guides(filtered_vcf,
 					 altgenome_name,
 					 refgenome_name):
 
-
-	## Get search parameters and the results from the reference assembly
+	# Get search parameters and the results from the reference assembly
 	# {'spCas9': ('NGG', False, 20, -3, 'requirements work for SpCas9-HF1, eSpCas9 1.1,spyCas9'),
 	search_params = pickle.load(open(guide_search_params, 'rb'))
 
-	## get REF variant info
+	# get REF variant info
 	# {'X': [['NM_004208.4:c.696+3G>A', 'NM_145812.3', '-', 'AIFM1', '-', 'C', 'T', 'intron', 'GGCTGG...
 	hg38_snvinfo = pickle.load(open(snv_site_info, 'rb'))
 
 	print("Searching for ALT genome changes")
-	ALTinfo, ALTguides_dict   = find_overlapping_variants(filtered_vcf, models_path, hg38_snvinfo, search_params)
+	ALTinfo, ALTguides_dict = find_overlapping_variants(filtered_vcf, models_path, hg38_snvinfo, search_params)
 
 	if len(ALTinfo.values()) > 0:
 
@@ -262,12 +263,14 @@ def fetch_ALT_guides(filtered_vcf,
 		with open(altvar_out, 'w') as f:
 			f.write(f"No Nearby variants found based on the VCF {altgenome_name}")
 
+
 def main():
 	# SNAKEMAKE IMPORTS
 	# === Inputs ===
 	filtered_vcf = str(snakemake.input.filtered_vcf)
 	guides_report = str(snakemake.input.guides_report_out)
 	guide_search_params = str(snakemake.input.guide_search_params)
+	guide_be_search_params_path = str(snakemake.input.guide_be_search_params)
 	snv_site_info = str(snakemake.input.snv_site_info)
 	# === Outputs ===
 	diffguides_out = str(snakemake.output.diff_guides)
@@ -280,6 +283,14 @@ def main():
 	# === Wildcards ===
 	altgenome_name = str(snakemake.wildcards.vcf_id)
 	refgenome_name = str(snakemake.wildcards.sequence_id)
+
+	# == Create dummy files for the outputs
+	dummy_outputs = [diffguides_out, altvar_out]
+	for report in dummy_outputs:
+		# Create an empty DataFrame
+		df = pd.DataFrame()
+		# Export the empty DataFrame to a CSV file
+		df.to_csv(str(report))
 
 	# Generate vcf index with tabix
 	print(f"Generate tabix file on:\n {idx_filtered_vcf}")

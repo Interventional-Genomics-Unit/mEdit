@@ -324,8 +324,18 @@ class DataHandler:
 
     def get_Guides(self, search_params, BEsearch_params = None):
         for name, params, in search_params.items():
-            pam, pamISfirst, guidelen, dsb_loc = params[0:4]
-            win_size = [int(dsb_loc) - self.dist_from_cutsite, int(dsb_loc) + self.dist_from_cutsite]
+            try:
+                pam, pamISfirst, guidelen, dsb_loc = params[0:4]
+            except ValueError:
+                print(f"Not enough values to unpack. Currently 'params' has the following values: {params[0:4]}")
+                pam, pamISfirst, guidelen, dsb_loc = (None, None, None, None)
+            try:
+                win_size = [int(dsb_loc) - self.dist_from_cutsite, int(dsb_loc) + self.dist_from_cutsite]
+            except TypeError:
+                print(f"Cannot obtain window size based on the current attributes provided. "
+                      f"Please double-check the current search parameters and try again: {params[0:4]}.")
+                exit(0)
+
             guides = self.get_guide_set(name, pam, pamISfirst, win_size, guidelen,dsb_loc, BEmode=False)
 
         # if BE mode is on

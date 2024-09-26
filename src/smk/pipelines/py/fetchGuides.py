@@ -266,6 +266,13 @@ class Fetch_Guides:
 			pickle.dump(merged_search_params, gfile)
 
 
+	def write_gsearch_params(self, outfile):
+		# writes pickle of selected guide search params for later use in process_genome
+		# 'editor', 'pam', '5prime_pam','guide_length', 'DSB site', 'notes'
+		with open(outfile, 'ab') as gfile:
+			pickle.dump(self.search_params, gfile)
+
+
 	def write_snv_site_info(self, outfile):
 		'''
 		#writes pickle of SNV site info for later use in process genome
@@ -563,6 +570,7 @@ def main():
 	nguides_report = str(snakemake.output.nguides_report)
 	be_report = str(snakemake.output.be_report)
 	guide_search_params_path = str(snakemake.output.guide_search_params)
+	guide_be_search_params_path = str(snakemake.output.guide_be_search_params)
 	snv_site_info_path = str(snakemake.output.snv_site_info)
 	guides_not_found_path = str(snakemake.output.guides_not_found_out)
 	# === Params ===
@@ -607,20 +615,20 @@ def main():
 		base_editors = pickle.load(befile)
 
 	# == Report processed input variables ==
-	print(f"""
-	Currently running fetchGuides.py
-	INPUT VARIABLES:
-		n of Queries: {len(queries)}
-		Query Type: {qtype}
-		be_request: {be_request}
-		editor_request: {editor_request}
-	PATH TO REFERENCE:
-		-> {fasta_path}
-	SUPPORT DATA DIRECTORY:
-		-> {datadir}
-	OUTPUTS TO:
-		--> {resultsfolder}
-	""")
+	# print(f"""
+	# Currently running fetchGuides.py
+	# INPUT VARIABLES:
+	# 	n of Queries: {len(queries)}
+	# 	Query Type: {qtype}
+	# 	be_request: {be_request}
+	# 	editor_request: {editor_request}
+	# PATH TO REFERENCE:
+	# 	-> {fasta_path}
+	# SUPPORT DATA DIRECTORY:
+	# 	-> {datadir}
+	# OUTPUTS TO:
+	# 	--> {resultsfolder}
+	# """)
 
 	# == Get query items ==
 	fg = Fetch_Guides(queries,
@@ -646,7 +654,8 @@ def main():
 
 	# == Export Intermediate files ==
 	fg.write_snv_site_info(snv_site_info_path)
-	fg.write_besearch_params(guide_search_params_path)
+	fg.write_gsearch_params(guide_search_params_path)
+	fg.write_besearch_params(guide_be_search_params_path)
 
 	# == Export Variant, Guide Totals and Gene tables ==
 	fg.write_reports(gene_report, variant_report, nguides_report)
