@@ -28,8 +28,34 @@ def ls_editors(args):
 	# if print_editors:
 	with open(str(config_db_obj["editors"]), 'rb') as editors_pkl_handle:
 		editors_dict = pickle.load(editors_pkl_handle)
-		print(f"Available editors:\n {list(editors_dict['clinical'].keys())}")
+		print(f"Available endonuclease editors: ")
+		for k,v in editors_dict['all'].items():
+			print("-----------------------------")
+			print(f"name: {k}")
+			print(f"pam, pam_is_first: {v[0]}, {v[1]}")
+			print(f"guide_len: {str(v[2])}")
+			if v[1] == True:# show both staggered positions for 5' pam editors
+				print(f"dsb_position: {v[3]},{v[3]+5}")
+			else:
+				print(f"dsb_position: {v[3]}")
+			if len(v) > 4:
+				print(f"notes: {v[4]}")
+			print(f"5'-{v[0] if v[1] else ''}{'x' * int(v[2])}{'' if v[1] else v[0]}-3'")
+
+
 	# if print_base_editors:
 	with open(str(config_db_obj["base_editors"]), 'rb') as be_pkl_handle:
 		base_editors_dict = pickle.load(be_pkl_handle)
-		print(f"Available base editors:\n {list(base_editors_dict['all'].keys())}")
+		print(f"Available base editors: ")
+		for k,v in base_editors_dict['all'].items():
+
+			print("-----------------------------")
+			print(f"name: {k}")
+			print(f"pam, pam_is_first: {v[0][0]}, {v[0][1]}")
+			print(f"guide_len: {str(v[0][2])}")
+			print(f"edit_win: {str(v[0][3])[1:-1]}")
+			print(f'target_base, result_base: {v[1][0][0]} ---> {v[1][0][1]}')
+			if len(v[0]) > 4:
+				print(f"notes: {v[0][4]}")
+			print(f"5'-{v[0][0] if v[0][1] else ''}{'x' * int(v[0][2])}{'' if v[0][1] else v[0][0]}-3'")
+
