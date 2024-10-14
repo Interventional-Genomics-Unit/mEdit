@@ -14,6 +14,31 @@ from dataH import DataHandler
 # If new guide is created --> submits query back to Fetch guides
 #################################
 
+def make_dict(ALTguides_dict, new_guides_set,new_beguides_set,set_header):
+
+	if set_header:
+		header = list(set(list(new_beguides_set.keys()) + list(new_guides_set.keys())))
+		for k in header:
+			ALTguides_dict[k] = []
+
+	if len(new_guides_set['gRNA']) > 0:
+		value_length = len(new_guides_set['gRNA'])
+		for k in ALTguides_dict.keys():
+			if k in new_guides_set.keys():
+				ALTguides_dict[k] += [x for x in new_guides_set[k]]
+			else:
+				ALTguides_dict[k] += ["-"] * value_length
+
+		if len(new_beguides_set['gRNA']) > 0:
+			value_length = len(new_beguides_set['gRNA'])
+			for k in ALTguides_dict.keys():
+				if k in new_beguides_set.keys():
+					ALTguides_dict[k] += [x for x in new_beguides_set[k]]
+				else:
+					ALTguides_dict[k] += ["-"] * value_length
+		return ALTguides_dict
+
+
 def extract_vcf_record(REFcoord, vcf_fname, window):
 	'''
 	searches for overlapping variant at the provided REF genome coordinate $ window
@@ -96,18 +121,15 @@ def extract_variant_info(record, REFextracted_seq, REFcoord):
 	return ALTref, ALTalt, ALTalts, ALTcoord,zyg, vtype, rel_pos, ALTid
 
 
-def find_overlapping_variants(filtered_vcf, models_path, hg38_snvinfo, search_params):
+def find_overlapping_variants(filtered_vcf, models_path, hg38_snvinfo, search_params,be_search_params):
 	ALTguides_dict = {}
 	ALTinfo = {}
+	set_header = True
 
 	for ch, data in hg38_snvinfo.items():
 		for d in data:
-			try:
-				query, tid, eid, gname,strand, REFref, REFalt, feature_annotation, REFextracted_seq, codons, REFcoord = d
-			except ValueError:
-				print(f"WARNING: process_genome.py --> The query below has the wrong number of values to unpack. "
-					  f"Needs further investigation:\n{d}")
-				continue
+			query, tid, eid, gname,strand, REFref, REFalt, feature_annotation, REFextracted_seq, codons, REFcoord = d
+
 			# Check VCF if variant exists in hg38 extracted_seq
 			window = len(REFextracted_seq)/2
 			records_found = extract_vcf_record(REFcoord=REFcoord, vcf_fname = filtered_vcf, window=window)
@@ -127,48 +149,49 @@ def find_overlapping_variants(filtered_vcf, models_path, hg38_snvinfo, search_pa
 					# find quides
 					dh = DataHandler(query, strand, REFref, REFalt, feature_annotation, models_path, ALTseq, codons,
 									 REFcoord, gname)
-					new_guides_set, be_none = dh.get_Guides(search_params)
+					new_guides_set, new_beguides_set  = dh.get_Guides(search_params,be_search_params)
 
-					if len(new_guides_set['gRNA']) > 0:
-
-						for k, v in new_guides_set.items():
-							if k not in ALTguides_dict.keys():
-								ALTguides_dict[k] = []
-							ALTguides_dict[k]+= [x for x in v]
-
+					make_dict(ALTguides_dict, new_guides_set, new_beguides_set, set_header)
+					set_header = False
 	return ALTinfo, ALTguides_dict
 
-def guide_compare(guides_report,ALTguides_dict,ALTinfo,refgenome_name,altgenome_name):
+def guide_compare(guides_report,be_report,ALTguides_dict,ALTinfo,refgenome_name,altgenome_name):
 	'''
 	Compares the guides generated from the ALT and REf genomes.
 	Creates a DF that shows the ALT genomes impact on REF guides
 
 	:param guides_report: Reference Genome guide CSV
+	:param guides_report: Reference Genome base editor guide CSV
 	:param ALTguides_dict: Guide found with variations found in ALT genome
 	:param ALTinfo: ALT genome VCF variant into
-	:param refgenome_name: example 'Hg68'
+	:param refgenome_name: example 'Hg38'
 	:param altgenome_name: example 'H02557'
 	'''
 
 	new_guides = []
 
 	altgdf = pd.DataFrame(ALTguides_dict)
-	refgdf = pd.read_csv(guides_report)
+	refgdf = pd.read_csv(guides_report) # combine both be guides and endo guides together
+	refbedf = pd.read_csv(be_report)
+	refgdf = pd.concat([refgdf,refbedf])
+	altgdf =altgdf.loc[:,refgdf.columns] # reorder cols to match
+
 	refgdf = refgdf[refgdf['QueryTerm'].isin(list(ALTinfo.keys()))]
 	REFrows = refgdf.to_dict('tight')['data']
 	ALTrows = altgdf.to_dict('tight')['data']
 
-	rename_columns = [f'{altgenome_name} {x}' if 'Score' in x else x for x in altgdf.columns[8:]]
+	rename_columns = [f'{altgenome_name} {x}' if 'core' in x or 'B' in x else x for x in altgdf.columns[8:]]
 	columns = ['QueryTerm','GeneName', 'Editor',f'{altgenome_name} Guide Impact',
 			   'Coordinates','Strand',f'{altgenome_name} gRNA', f'{altgenome_name} Pam',
 			   f'{refgenome_name} gRNA', f'{refgenome_name} Pam'] + rename_columns
+
 
 	for rrow in REFrows:
 		query, gene,ed,gid,coord,strand, REFgrna, REFpam = rrow[0:8]
 
 		cnt = 1
 		for arow in ALTrows:
-			if query == arow[0] and ed ==arow[2]:
+			if query == arow[0] and ed ==arow[2] :
 				ALTgrna, ALTpam = arow[6:8]
 
 				if [REFpam, REFgrna] == [ALTpam, ALTgrna]:  # unchanged
@@ -226,7 +249,9 @@ def create_ALTvcf_report(ALTinfo,altgenome_name):
 
 def fetch_ALT_guides(filtered_vcf,
 					 guides_report,
+					 be_report,
 					 guide_search_params,
+					 guide_be_search_params,
 					 models_path,
 					 snv_site_info,
 					 diffguides_out,
@@ -237,13 +262,16 @@ def fetch_ALT_guides(filtered_vcf,
 	# Get search parameters and the results from the reference assembly
 	# {'spCas9': ('NGG', False, 20, -3, 'requirements work for SpCas9-HF1, eSpCas9 1.1,spyCas9'),
 	search_params = pickle.load(open(guide_search_params, 'rb'))
-
+	be_search_params = pickle.load(open(guide_be_search_params, 'rb'))
+	if len(be_search_params.values()) == 0:
+		be_search_params = None
 	# get REF variant info
 	# {'X': [['NM_004208.4:c.696+3G>A', 'NM_145812.3', '-', 'AIFM1', '-', 'C', 'T', 'intron', 'GGCTGG...
 	hg38_snvinfo = pickle.load(open(snv_site_info, 'rb'))
 
 	print("Searching for ALT genome changes")
-	ALTinfo, ALTguides_dict = find_overlapping_variants(filtered_vcf, models_path, hg38_snvinfo, search_params)
+	# Chec kto see if there's alt variants in vcf and if so, find guides
+	ALTinfo, ALTguides_dict = find_overlapping_variants(filtered_vcf, models_path, hg38_snvinfo, search_params,be_search_params)
 
 	if len(ALTinfo.values()) > 0:
 
@@ -251,7 +279,7 @@ def fetch_ALT_guides(filtered_vcf,
 		nearby_variants_df.to_csv(altvar_out, index = False)
 		if len(ALTguides_dict.values()) > 0:
 
-			ALTguides_df = guide_compare(guides_report, ALTguides_dict, ALTinfo, refgenome_name, altgenome_name)
+			ALTguides_df = guide_compare(guides_report, be_report, ALTguides_dict, ALTinfo, refgenome_name, altgenome_name)
 			ALTguides_df.to_csv(diffguides_out,index = False)
 		else:
 
@@ -269,8 +297,9 @@ def main():
 	# === Inputs ===
 	filtered_vcf = str(snakemake.input.filtered_vcf)
 	guides_report = str(snakemake.input.guides_report_out)
+	be_report = str(snakemake.input.be_report_out)
 	guide_search_params = str(snakemake.input.guide_search_params)
-	guide_be_search_params_path = str(snakemake.input.guide_be_search_params)
+	guide_be_search_params = str(snakemake.input.guide_be_search_params)
 	snv_site_info = str(snakemake.input.snv_site_info)
 	# === Outputs ===
 	diffguides_out = str(snakemake.output.diff_guides)
@@ -298,7 +327,9 @@ def main():
 
 	fetch_ALT_guides(filtered_vcf,
 					 guides_report,
+					 be_report,
 					 guide_search_params,
+					 guide_be_search_params,
 					 models_path,
 					 snv_site_info,
 					 diffguides_out,

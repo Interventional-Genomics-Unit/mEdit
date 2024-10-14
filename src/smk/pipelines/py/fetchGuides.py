@@ -2,7 +2,6 @@
 import pickle
 import os
 import re
-from copy import deepcopy
 # Installed Modules
 import pandas as pd
 # Project Modules
@@ -25,8 +24,8 @@ class Fetch_Guides:
 	def __init__(self,
 				 queries: list,
 				 qtype: str,
-				 editor_request: str | list,
-				 be_request: str | list,
+				 editor_request: list,
+				 be_request: list,
 				 editors: dict,
 				 base_editors: dict,
 				 dist_from_cutsite: int,
@@ -35,18 +34,19 @@ class Fetch_Guides:
 				 annote_path: str,
 				 **kwargs):
 		"""
-		:param queries: list of query terms, either in hgvs format - 'NM_000518.5:c.114G>A' or coords 'chr11:5226778C>T' (COORDS ALLELES MUST BE PLUS STRAND!!)
+		:param queries: list of query terms, either in hgvs format - 'NM_000518.5:c.114G>A' or coords 'chr11:5226778C>T'
+		(COORDS ALLELES MUST BE PLUS STRAND!!)
 		:param qtype: 'hgvs' or 'coord'
 		  --> if 'hgvs', providing the coordinates in the kwargs with 'hgvscoord' can reduce processing time
 		  --> hgvs assumes the query is already in clinvar and will generate a variant report with the gene report,
 		  --> if 'coord' then just gene report is created
-		:param editor_request: 'clinical', 'custom', name (list/str from editor choices)
-		--> custom must contain kwargs - pam, pam_is_first,guide_length (optional:name,win_size)
-		:param be_request: 'off','default','all', or select BE editor for base editor choices below
+		:param editor_request: 'clinical', 'custom', name (list from editor choices)
+			--> custom must contain kwargs - pam, pam_is_first,guide_length, dsb_position
+		:param be_request: 'off','default',custom, or select BE editor for base editor choices below
+			--> custom must contain kwargs - pam, pam_is_first, guide_length, editing_window, target_base,result_base
 		:param editors: Dictionary containing information on the current set of editors supported by mEdit
 		:param base_editors: Dictionary containing information on the current set of base editors supported by mEdit
-		:param dist_from_cutsite: this is how farway the cutsite may be from the start of the variant position
-		:param genome: genome used
+		:param dist_from_cutsite: this is how farway the cutsite/dsb_position may be from the start of the variant position
 		:param datadir: folder where tables and pre-computed data live
 		:param fasta_path: *Unsure using chromsome seperate files right now but unsure if this will be permenant
 		:param kwargs:
@@ -110,7 +110,7 @@ class Fetch_Guides:
 			self.editor_request = list(self.editor_request.split(','))
 			for editor in self.editor_request:
 				try:
-					search_params[editor] =  self.editor_lib['all'][editor]
+					search_params[editor] = self.editor_lib['all'][editor]
 				except KeyError:
 					print(f"\n*********************************\n"
 						  f"The entry {editor} is not part of the built-in list of editing tools.\n"
@@ -119,21 +119,6 @@ class Fetch_Guides:
 						  f"*********************************\n")
 				else:
 					continue
-
-			#if len(self.editor_request.split(',')) >= 1:
-				#user_request_editors = deepcopy(self.editor_lib['user_request']) ## I'm not sure wat this is doing, thees no 'user_request' in lib
-				#self.editor_request = list(self.editor_request.split(','))
-				# for editor in self.editor_request:
-					#try:
-					#	)
-					#except KeyError as e:
-					#	print(f"\n*********************************\n"
-					#		  f"The entry {editor} is not part of the built-in list of editing tools.\n"
-					#		  f"Please list one or more editors available at the current version's list.\n"
-					#		   f"For more information consult 'medit list --help'\n "
-					#		  f"*********************************\n")
-					#else:
-					#	continue
 
 		print(f'Editor(s) set to: {[x for x in search_params.keys()]}')
 		return search_params
@@ -187,7 +172,7 @@ class Fetch_Guides:
 			self.be_request = list(self.be_request.split(','))
 			for be in self.be_request:
 				try:
-					be_search_params[be] =  self.be_lib['all'][be]
+					be_search_params[be] = self.be_lib['all'][be]
 				except KeyError:
 					print(f"\n*********************************\n"
 						  f"The entry {be} is not part of the built-in list of editing tools.\n"
@@ -196,7 +181,7 @@ class Fetch_Guides:
 						  f"*********************************\n")
 				else:
 					continue
-
+		print(f'Base Editor(s) set to: {[x for x in be_search_params.keys()]}')
 		return be_search_params
 
 	def set_be_custom_params(self, kwargs):
@@ -255,15 +240,9 @@ class Fetch_Guides:
 			
 
 	def write_besearch_params(self, outfile):
-		# writes pickle of selected guide search params for later use in process_genome
-		# 'editor', 'pam', '5prime_pam','guide_length', 'dsb_loc', 'notes'
-		# Create a copy of search_params
-		merged_search_params = self.search_params.copy()
-		# Update the copy with BE_search_params
-		merged_search_params.update(self.BE_search_params)
-		# Export Search Params
+		# writes pickle of selected be guide search params for later use in process_genome
 		with open(outfile, 'ab') as gfile:
-			pickle.dump(merged_search_params, gfile)
+			pickle.dump(self.BE_search_params, gfile)
 
 
 	def write_gsearch_params(self, outfile):
@@ -524,9 +503,9 @@ class Fetch_Guides:
 				dh = DataHandler(query, strand, ref, alt, feature_annotation, models_dir, extracted_seq, codons, coord,
 								 gname, self.dist_from_cutsite)
 
-				guides, BEguides = dh.get_Guides(self.search_params, self.BE_search_params)
+				guides, beguides = dh.get_Guides(self.search_params, self.BE_search_params)
 
-				print(f"{len(guides['gRNA'])+len(BEguides['gRNA'])} found for {query}")
+				print(f"{len(guides['gRNA'])+len(beguides['gRNA'])} found for {query}")
 
 				if len(guides['gRNA']) > 0:
 					if len(self.all_guides.keys()) == 0:
@@ -535,14 +514,14 @@ class Fetch_Guides:
 						for k, v in guides.items():
 							self.all_guides[k] += v
 
-				if len(BEguides['gRNA']) > 0:
+				if len(beguides['gRNA']) > 0:
 					if len(self.all_BE.keys()) == 0:
-						self.all_BE = BEguides
+						self.all_BE = beguides
 					else:
-						for k, v in BEguides.items():
+						for k, v in beguides.items():
 							self.all_BE[k] += v
 
-				if len(guides['gRNA']) +  len(BEguides['gRNA']) ==0:
+				if len(guides['gRNA']) +  len(beguides['gRNA']) ==0:
 					self.add_not_found([query], 'no guides found')
 
 		if len(self.all_guides.keys()) != 0:

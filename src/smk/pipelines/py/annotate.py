@@ -84,28 +84,31 @@ class Transcript:
                 entry = dict(zip(cls.labels, tokens[-12:]))
 
                 if entry['chrom'] != '.':
-                    if coord not in cls.coord2tid.keys():
-                        cls.coord2tid[coord] = entry['tid']
-                        cls.tx_lib[entry['tid']] = cls(entry)
-                    # adjusting for overlaps to retrieve the most up to date transcript
-                    else:
-                        new_tid = entry['tid']
-                        oldtid = cls.coord2tid[coord]
+                    if tokens[0] == entry['chrom']:
+                        if coord not in cls.coord2tid.keys():
+                            cls.coord2tid[coord] = entry['tid']
+                            cls.tx_lib[entry['tid']] = cls(entry)
+                        # adjusting for overlaps to retrieve the most up to date transcript
+                        else:
+                            new_tid = entry['tid']
+                            oldtid = cls.coord2tid[coord]
 
-                        if new_tid.startswith('NR') and oldtid.startswith('NM'):
-                            pass
+                            if new_tid.startswith('NR') and oldtid.startswith('NM'):
+                                pass
 
-                        elif new_tid[0:2] == oldtid[0:2]:
-                            if entry['eid'] != '-' or (float(oldtid.split('_')[-1]) < float(new_tid.split('_')[-1])):
+
+
+                            elif new_tid[0:2] == oldtid[0:2]:
+                                if entry['eid'] != '-' or (float(oldtid.split('_')[-1]) < float(new_tid.split('_')[-1])):
+                                    cls.coord2tid[coord] = new_tid
+                                    obj = cls(entry)
+                                    obj.overlapping_transcripts.append(oldtid)
+                                    cls.tx_lib[entry['tid']] = obj
+                            else:
                                 cls.coord2tid[coord] = new_tid
                                 obj = cls(entry)
                                 obj.overlapping_transcripts.append(oldtid)
                                 cls.tx_lib[entry['tid']] = obj
-                        else:
-                            cls.coord2tid[coord] = new_tid
-                            obj = cls(entry)
-                            obj.overlapping_transcripts.append(oldtid)
-                            cls.tx_lib[entry['tid']] = obj
 
                # else:
                #     cls.coord2tid[coord] = 'intergenic'
@@ -256,7 +259,7 @@ class Transcript:
             for x in self.exons:
                 # if in exon find reading frame
                 if t_snvpos in range(x[0], x[1] + 1):
-                    exon_trans_num = exon_n + 1 if self.entry['strand'] == '+' else (len(self.exons) - exon_n) + 1
+                    exon_trans_num = exon_n + 1 if self.entry['strand'] == '+' else (len(self.exons) - exon_n)
                     feature = f'exon {str(exon_trans_num)}'
                     dist = sum([e[1] - e[0] for e in self.exons[0:exon_n]])
                     dist_from_cds_start = dist + (t_snvpos - x[0])
