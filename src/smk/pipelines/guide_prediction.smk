@@ -32,7 +32,7 @@ rule predict_guides:
 		nguides_report = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/{query_index}_Guides_count.csv",
 		gene_report = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/{query_index}_Gene_Report.csv",
 		variant_report = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/{query_index}_Variant_Report.csv",
-		be_report = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/{query_index}_BaseEditors_found.csv",
+		be_report_out = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/{query_index}_BaseEditors_found.csv",
 		guide_search_params = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params/{query_index}_guide_search_params.pkl",
 		guide_be_search_params= "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params/{query_index}_guide_be_search_params.pkl",
 		snv_site_info = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params/{query_index}_snv_site_info.pkl",
@@ -76,7 +76,7 @@ Run parameters:
 --> Editor scope: {params.editor_request}
 
 Outputs generated:
---> Generate reports on: {output}
+--> Generate reports on:\n {output.guides_report_out}\n {output.be_report_out}
 Wildcards in this rule:
 --> {wildcards}
         """
@@ -144,6 +144,7 @@ rule process_altgenomes:
 				vcf_id=wildcards.vcf_id,sequence_id=wildcards.sequence_id
 			)),
 			guides_report_out="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/{query_index}_Guides_found.csv",
+			be_report_out = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/{query_index}_BaseEditors_found.csv",
 			guide_search_params="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params/{query_index}_guide_search_params.pkl",
 			guide_be_search_params= "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params/{query_index}_guide_be_search_params.pkl",
 			snv_site_info="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params/{query_index}_snv_site_info.pkl"

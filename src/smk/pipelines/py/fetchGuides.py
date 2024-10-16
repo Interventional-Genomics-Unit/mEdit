@@ -547,7 +547,7 @@ def main():
 	gene_report = str(snakemake.output.gene_report)
 	variant_report = str(snakemake.output.variant_report)
 	nguides_report = str(snakemake.output.nguides_report)
-	be_report = str(snakemake.output.be_report)
+	be_report = str(snakemake.output.be_report_out)
 	guide_search_params_path = str(snakemake.output.guide_search_params)
 	guide_be_search_params_path = str(snakemake.output.guide_be_search_params)
 	snv_site_info_path = str(snakemake.output.snv_site_info)
