@@ -105,6 +105,7 @@ def offtarget_prediction(args, jobtag):
 				# == Recover Guide Prediction filepath ==
 				guides_report_path = Path(f"{root_dir}/{mode}/jobs/{run_name}/"
 										  f"guide_prediction-{reference_genome}/guides_report_ref/{index}_Guides_found.csv")
+				# TODO: Add BE report
 				# == Group guides by editor and export DF as pickles by editor
 				grouped_guide_dict = group_guide_table(guides_report_path, editing_tool_request)
 				editors_list.extend(export_guides_by_editor(grouped_guide_dict, guides_per_editor_path))

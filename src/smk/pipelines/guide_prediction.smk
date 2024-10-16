@@ -139,15 +139,15 @@ Wildcards in this rule:
 # noinspection SmkAvoidTabWhitespace
 rule process_altgenomes:
 	input:
-			filtered_vcf=lambda wildcards: glob.glob("{meditdb_path}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.filtered.vcf.gz".format(
-				meditdb_path=config["meditdb_path"],mode=wildcards.mode,
-				vcf_id=wildcards.vcf_id,sequence_id=wildcards.sequence_id
-			)),
-			guides_report_out="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/{query_index}_Guides_found.csv",
-			be_report_out = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/{query_index}_BaseEditors_found.csv",
-			guide_search_params="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params/{query_index}_guide_search_params.pkl",
-			guide_be_search_params= "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params/{query_index}_guide_be_search_params.pkl",
-			snv_site_info="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params/{query_index}_snv_site_info.pkl"
+		filtered_vcf=lambda wildcards: glob.glob("{meditdb_path}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.filtered.vcf.gz".format(
+			meditdb_path=config["meditdb_path"],mode=wildcards.mode,
+			vcf_id=wildcards.vcf_id,sequence_id=wildcards.sequence_id
+		)),
+		guides_report_out="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/{query_index}_Guides_found.csv",
+		be_report_out = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/{query_index}_BaseEditors_found.csv",
+		guide_search_params="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params/{query_index}_guide_search_params.pkl",
+		guide_be_search_params= "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params/{query_index}_guide_be_search_params.pkl",
+		snv_site_info="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params/{query_index}_snv_site_info.pkl"
 	output:
 		diff_guides = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_{vcf_id}/{query_index}_Guide_differences.csv",
 		alt_var = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_{vcf_id}/{query_index}_Alternative_genome_variants.csv",
@@ -174,3 +174,20 @@ Wildcards in this rule:
 		"""
 	script:
 		"py/process_genome.py"
+
+# noinspection SmkAvoidTabWhitespace
+# TODO: Compile all altgenome reports
+rule aggregate_altgenome_reports:
+	input:
+		a = ""
+	output:
+		b = ""
+	params:
+		c = ""
+	conda:
+		"../envs/vcf.yaml"
+	message:
+		"""
+		"""
+	script:
+		"py/"

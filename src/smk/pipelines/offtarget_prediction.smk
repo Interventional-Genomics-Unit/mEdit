@@ -235,3 +235,20 @@ Wildcards in this rule:
 		"""
 	script:
 		"py/build_casoff_scores.py"
+
+# noinspection SmkAvoidTabWhitespace
+# TODO: Compile all Offtargets reports
+rule aggregate_altgenome_reports:
+	input:
+		a = ""
+	output:
+		b = ""
+	params:
+		c = ""
+	conda:
+		"../envs/vcf.yaml"
+	message:
+		"""
+		"""
+	script:
+		"py/"
