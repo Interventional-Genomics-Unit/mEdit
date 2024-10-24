@@ -98,27 +98,19 @@ class Fetch_Guides:
 		"""
 		search_params = {}
 		# search for all guides
-		if self.editor_request == 'clinical':
+		if self.editor_request == str('clinical'):
 			search_params = self.editor_lib['clinical']
 		# set custom editor params
-		elif self.editor_request == 'custom':
+		elif self.editor_request == str('custom'):
 			search_params = self.set_custom_params(kwargs)
 
 		# search for selected subset
-		# TODO: The guide_prediction.py needs to ingest this correctly
 		else:
-			self.editor_request = list(self.editor_request.split(','))
-			for editor in self.editor_request:
-				try:
-					search_params[editor] = self.editor_lib['all'][editor]
-				except KeyError:
-					print(f"\n*********************************\n"
-						  f"The entry {editor} is not part of the built-in list of editing tools.\n"
-						  f"Please list one or more editors available at the current version's list.\n"
-						   f"For more information consult 'medit list --help'\n "
-						  f"*********************************\n")
-				else:
-					continue
+			# === At this point, the user-defined list has been thoroughly validated by guide_prediction.py ===
+			print(f"*********** EDITOR REQUEST: {self.editor_request} -- Type: {type(self.editor_request)}")
+			for editor in list(self.editor_request):
+				search_params[editor] = self.editor_lib['all'][editor]
+
 
 		print(f'Editor(s) set to: {[x for x in search_params.keys()]}')
 		return search_params
@@ -564,8 +556,8 @@ def main():
 	distance_from_cutsite = int(snakemake.params.distance_from_cutsite)
 	#   == Run Parameters ==
 	qtype = str(snakemake.params.qtype)
-	be_request = str(snakemake.params.be_request)
-	editor_request = str(snakemake.params.editor_request)
+	be_request = snakemake.params.be_request
+	editor_request = snakemake.params.editor_request
 	# 	== Custom Editor Parameters ==
 	pam = str(snakemake.params.pam)
 	guide_length = int(snakemake.params.guide_length)

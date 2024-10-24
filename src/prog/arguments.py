@@ -184,18 +184,15 @@ def parse_arguments():
 		'--editor',
 		dest='editor_request',
 		default='clinical',
-		choices=['clinical', 'custom', 'user defined list'],
 		help=textwrap.dedent('''
 			Delimits the set of editors to be used by mEdit. 
 			[default = "clinical"]
-			Use the "medit list" prompt to access the arrays of 
-			editors currently supported in each category.
 			[1-] "clinical": this value calls for a short list of clinically
 			relevant editors that are either in pre-clinical or 
 			clinical trials.
 			[2-]<user defined list>: The user provides a comma-separated 
-			list of editors. Use 'medit list' to access the current set of
-			available editors.
+			list of editors. Use the 'medit list' command to access the current 
+			set of available editors.
 			[3-] "custom": Apply custom guide search parameters. 
 			This requires a separate input of parameters: 
 			‘--pam’, ‘--pamisfirst’,’--guidelen’, and 'dsb_pos'

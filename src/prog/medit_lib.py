@@ -159,19 +159,18 @@ def handle_shell_exception(subprocess_result, shell_command, verbose: bool):
 	# === Silverplate Errors
 	#   == File not found
 	if re.search("FileNotFound", str(subprocess_result)):
-		if verbose:
-			prRed(f"QUERY FILEPATH NOT FOUND: Please note:"
-				  f"- This is the invalid filepath: {shell_command}"
-				  f"- If providing more than one query path make sure the paths are comma-separated")
-			return
+		prRed(f"QUERY FILEPATH NOT FOUND: Please note:"
+			  f"- This is the invalid filepath: {shell_command}"
+			  f"- If providing more than one query path make sure the paths are comma-separated")
+		exit(0)
 	#	== Config Not Found
 	if re.search("ConfigNotFound", str(subprocess_result)):
-		if verbose:
-			prRed(f" Couldn't find the file {shell_command}."
-				  f" Please double-check the path to <medit_database> and provide the path via '-d' option")
+		prRed(f" Couldn't find the file {shell_command}."
+			  f" Please double-check the path to <medit_database> and provide the path via '-d' option")
+		exit(0)
 	# === Handle SMK exceptions through subprocess
 	#   == Unlock directory if necessary for SMK run
-	if re.findall("Directory cannot be locked.", subprocess_result.stdout):
+	if re.findall("Directory cannot be locked.", subprocess_result.stdout) or re.findall("Directory cannot be locked.", subprocess_result.stderr):
 		print("--> Target directory locked. Unlocking...")
 		unlock_smk_command = f"{shell_command} --unlock"
 		launch_shell_cmd(unlock_smk_command, verbose)
@@ -222,6 +221,7 @@ def launch_shell_cmd(command: str, verbose=False, **kwargs):
 	                        shell=True,
 	                        stderr=subprocess.PIPE,
 	                        stdout=subprocess.PIPE,
+							text=True,
 	                        universal_newlines=True
 	                        )
 	handle_shell_exception(result, command, verbose)
@@ -293,6 +293,26 @@ def set_export(outdir: str):
 		print(f'Directory created on: {outdir}')
 		pathlib.Path(outdir).mkdir(parents=True, exist_ok=True)
 	return outdir
+
+
+def validate_editor_list(editor_request: str, built_in_editors: list, parameter_string: str):
+	validated_editors = []
+	editor_list = editor_request.split(",")
+	for editor in editor_list:
+		green_light = False
+		for built_in_editor in built_in_editors:
+			clean_editor= editor.strip()
+			if re.search(clean_editor, built_in_editor, re.IGNORECASE):
+				green_light = True
+				validated_editors.append(built_in_editor)
+		if not green_light:
+			print(
+				f"NEW RE_STRATEGY: At least one of the requested editors is currently not built into mEdit: '{editor}'.\n "
+				f"Full Set of Refs: {built_in_editors}"
+				f"Please call 'medit list --help' to see directions on how to obtain the current list of editors.\n"
+				f"Alternatively, use the '{parameter_string} custom' parameter to customize your own editor for this run.\n")
+			exit(0)
+	return validated_editors
 
 
 def write_yaml_to_file(py_obj, filename: str):
