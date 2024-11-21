@@ -111,7 +111,6 @@ class Fetch_Guides:
 			for editor in list(self.editor_request):
 				search_params[editor] = self.editor_lib['all'][editor]
 
-
 		print(f'Editor(s) set to: {[x for x in search_params.keys()]}')
 		return search_params
 
@@ -161,18 +160,10 @@ class Fetch_Guides:
 		elif self.be_request == 'custom':
 			be_search_params = self.set_be_custom_params(kwargs)
 		else:
-			self.be_request = list(self.be_request.split(','))
-			for be in self.be_request:
-				try:
-					be_search_params[be] = self.be_lib['all'][be]
-				except KeyError:
-					print(f"\n*********************************\n"
-						  f"The entry {be} is not part of the built-in list of editing tools.\n"
-						  f"Please list one or more editors available at the current version's list.\n"
-						   f"For more information consult 'medit list --help'\n "
-						  f"*********************************\n")
-				else:
-					continue
+			# === At this point, the user-defined list has been thoroughly validated by guide_prediction.py ===
+			for base_editor in list(self.be_request):
+				be_search_params[base_editor] = self.be_lib['all'][base_editor]
+
 		print(f'Base Editor(s) set to: {[x for x in be_search_params.keys()]}')
 		return be_search_params
 

@@ -130,9 +130,9 @@ def guide_prediction(args, jobtag):
 			editors_dict = pickle.load(editors_pkl_handle)
 		editor_request = validate_editor_list(editor_request, list(editors_dict['all'].keys()), '--editor')
 	if be_request not in ['default', 'custom']:
-		with open(str(config_db["base_editors"]), 'rb') as editors_pkl_handle:
-			base_editors_dict = pickle.load(editors_pkl_handle)
-		be_request = validate_editor_list(editor_request, list(base_editors_dict['all'].keys()), '--be')
+		with open(str(config_db["base_editors"]), 'rb') as be_pkl_handle:
+			base_editors_dict = pickle.load(be_pkl_handle)
+		be_request = validate_editor_list(be_request, list(base_editors_dict['all'].keys()), '--be')
 
 	# == Check custom editors parameters
 	if editor_request == 'custom':

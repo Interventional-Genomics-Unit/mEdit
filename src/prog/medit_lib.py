@@ -307,7 +307,6 @@ def validate_editor_list(editor_request: str, built_in_editors: list, parameter_
 				validated_editors.append(built_in_editor)
 		if not green_light:
 			print(
-				f"NEW RE_STRATEGY: At least one of the requested editors is currently not built into mEdit: '{editor}'.\n "
 				f"Full Set of Refs: {built_in_editors}"
 				f"Please call 'medit list --help' to see directions on how to obtain the current list of editors.\n"
 				f"Alternatively, use the '{parameter_string} custom' parameter to customize your own editor for this run.\n")
