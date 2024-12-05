@@ -49,32 +49,61 @@ class Transcript:
         Must be initiated before annotating!
         Loads coordinates into Transcript Class
         '''
-        temp_bedfname = f"temp{snvcoords[0][-1]}_in.bed"
+        bed_data = ""
+        bedtools_out =""
 
         # reset dict
         cls.coord2tid = {}
         cls.tx_lib = {}
 
-        with open(temp_bedfname, 'w') as tempbed: # create bed with coordinates
-            for coord in snvcoords:
-                coord_field = coord.split(':')
-                chrom = coord_field[0]
-                start = coord_field[1].split('-')[0]
-                end = coord_field[1].split('-')[1]
-                line = "\t".join([chrom, start, end])
-                tempbed.writelines(line + "\n")
+        # with open(temp_bedfname, 'w') as tempbed:
+        for coord in snvcoords:
+            coord_field = coord.split(':')
+            chrom = coord_field[0]
+            start = coord_field[1].split('-')[0]
+            end = coord_field[1].split('-')[1]
+            line = "\t".join([chrom, start, end])
+            bed_data += line + "\n"
 
-        cmd = 'bedtools window -w 50 -a ' + temp_bedfname + ' -b ' + annote_path
-        bed_popen = Popen(cmd, shell=True, stdout=PIPE, text=True)
-        bedtools_out = bed_popen.communicate()[0]
-        ret = bed_popen.wait()
-        if ret != 0:
-            print("Bedtools process was interrupted!")
 
-        if bedtools_out == '':
-            print("Bedtools failed to process output")
+        # Sort bedfile
+        sort_cmd = ['bedtools', 'sort', '-i', "stdin"]
 
+        sorted_bed = Popen(
+            sort_cmd,
+            stdin=PIPE,
+            stdout=PIPE,
+            text=True
+        )
+        sorted_output, sort_error = sorted_bed.communicate(input=bed_data)
+        sorted_bed.wait()
+
+        #find closest ORFS
+        # Check for errors in the sorting step
+        if sort_error:
+            print("Error during sorting:", sort_error)
         else:
+            # Pipe the sorted BED data directly to `bedtools window`
+            window_cmd = ["bedtools", "window", "-w","50", "-a",  "stdin", "-b", annote_path]
+            window_output = Popen(
+                window_cmd,
+                stdin=PIPE,
+                stdout=PIPE,
+                stderr=PIPE,
+                text=True
+            )
+
+            # Run the command and capture the output
+            bedtools_out, stderr = window_output.communicate(input=sorted_output)
+            window_output.wait()
+
+            if window_output.returncode == 0:
+                pass
+            else:
+                print("Error:", stderr)
+
+        if bedtools_out != '':
+
             bed_entries = bedtools_out.split('\n')[:-1]
 
             for bed_entry in bed_entries:
@@ -110,10 +139,6 @@ class Transcript:
                                 obj.overlapping_transcripts.append(oldtid)
                                 cls.tx_lib[entry['tid']] = obj
 
-               # else:
-               #     cls.coord2tid[coord] = 'intergenic'
-               #     cls.tx_lib['intergenic'] = cls('intergenic')
-        os.remove(temp_bedfname)
 
 
     @classmethod
