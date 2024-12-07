@@ -11,53 +11,59 @@ import glob
 
 # noinspection SmkAvoidTabWhitespace
 rule all:
-	input:
-		# Decompress the main reference genome for CasOffinder
-		expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{reference_id}.fa",
-			fasta_root_path=config["fasta_root_path"], root_dir=config["output_directory"],
-			mode=config["processing_mode"], run_name=config["run_name"],
-			offtarget_genomes=config["reference_id"],
-			reference_id=config["reference_id"]),
-		# Create symlinks of consensus fasta files of alternate genomes for CasOffinder
-		expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{offtarget_genomes}.fa",
-			root_dir=config["output_directory"],mode=config["processing_mode"],
-			run_name=config["run_name"],
-			offtarget_genomes=config["offtarget_extended"], reference_id=config["reference_id"]),
-		# Prepare input files for casoffinder on a per-editor basis
-		expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/input_files/{query_index}_{editing_tool}_casoff_in.txt",
-			root_dir=config["output_directory"],mode=config["processing_mode"],
-			run_name=config["run_name"], reference_id=config["reference_id"],
-			offtarget_genomes=config["offtarget_genomes"],
-			editing_tool=config["editors_list"],
-			query_index=config['query_index']),
-		# Run Cas-Offinder
-		expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{query_index}_{editing_tool}_casoff.txt",
-			root_dir=config["output_directory"],mode=config["processing_mode"],
-			run_name=config["run_name"],reference_id=config["reference_id"],
-			offtarget_genomes=config["offtarget_genomes"],
-			editing_tool=config["editors_list"],
-			query_index=config['query_index']),
-		expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{query_index}_{editing_tool}_casoff_parsed.txt",
-			root_dir=config["output_directory"],mode=config["processing_mode"],
-			run_name=config["run_name"],reference_id=config["reference_id"],
-			offtarget_genomes=config["offtarget_genomes"],
-			editing_tool=config["editors_list"],
-			query_index=config['query_index']),
+    input:
+        # Decompress the main indexed reference genome for guidescan
+        expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{reference_id}.fa.index",
+            fasta_root_path=config["fasta_root_path"],root_dir=config["output_directory"],
+            mode=config["processing_mode"],
+            run_name=config["run_name"],
+            offtarget_genomes=config["reference_id"],
+            reference_id=config["reference_id"]),
+        # Create symlinks of consensus fasta files of alternate genomes for CasOffinder
+        expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{offtarget_genomes}.fa.index",
+            root_dir=config["output_directory"],mode=config["processing_mode"],
+            run_name=config["run_name"],
+            offtarget_genomes=config["offtarget_extended"],reference_id=config["reference_id"]),
+        # Prepare input files for casoffinder on a per-editor basis
+        expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/input_files/{query_index}_{editing_tool}_guidescan_in.csv",
+            root_dir=config["output_directory"],mode=config["processing_mode"],
+            run_name=config["run_name"],reference_id=config["reference_id"],
+            offtarget_genomes=config["offtarget_genomes"],
+            editing_tool=config["editors_list"],
+            query_index=config['query_index'],
+            editor_pam=config['pams_list']),# <------------ ADD THIS
+        # Run Cas-Offinder
+        expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{query_index}_{editing_tool}_guidescan_tmp.csv",
+            root_dir=config["output_directory"],mode=config["processing_mode"],
+            run_name=config["run_name"],reference_id=config["reference_id"],
+            offtarget_genomes=config["offtarget_genomes"],
+            editing_tool=config["editors_list"],
+            query_index=config['query_index'],
+            alt_pam_list=config['alt_pams_list'],
+            pam_ia_first=config['pam_is_first_list']),
+        expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{query_index}_{editing_tool}_guidescan.csv",
+            root_dir=config["output_directory"],
+            mode=config["processing_mode"],
+            run_name=config["run_name"],
+            reference_id=config["reference_id"],
+            offtarget_genomes=config["offtarget_genomes"],
+            editing_tool=config["editors_list"],
+            query_index=config['query_index']),
 
 # noinspection SmkAvoidTabWhitespace
 rule decompress_genome:
-	input:
-		assembly_path=lambda wildcards: glob.glob("{fasta_root_path}/{{reference_id}}.fa.gz".format(
-			fasta_root_path=config["fasta_root_path"]))
-	output:
-		decompressed_assembly_symlink = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{reference_id}.fa"
-	params:
-		decompressed_assembly_path = lambda wildcards: glob.glob("{fasta_root_path}/{reference_id}.fa".format(
-			fasta_root_path=config["fasta_root_path"],reference_id=wildcards.reference_id)),
-		link_directory = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/"
-	priority: 50
-	message:
-		"""
+    input:
+        assembly_path=lambda wildcards: glob.glob("{fasta_root_path}/{{reference_id}}.fa.gz".format(
+            fasta_root_path=config["fasta_root_path"]))
+    output:
+        decompressed_assembly_symlink="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{reference_id}.fa"
+    params:
+        decompressed_assembly_path=lambda wildcards: glob.glob("{fasta_root_path}/{reference_id}.fa".format(
+            fasta_root_path=config["fasta_root_path"],reference_id=wildcards.reference_id)),
+        link_directory="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/"
+    priority: 50
+    message:
+        """
 		# === PREPARING REFERENCE GENOMES FOR CASOFFINDER === #
 		Inputs used:
 		Compressed genome reference: {input.assembly_path}
@@ -67,116 +73,113 @@ rule decompress_genome:
 		Wildcards in this rule:
 		{wildcards}
 		"""
-	shell:
-		"""
+    shell:
+        """
 		gzip -kdvf {input.assembly_path}
 		ln --symbolic -t {params.link_directory} {params.decompressed_assembly_path}
 		"""
 
 # noinspection SmkAvoidTabWhitespace
 rule symlink_genomes:
-	input:
-		consensus_fasta = lambda wildcards: glob.glob("{meditdb_path}/{{mode}}/consensus_refs/{{reference_id}}/{{offtarget_genomes}}.fa".format(
-			meditdb_path=config["meditdb_path"]))
-	output:
-		decompressed_assembly_symlink = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{offtarget_genomes}.fa",
-	params:
-		link_directory = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/",
-	shell:
-		"""
+    input:
+        consensus_fasta=lambda wildcards: glob.glob("{meditdb_path}/{{mode}}/consensus_refs/{{reference_id}}/{{offtarget_genomes}}.fa".format(
+            meditdb_path=config["meditdb_path"]))
+    output:
+        decompressed_assembly_symlink="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{offtarget_genomes}.fa",
+    params:
+        link_directory="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/",
+    shell:
+        """
 		ln --symbolic -t {params.link_directory} {input.consensus_fasta}
 		"""
 
 # noinspection SmkAvoidTabWhitespace
 rule casoff_input_formatting:
-	input:
-		guides_per_editor_path = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{query_index}_{editing_tool}.pkl",
-		guide_search_params = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/dynamic_params/{query_index}_guide_search_params.pkl",
-		decompressed_assembly_symlink = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{offtarget_genomes}.fa",
-	output:
-		casoff_input = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/input_files/{query_index}_{editing_tool}_casoff_in.txt",
-		casoff_support = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/input_files/{query_index}_{editing_tool}_casoff_support.txt"
-	params:
-		rna_bulge = config["RNAbb"],
-		dna_bulge= config["DNAbb"],
-		max_mismatch= config["max_mismatch"],
-		casoff_accelerator = config["PU"]
-	conda:
-		"../envs/casoff.yaml"
-	message:
-		"""
+    input:
+        guides_per_editor_path="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{query_index}_{editing_tool}.pkl",
+        decompressed_assembly_symlink="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{offtarget_genomes}.fa.index",
+    output:
+        casoff_input="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/input_files/{query_index}_{editing_tool}_guidescan_in.txt",
+    #params:
+    #rna_bulge = config["RNAbb"],
+    #dna_bulge= config["DNAbb"],
+    #max_mismatch= config["max_mismatch"],
+    #casoff_accelerator = config["PU"]
+    conda:
+        "../envs/casoff.yaml"
+    message:
+        """
 # === DATA FORMATTING FOR CAS-OFFINDER === #	
 Inputs used:
 --> Take guides grouped by editing tool:\n {input.guides_per_editor_path}
---> Use reference assembly:\n {input.decompressed_assembly_symlink}
---> Use guide search parameters from:\n {input.guide_search_params}
---> Temp files stored at:\n {output.casoff_support}
+--> Use reference assembly:\n {input.decompressed_assembly_symlink} 
+--> Use editor pam:\n {input.editor_pam}
 
 Outputs generated:
 --> CasOffinder formatted input: {output.casoff_input}
 Wildcards in this rule:
 --> {wildcards}
 		"""
-	script:
-		"py/build_casoff_input.py"
+    script:
+        "py/build_casoff_input.py"
 
 # noinspection SmkAvoidTabWhitespace
 rule casoff_run:
-	input:
-		casoff_input="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/input_files/{query_index}_{editing_tool}_casoff_in.txt"
-	output:
-		casoff_out = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{query_index}_{editing_tool}_casoff.txt"
-	params:
-		rna_bulge=config["RNAbb"],
-		dna_bulge=config["DNAbb"],
-		max_mismatch=config["max_mismatch"],
-		casoff_accelerator=config["PU"]
-	conda:
-		"../envs/casoff.yaml"
-	threads:
-		int(config["threads"])
-	message:
-		"""
+    input:
+        casoff_input="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/input_files/{query_index}_{editing_tool}_guidescan_in.csv"
+    output:
+        casoff_out="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{query_index}_{editing_tool}_guidescan_tmp.csv"
+    params:
+        rna_bulge=config["RNAbb"],
+        dna_bulge=config["DNAbb"],
+        max_mismatch=config["max_mismatch"]
+    conda:
+        "../envs/casoff.yaml"
+    threads:
+        int(config["threads"])
+    message:
+        """
 # === PREDICT OFFTARGET EFFECT === #
 Inputs used:
 --> Analyze off-target effect for guides predicted for: {wildcards.editing_tool}
+#{wildcards.pam_is_first}
+#--> Analyze off-target effect for guides predicted for: {wildcards.alt_pam_list}
 --> Take formatted inputs from :\n {input.casoff_input}
 
 Run parameters:
 --> RNA bulge: {params.rna_bulge} 
 --> DNA bulge: {params.dna_bulge}
 --> Maximum mismatch: {params.max_mismatch}
---> Cas-Offinder running on device: {params.casoff_accelerator}
 
 Outputs generated:
 --> CasOffinder output: {output.casoff_out}
 Wildcards in this rule:
 --> {wildcards}		
 		"""
-	shell:
-		"""
-		cas-offinder {input.casoff_input} {params.casoff_accelerator} {output.casoff_out}
+    shell:
+        """
+
+		if {wildcards.pam_is_first} and {wildcard.alt_pam_list};
+		    guidescan enumerate -m {params.max_mismatches} --rna-bulges {params.rna_bulge} --dna-bulges {params.rna_bulge} --start --alt_pam {wildcards.alt_pam_list} -f {input.casoff_input} -n {params.threads} -o {output.casoff_out} {fasta}'
+
 		"""
 
 # noinspection SmkAvoidTabWhitespace
 rule casoff_scoring:
-	input:
-		casoff_out = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{query_index}_{editing_tool}_casoff.txt",
-		casoff_support = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/input_files/{query_index}_{editing_tool}_casoff_support.txt",
-	output:
-		offtarget_scores = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{query_index}_{editing_tool}_casoff_scores.pkl",
-		formatted_casoff_temp = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{query_index}_{editing_tool}_casoff_temp_parsed.txt"
-	params:
-		rna_bulge=config["RNAbb"],
-		dna_bulge=config["DNAbb"],
-		max_mismatch=config["max_mismatch"],
-		casoff_accelerator=config["PU"],
-		annote_path = config["refseq_table"],
-		models_path = config["models_path"]
-	conda:
-		"../envs/casoff.yaml"
-	message:
-		"""
+    input:
+        casoff_out="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{query_index}_{editing_tool}_guidescan_tmp.txt",
+    output:
+        formatted_casoff_temp="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{query_index}_{editing_tool}_guidescan.txt"
+    params:
+        rna_bulge=config["RNAbb"],
+        dna_bulge=config["DNAbb"],
+        max_mismatch=config["max_mismatch"],
+        annote_path=config["refseq_table"],
+        models_path=config["models_path"]
+    conda:
+        "../envs/casoff.yaml"
+    message:
+        """
 # === PROCESS OFFTARGET SCORING === #
 Inputs used:
 --> Analyze off-target effect for guides predicted for: {wildcards.editing_tool}
@@ -196,27 +199,27 @@ Outputs generated:
 Wildcards in this rule:
 --> {wildcards}		
 		"""
-	script:
-		"py/build_casoff_scores.py"
+    script:
+        "py/build_casoff_scores.py"
 
 # noinspection SmkAvoidTabWhitespace
 rule casoff_output_formatting:
-	input:
-		offtarget_scores = expand("{{root_dir}}/{{mode}}/jobs/{{run_name}}/guide_prediction-{{offtarget_genomes}}/offtarget_prediction/{offtarget_genomes}/{{query_index}}_{editing_tool}_casoff_scores.pkl",
-			editing_tool=config['editors_list']),
-		formatted_casoff_temp = expand("{{root_dir}}/{{mode}}/jobs/{{run_name}}/guide_prediction-{{offtarget_genomes}}/offtarget_prediction/{offtarget_genomes}/{{query_index}}_{editing_tool}_casoff_temp_parsed.txt",
-			editing_tool=config['editors_list'])
-	output:
-		formatted_casoff_out = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{query_index}_Guides_found_casoff.txt",
-		offtarget_scores_out = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{query_index}_casoff_scores.txt",
-	params:
-		rna_bulge=config["RNAbb"],
-		dna_bulge=config["DNAbb"],
-		max_mismatch=config["max_mismatch"],
-	conda:
-		"../envs/casoff.yaml"
-	message:
-		"""
+    input:
+        offtarget_scores=expand("{{root_dir}}/{{mode}}/jobs/{{run_name}}/guide_prediction-{{offtarget_genomes}}/offtarget_prediction/{offtarget_genomes}/{{query_index}}_{editing_tool}_casoff_scores.pkl",
+            editing_tool=config['editors_list']),
+        formatted_casoff_temp=expand("{{root_dir}}/{{mode}}/jobs/{{run_name}}/guide_prediction-{{offtarget_genomes}}/offtarget_prediction/{offtarget_genomes}/{{query_index}}_{editing_tool}_casoff_temp_parsed.txt",
+            editing_tool=config['editors_list'])
+    output:
+        formatted_casoff_out="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{query_index}_Guides_found_casoff.txt",
+        offtarget_scores_out="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{query_index}_casoff_scores.txt",
+    params:
+        rna_bulge=config["RNAbb"],
+        dna_bulge=config["DNAbb"],
+        max_mismatch=config["max_mismatch"],
+    conda:
+        "../envs/casoff.yaml"
+    message:
+        """
 # === COMPILE/FORMAT OFFTARGET OUTPUTS === #
 Inputs used:
 --> Take formatted inputs from :\n {input.offtarget_scores}
@@ -233,22 +236,22 @@ Outputs generated:
 Wildcards in this rule:
 --> {wildcards}				
 		"""
-	script:
-		"py/build_casoff_scores.py"
+    script:
+        "py/build_casoff_scores.py"
 
 # noinspection SmkAvoidTabWhitespace
 # TODO: Compile all Offtargets reports
 rule aggregate_altgenome_reports:
-	input:
-		a = ""
-	output:
-		b = ""
-	params:
-		c = ""
-	conda:
-		"../envs/vcf.yaml"
-	message:
+    input:
+        a=""
+    output:
+        b=""
+    params:
+        c=""
+    conda:
+        "../envs/vcf.yaml"
+    message:
+        """
 		"""
-		"""
-	script:
-		"py/"
+    script:
+        "py/"
