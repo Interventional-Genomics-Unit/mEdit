@@ -31,7 +31,7 @@ rule all:
             offtarget_genomes=config["offtarget_genomes"],
             editing_tool=config["editors_list"],
             query_index=config['query_index'],
-            editor_pam=config['pams_list']),# <------------ ADD THIS
+            editor_pam=config['pams_list']),
         # Run Cas-Offinder
         expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{query_index}_{editing_tool}_guidescan_tmp.csv",
             root_dir=config["output_directory"],mode=config["processing_mode"],
@@ -100,11 +100,6 @@ rule casoff_input_formatting:
         decompressed_assembly_symlink="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{offtarget_genomes}.fa.index",
     output:
         casoff_input="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/input_files/{query_index}_{editing_tool}_guidescan_in.txt",
-    #params:
-    #rna_bulge = config["RNAbb"],
-    #dna_bulge= config["DNAbb"],
-    #max_mismatch= config["max_mismatch"],
-    #casoff_accelerator = config["PU"]
     conda:
         "../envs/casoff.yaml"
     message:
@@ -113,7 +108,6 @@ rule casoff_input_formatting:
 Inputs used:
 --> Take guides grouped by editing tool:\n {input.guides_per_editor_path}
 --> Use reference assembly:\n {input.decompressed_assembly_symlink} 
---> Use editor pam:\n {input.editor_pam}
 
 Outputs generated:
 --> CasOffinder formatted input: {output.casoff_input}
@@ -142,8 +136,6 @@ rule casoff_run:
 # === PREDICT OFFTARGET EFFECT === #
 Inputs used:
 --> Analyze off-target effect for guides predicted for: {wildcards.editing_tool}
-#{wildcards.pam_is_first}
-#--> Analyze off-target effect for guides predicted for: {wildcards.alt_pam_list}
 --> Take formatted inputs from :\n {input.casoff_input}
 
 Run parameters:
@@ -158,7 +150,7 @@ Wildcards in this rule:
 		"""
     shell:
         """
-
+        if [ "$2" = "CasX" ]; then
 		if {wildcards.pam_is_first} and {wildcard.alt_pam_list};
 		    guidescan enumerate -m {params.max_mismatches} --rna-bulges {params.rna_bulge} --dna-bulges {params.rna_bulge} --start --alt_pam {wildcards.alt_pam_list} -f {input.casoff_input} -n {params.threads} -o {output.casoff_out} {fasta}'
 

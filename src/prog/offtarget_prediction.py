@@ -30,20 +30,20 @@ guide_search_params = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{refer
 be_search_params =  "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/dynamic_params/{query_index}_be_search_params.pkl"
 
 for editor in editing_tool_request:
-	editors_list.append(editor)
+    editors_list.append(editor)
 
-	if editor in guide_search_params.keys():
-		search_params = guide_search_params
-	else:
-		search_params = be_search_params
+    if editor in guide_search_params.keys():
+        search_params = guide_search_params
+    else:
+        search_params = be_search_params
 
-	pam = search_params[editor][0]
-	expanded_pams = medit_lib.expand_pam(pam)
+    pam = search_params[editor][0]
+    expanded_pams = medit_lib.expand_pam(pam)
 
-	pams_list.append(expanded_pam[0]) # this is for the guidescan manifest or build_casoff_input.py
-	alt_pams_list.append(",".join(expanded_pams[1:]))  # this is for command line guidescan --alt-pam arg
+    pams_list.append(expanded_pam[0]) # this is for the guidescan manifest or build_casoff_input.py
+    alt_pams_list.append(",".join(expanded_pams[1:]))  # this is for command line guidescan --alt-pam arg
 
-	pam_is_first_list.append(upper(str(search_params[editor][1]).upper())) # this is for command line guidescan --start argument
+    pam_is_first_list.append(upper(str(search_params[editor][1]).upper())) # this is for command line guidescan --start argument
 
 # then add all the list to the config file :)
 '''
@@ -123,8 +123,25 @@ def offtarget_prediction(args, jobtag):
     if mode == 'fast':
         allowed_rules = ['--omit-from symlink_genomes']
 
+
+    # == Get available options of already run editors or base editors
+    guide_search_params_path = f"{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_genome}/dynamic_params/{query_index}_guide_search_params.pkl"
+    be_search_params_path = f"{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_genome}/dynamic_params/{query_index}_be_search_params.pkl"
+
+    with open(guide_search_params_path, 'r') as file:
+        guide_search_params= yaml.safe_load(file)
+    with open(be_search_params_path, 'r') as file:
+        be_search_params = yaml.safe_load(file)
+
+    endonucleases_run = list(guide_search_params.keys())
+    be_run = list(be_search_params.keys())
+
     # == Setup core off-target variables
     editors_list = []
+    pams_list = []
+    alt_pams_list = []
+    pam_is_first_list = []
+
     guides_per_editor_path = ''
     for index in query_index:
         for offtarget_genome, genome_type in offtarget_genomes:
@@ -134,8 +151,12 @@ def offtarget_prediction(args, jobtag):
 
             if genome_type == 'main_ref':
                 # == Recover Guide Prediction filepath ==
+
                 guides_report_path = Path(f"{root_dir}/{mode}/jobs/{run_name}/"
                                           f"guide_prediction-{reference_genome}/guides_report_ref/{index}_Guides_found.csv")
+
+                be_report_path = Path(f"{root_dir}/{mode}/jobs/{run_name}/"
+                                          f"guide_prediction-{reference_genome}/guides_report_ref/{index}_BaseEditors_found.csv")
                 # TODO: Add BE report
                 # == Group guides by editor and export DF as pickles by editor
                 grouped_guide_dict = group_guide_table(guides_report_path, editing_tool_request)
