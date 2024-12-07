@@ -9,6 +9,7 @@ import pytz
 import os
 import os.path
 import re
+import itertools
 import requests
 import pathlib
 from pathlib import Path
@@ -122,6 +123,17 @@ def download_s3_objects(s3_bucket_name: str, s3_object_name: str, destination_pa
 			s3.download_file(s3_bucket_name, key, destination_file)
 			bar()
 
+def expand_pam(pam):
+	# guidescan will not accept anything aside ACGTN
+	# if a pam has a different base this will make a list of variants to be give to guidescan
+	iupac_codes = {"A":"A","T":"T","C":"C",
+				   "G":"G","N":"N","R":"AG","Y":"CT",
+				   "S":"CG","W":"AT","K":"GT","M":"AC","B":"CGT",
+				   "D":"AGT","H":"ACT","V":"ACG"}
+
+	expanded = [list(iupac_codes[base]) for base in pam]
+	expanded_pams = [''.join(x) for x in itertools.product(*expanded)]
+	return expanded_pams
 
 def export_guides_by_editor(guide_df_by_editor_dict: dict, output_dir: (str, Path)):
 	editors_list = []

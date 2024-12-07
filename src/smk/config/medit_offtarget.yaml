@@ -15,11 +15,19 @@ offtarget_genomes: ""
 offtarget_extended: ""
 reference_id: ""
 
+#editor_pam expanded to put in guidescan input file
+expanded_pams: ""
+
+#editor_pams expanded to put in alt_pam guidescan command
+alt_pams_list: ""
+
+# needed to indicate pam position
+pam_is_first_list: ""
 # RNA bulge, a deletion in the off-target
 RNAbb: "0"
 # DNA bulge, an insertion in the off-target
-DNAbb: "1"
+DNAbb: "0"
 # Maximum allowable mismatch
 max_mismatch: "3"
-# G = GPU C = CPU A = Accelerators
-PU: "C"
+# guidescan threads
+threads: 8
