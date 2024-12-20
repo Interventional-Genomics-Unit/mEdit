@@ -4,9 +4,19 @@ import subprocess
 # Installed Modules
 import pandas as pd
 import vcf
+import logging
 # == Pysam REQUIRED ==
 # Project Modules
 from dataH import DataHandler
+
+# Configure the logging system
+logging.basicConfig(
+	level=logging.DEBUG,  # Set the minimum log level (DEBUG logs everything)
+	format="%(asctime)s %(message)s",  # Define log format
+	handlers=[
+		logging.FileHandler("/groups/doudna/projects/daniel_projects/mEdit/debug_altgenomes.txt"),  # Log to a file
+	]
+)
 
 #################################
 # Compares ALT VCF to Guide found in Hg38
@@ -44,10 +54,14 @@ def extract_vcf_record(REFcoord, vcf_fname, window):
 	searches for overlapping variant at the provided REF genome coordinate $ window
 	'''
 	records_found = []
-	ch, pos = REFcoord.split(':')
-	vcf_reader = vcf.Reader(filename = vcf_fname, compressed = True)
-	for record in vcf_reader.fetch(ch, int(pos) - window, int(pos) + window):
-		records_found.append(record)
+	ch = REFcoord.split(':')[0]
+	pos = REFcoord.split(':')[1].split('-')[0]
+	vcf_reader = vcf.Reader(filename=vcf_fname, compressed=True)
+	try:
+		for record in vcf_reader.fetch(ch, int(pos) - window, int(pos) + window):
+			records_found.append(record)
+	except ValueError:
+		pass
 	return records_found
 
 
@@ -155,16 +169,15 @@ def find_overlapping_variants(filtered_vcf, models_path, hg38_snvinfo, search_pa
 					set_header = False
 	return ALTinfo, ALTguides_dict
 
-def guide_compare(guides_report,be_report,ALTguides_dict,ALTinfo,refgenome_name,altgenome_name):
+
+def guide_compare(guides_report, be_report, ALTguides_dict, ALTinfo, altgenome_name):
 	'''
 	Compares the guides generated from the ALT and REf genomes.
 	Creates a DF that shows the ALT genomes impact on REF guides
-
 	:param guides_report: Reference Genome guide CSV
 	:param guides_report: Reference Genome base editor guide CSV
 	:param ALTguides_dict: Guide found with variations found in ALT genome
 	:param ALTinfo: ALT genome VCF variant into
-	:param refgenome_name: example 'Hg38'
 	:param altgenome_name: example 'H02557'
 	'''
 
@@ -180,14 +193,13 @@ def guide_compare(guides_report,be_report,ALTguides_dict,ALTinfo,refgenome_name,
 	REFrows = refgdf.to_dict('tight')['data']
 	ALTrows = altgdf.to_dict('tight')['data']
 
-	rename_columns = [f'{altgenome_name} {x}' if 'core' in x or 'B' in x else x for x in altgdf.columns[8:]]
-	columns = ['QueryTerm','GeneName', 'Editor',f'{altgenome_name} Guide Impact',
-			   'Coordinates','Strand',f'{altgenome_name} gRNA', f'{altgenome_name} Pam',
-			   f'{refgenome_name} gRNA', f'{refgenome_name} Pam'] + rename_columns
-
+	rename_columns = [f'Alt {x}' if 'core' in x or 'B' in x else x for x in altgdf.columns[8:]]
+	columns = ['QueryTerm','GeneName', 'Editor', "Guide_ID",'Alt Guide Impact',"Alt Genome",
+			   'Coordinates','Strand','Ref gRNA', 'Alt Pam',
+			   f'Ref gRNA', f'Ref Pam'] + rename_columns
 
 	for rrow in REFrows:
-		query, gene,ed,gid,coord,strand, REFgrna, REFpam = rrow[0:8]
+		query, gene, ed, gid, coord, strand, REFgrna, REFpam = rrow[0:8]
 
 		cnt = 1
 		for arow in ALTrows:
@@ -195,23 +207,20 @@ def guide_compare(guides_report,be_report,ALTguides_dict,ALTinfo,refgenome_name,
 				ALTgrna, ALTpam = arow[6:8]
 
 				if [REFpam, REFgrna] == [ALTpam, ALTgrna]:  # unchanged
-					#print('impact;unchanged', REFpam, '->', ALTpam, REFgrna, '->', ALTgrna)
 					ALTrows.remove(arow)
 					cnt -= 1
 					break
 
 				elif REFpam == ALTpam and ALTgrna != REFgrna:  # same pam which means change is in grna
-					newrow = rrow[0:3] + ['protospacer changed & conserved'] + rrow[4:6] + arow[6:8] + rrow[6:8] + arow[8:]
+					newrow = rrow[0:3] + [f"alt_{rrow[3]}"]+ ['protospacer changed & conserved'] + [altgenome_name]+ rrow[4:6] + arow[6:8] + rrow[6:8] + arow[8:]
 					new_guides.append(newrow)
-					#print('impact;grna_changed_conserved', REFpam, '->', ALTpam, REFgrna, '->', ALTgrna)
 					ALTrows.remove(arow)
 					cnt -= 1
 					break
 
 				elif REFgrna == ALTgrna:  # pam is changed but conserved
-					newrow = rrow[0:3] + ['PAM changed & conserved'] + rrow[4:6] + arow[6:8] + rrow[6:8] + arow[8:]
+					newrow = rrow[0:3] + [f"alt_{rrow[3]}"]+ ['PAM changed & conserved'] + [altgenome_name]+ rrow[4:6] + arow[6:8] + rrow[6:8] + arow[8:]
 					new_guides.append(newrow)
-					#print('impact;pam_changed_conserved', REFpam, '->', ALTpam, REFgrna, '->', ALTgrna)
 					ALTrows.remove(arow)
 					cnt -= 1
 					break
@@ -219,31 +228,30 @@ def guide_compare(guides_report,be_report,ALTguides_dict,ALTinfo,refgenome_name,
 					pass
 
 		if cnt == 1:  # old guides remaining and not matched == no longer exsist
-			newrow = rrow[0:3] + ['PAM changed & removed'] + rrow[4:6] +["-","-"] + rrow[6:8] + len(rrow[8:]) * ['-']
+			newrow = rrow[0:3]  + [f"alt_{rrow[3]}"]+['PAM changed & removed'] +[altgenome_name]+  rrow[4:6] +["-","-"] + rrow[6:8] + len(rrow[8:]) * ['-']
 			new_guides.append(newrow)
-			#print('impact;pam_changed_removed', REFpam, '->', '-', REFgrna, '->', '-')
 
 
 	if len(ALTrows) > 0:  # new guides remaining and not matched == new guides are made
 		for arow in ALTrows:
-			newrow = arow[0:3] + ['PAM changed & added'] + arow[4:8] + ["-", "-"] + arow[8:]
+			newrow = arow[0:3] + [f"alt_{arow[3]}_"] + ['PAM changed & added'] +[altgenome_name]+  arow[4:8] + ["-", "-"] + arow[8:]
 			new_guides.append(newrow)
-		   # print('impact;pam_changed_added', '-', '->', arow[8], '-', '->', arow[7])
 
 	ALTguides_df = pd.DataFrame(new_guides, columns=columns)
 	return ALTguides_df
 
-def create_ALTvcf_report(ALTinfo,altgenome_name):
-	columns = ['QueryTerm',f'{altgenome_name} VCF Variant ID',
-			   'REF Allele','ALT Examined','ALT allele(s)',
-			   'Variant Coordinates','Zygosity','Variant Type','Relative Position to Query']
+
+def create_ALTvcf_report(ALTinfo, altgenome_name):
+	columns = ['QueryTerm', 'Genome', 'Alt VCF Variant ID',
+			   'REF Allele', 'ALT Examined', 'ALT allele(s)',
+			   'Variant Coordinates', 'Zygosity', 'Variant Type', 'Relative Position to Query']
 	rows = []
 	for query in ALTinfo.keys():
-		#{ALTid : [ALTid,ALTref, ALTalt, ALTalts, ALTcoord, zyg, vtype, rel_pos]}
+		# {ALTid : [ALTid,ALTref, ALTalt, ALTalts, ALTcoord, zyg, vtype, rel_pos]}
 		for variant, info in ALTinfo[query].items():
-			rows.append([query]+info)
+			rows.append([query, altgenome_name] + info)
 
-	nearby_variants_df = pd.DataFrame(rows,columns=columns)
+	nearby_variants_df = pd.DataFrame(rows, columns=columns)
 	return nearby_variants_df
 
 
@@ -256,8 +264,7 @@ def fetch_ALT_guides(filtered_vcf,
 					 snv_site_info,
 					 diffguides_out,
 					 altvar_out,
-					 altgenome_name,
-					 refgenome_name):
+					 altgenome_name):
 
 	# Get search parameters and the results from the reference assembly
 	# {'spCas9': ('NGG', False, 20, -3, 'requirements work for SpCas9-HF1, eSpCas9 1.1,spyCas9'),
@@ -270,17 +277,17 @@ def fetch_ALT_guides(filtered_vcf,
 	hg38_snvinfo = pickle.load(open(snv_site_info, 'rb'))
 
 	print("Searching for ALT genome changes")
-	# Chec kto see if there's alt variants in vcf and if so, find guides
+	# Check to see if there's alt variants in vcf and if so, find guides
 	ALTinfo, ALTguides_dict = find_overlapping_variants(filtered_vcf, models_path, hg38_snvinfo, search_params,be_search_params)
 
 	if len(ALTinfo.values()) > 0:
 
 		nearby_variants_df = create_ALTvcf_report(ALTinfo,altgenome_name)
-		nearby_variants_df.to_csv(altvar_out, index = False)
+		nearby_variants_df.to_csv(altvar_out, index=False)
 		if len(ALTguides_dict.values()) > 0:
 
-			ALTguides_df = guide_compare(guides_report, be_report, ALTguides_dict, ALTinfo, refgenome_name, altgenome_name)
-			ALTguides_df.to_csv(diffguides_out,index = False)
+			ALTguides_df = guide_compare(guides_report, be_report, ALTguides_dict, ALTinfo, altgenome_name)
+			ALTguides_df.to_csv(diffguides_out, index=False)
 		else:
 
 			print(f'no overlapping variants detected in {altgenome_name}')
@@ -305,7 +312,7 @@ def main():
 	diffguides_out = str(snakemake.output.diff_guides)
 	altvar_out = str(snakemake.output.alt_var)
 	# === Params ===
-	idx_filtered_vcf = str(snakemake.params.idx_filtered_vcf)
+	# idx_filtered_vcf = str(snakemake.params.idx_filtered_vcf)
 	# ==* The models_path ideally should not be here.
 	#       Once the DataHandler class is properly instantiated this can be removed
 	models_path = str(snakemake.params.models_path)
@@ -322,21 +329,11 @@ def main():
 		df.to_csv(str(report))
 
 	# Generate vcf index with tabix
-	print(f"Generate tabix file on:\n {idx_filtered_vcf}")
-	subprocess.run(f"tabix {filtered_vcf}", shell=True)
+	# print(f"Generate tabix file on:\n {idx_filtered_vcf}")
+	# subprocess.run(f"tabix -f {filtered_vcf}", shell=True)
 
-	fetch_ALT_guides(filtered_vcf,
-					 guides_report,
-					 be_report,
-					 guide_search_params,
-					 guide_be_search_params,
-					 models_path,
-					 snv_site_info,
-					 diffguides_out,
-					 altvar_out,
-					 altgenome_name,
-					 refgenome_name
-					 )
+	fetch_ALT_guides(filtered_vcf, guides_report, be_report, guide_search_params, guide_be_search_params, models_path,
+					 snv_site_info, diffguides_out, altvar_out, altgenome_name)
 
 
 if __name__ == "__main__":

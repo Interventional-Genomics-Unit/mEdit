@@ -1,0 +1,79 @@
+# == Native Modules
+from decimal import Decimal
+# == Installed Modules
+import pandas as pd
+import numpy as np
+# == Project Modules
+
+
+def compile_tables(dataframes_list, float_cols):
+	# Initialize an empty DataFrame to store aggregated results
+	all_data = pd.DataFrame()
+	# Loop through dataframes
+	for file_path in dataframes_list:
+		df = pd.read_csv(file_path)
+		# Replace '-' with NaN and let pandas guess data types
+		for col_name in float_cols:
+			try:
+				df[col_name] = df[col_name].replace('-', np.nan).astype(float)
+			except KeyError:
+				continue
+		all_data = pd.concat([all_data, df], ignore_index=True)
+	return all_data
+
+
+def consolidate_values(series):
+	"""Consolidate concordant values and store divergent values as a comma-separated string."""
+	if series.dtype == 'float':
+		# Convert float values to Decimal for precise comparison
+		series = series.apply(lambda x: Decimal(str(x)) if not pd.isna(x) else x)
+	unique_values = series.dropna().unique()
+	if len(unique_values) == 1:
+		return unique_values[0]  # Concordant value
+	return ','.join(map(str, unique_values))  # Divergent values
+
+
+def aggregate_tables(dataframe):
+	try:
+		aggregated_data = dataframe.groupby(['Guide_ID', 'QueryTerm']).agg(
+			lambda x: consolidate_values(x) if x.name != 'Guide_ID' else x.iloc[0]).reset_index()
+	except KeyError:
+		aggregated_data = dataframe.groupby('QueryTerm').agg(
+			lambda x: consolidate_values(x) if x.name != 'QueryTerm' else x.iloc[0]).reset_index()
+	return aggregated_data
+
+
+def main():
+	# SNAKEMAKE IMPORTS
+	# === Inputs ===
+	diffguides_out_list = list(snakemake.input.diff_guides)
+	altvar_out_list = list(snakemake.input.alt_var)
+	# === Outputs ===
+	aggr_diff_guides = str(snakemake.output.aggr_diff_guides)
+	aggr_alt_var = str(snakemake.output.aggr_alt_var)
+	# === Params ===
+	float_cols = list(snakemake.params.float_cols)
+
+	# #DEBUG
+	# diffguides_out_list = ['/Users/bellieny/projects/mEdit/dump/guides_report_HG02886/0_Guide_differences.csv',
+	# 					   '/Users/bellieny/projects/mEdit/dump/guides_report_HG03453/0_Guide_differences.csv',
+	# 					   '/Users/bellieny/projects/mEdit/dump/guides_report_HG02622/0_Guide_differences.csv']
+	# altvar_out_list = ['/Users/bellieny/projects/mEdit/dump/guides_report_HG02886/0_Guide_differences.csv',
+	# 					   '/Users/bellieny/projects/mEdit/dump/guides_report_HG03453/0_Guide_differences.csv',
+	# 					   '/Users/bellieny/projects/mEdit/dump/guides_report_HG02622/0_Guide_differences.csv']
+
+	# == Compile guide differences and alternative variants tables from different alternative genomes
+	diffguides_full_df = compile_tables(diffguides_out_list, float_cols)
+	altvar_full_df = compile_tables(altvar_out_list, float_cols)
+
+	# === Apply the consolidation logic for all columns except QueryTerm
+	aggregated_diff_data = aggregate_tables(diffguides_full_df)
+	aggregated_altvar_data = aggregate_tables(altvar_full_df)
+
+	# === Save to CSV
+	aggregated_diff_data.to_csv(aggr_diff_guides, index=False)
+	aggregated_altvar_data.to_csv(aggr_alt_var, index=False)
+
+
+if __name__ == "__main__":
+	main()

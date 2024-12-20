@@ -19,7 +19,12 @@ rule all:
 		expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_{vcf_id}/{query_index}_Guide_differences.csv",
 			root_dir=config["output_directory"],mode=config["processing_mode"],
 			run_name=config["run_name"],sequence_id=config["sequence_id"],
-			vcf_id=config["vcf_id"],query_index=config['query_index'])
+			vcf_id=config["vcf_id"],query_index=config['query_index']),
+		# Compile Information from all alternative genomes (if any) into one single CSV
+		expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_alt/{query_index}_Aggregated_Guide_differences.csv",
+			root_dir=config["output_directory"],mode=config["processing_mode"],
+			run_name=config["run_name"],sequence_id=config["sequence_id"],
+			query_index=config['query_index'])
 
 # noinspection SmkAvoidTabWhitespace
 rule predict_guides:
@@ -88,11 +93,14 @@ rule consensus_fasta:
 	input:
 		assembly_path=lambda wildcards: glob.glob("{fasta_root_path}/{sequence_id}.fa.gz".format(
 			fasta_root_path=config["fasta_root_path"],sequence_id=wildcards.sequence_id)),
-		source_vcf="{meditdb_path}/{mode}/source_vcfs/{vcf_id}.vcf.gz"
+		source_vcf=lambda wildcards: glob.glob("{meditdb_path}/{mode}/source_vcfs/{vcf_filename}.vcf.gz".format(
+			meditdb_path=wildcards.meditdb_path,vcf_filename=config["vcf_filename"], mode=wildcards.mode))
+		# source_vcf="{meditdb_path}/{mode}/source_vcfs/{vcf_id}.vcf.gz"
 	output:
 		consensus_fasta="{meditdb_path}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.fa",
 		filtered_vcf="{meditdb_path}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.filtered.vcf.gz"
 	params:
+		split_vcf='{meditdb_path}/{mode}/source_vcfs/{vcf_id}.vcf.gz',
 		source_vcf_prefix="{meditdb_path}/{mode}/consensus_refs/{sequence_id}/{vcf_id}",
 		dump_dir="{meditdb_path}/consensus_refs/downloads",
 		fasta_root_path=config["fasta_root_path"]
@@ -117,42 +125,48 @@ Wildcards in this rule:
 		"""
 		# Prepare directories:
 		# 1) If Depth is present in FORMAT filter > 5
-        # 2) filter GAT1 or GAT2 samples (samples where one haplotype has a sequence depth = 0)
-        # 3) filter reference & variant alleles > 1nt (SNVS only for now)
-        # 4) Filter quality score > 15
-        # Create index file
-        
-        if bcftools view -h {input.source_vcf} | grep -n '##FORMAT=<ID=DP' >0; then
-			bcftools filter -O z -o {output.filtered_vcf} -e 'GT="." || ILEN <= -1 || ILEN >= 1 || QUAL<15 || FMT/DP<5' {input.source_vcf}
-		else
-			bcftools filter -O z -o {output.filtered_vcf} -e 'GT="." || ILEN <= -1 || ILEN >= 1 || QUAL<15' {input.source_vcf}
-		fi
+		# 2) filter GAT1 or GAT2 samples (samples where one haplotype has a sequence depth = 0)
+		# 3) filter reference & variant alleles > 1nt (SNVS only for now)
+		# 4) Filter quality score > 15
+		# Create index file
 		
-        # bcftools filter -O z -o {output.filtered_vcf} -e 'GT="." || ILEN <= -5 || ILEN >= 5 || QUAL<15 || (FMT/DP && FMT/DP<5)' {input.source_vcf} 
-        
-        bcftools index -f -t {output.filtered_vcf}
-        
-        # 3) Making a consensus
-        #previously made a seperate hg38 Ref Fasta that only have standard chromsomes --> /groups/clinical/projects/editability/tables/raw_tables/VCFs/hg38_standard.fa.gz
-        samtools dict {input.assembly_path} -o {params.fasta_root_path}/{wildcards.sequence_id}.dict
-        samtools faidx {input.assembly_path} -o {input.assembly_path}.fai
+		# Inspect the number of genomes in the VCF file
+		num_samples=$(bcftools query -l {input.source_vcf} | wc -l)
+		echo $num_sample
 
-        # gzip -dv {output.filtered_vcf}
-        # bgzip {params.source_vcf_prefix}.filtered.vcf
+		# Check VCF only had one genome
+		if [ $num_samples -le 1 ]; then
+			# Check if read depth is given (for custom vcfs derived from wgs)
+			if bcftools view -h {input.source_vcf} | grep -q '##FORMAT=<ID=DP'; then
+				bcftools filter -O z -o {output.filtered_vcf} -e 'GT="." || ILEN <= -1 || ILEN >= 1 || QUAL<15 || FMT/DP<5' {input.source_vcf}
+			else
+				bcftools filter -O z -o {output.filtered_vcf} -e 'GT="." || ILEN <= -1 || ILEN >= 1 || QUAL<15' {input.source_vcf}
+			fi
+		# If multi genomes split with sample name first
+		else
+			bcftools view -s {wildcards.vcf_id} -e 'GT="."' -O z -o {output.filtered_vcf} {input.source_vcf}
+		fi
 
-        bcftools consensus -f {input.assembly_path} {output.filtered_vcf} -o {output.consensus_fasta}
-
-        # Cleanup
-        # rm {input.assembly_path}.fai {params.fasta_root_path}/{wildcards.sequence_id}.dict
+		bcftools index -f -t {output.filtered_vcf}
+		        
+		# 3) Making a consensus
+		#previously made a seperate hg38 Ref Fasta that only have standard chromsomes --> /groups/clinical/projects/editability/tables/raw_tables/VCFs/hg38_standard.fa.gz
+		samtools dict {input.assembly_path} -o {params.fasta_root_path}/{wildcards.sequence_id}.dict
+		samtools faidx {input.assembly_path} -o {input.assembly_path}.fai
+		
+		bcftools consensus -f {input.assembly_path} {output.filtered_vcf} -o {output.consensus_fasta}
         """
 
 # noinspection SmkAvoidTabWhitespace
 rule process_altgenomes:
 	input:
-		filtered_vcf=lambda wildcards: glob.glob("{meditdb_path}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.filtered.vcf.gz".format(
-			meditdb_path=config["meditdb_path"],mode=wildcards.mode,
-			vcf_id=wildcards.vcf_id,sequence_id=wildcards.sequence_id
+		filtered_vcf=lambda wildcards: glob.glob("{meditdb_path}/{mode}/source_vcfs/{vcf_id}.vcf.gz".format(
+			meditdb_path=config["meditdb_path"],mode=wildcards.mode,vcf_id=wildcards.vcf_id
 		)),
+		# filtered_vcf=lambda wildcards: glob.glob("{meditdb_path}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.filtered.vcf.gz".format(
+		# 	meditdb_path=config["meditdb_path"],mode=wildcards.mode,
+		# 	vcf_id=wildcards.vcf_id,sequence_id=wildcards.sequence_id
+		# )),
 		guides_report_out="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/{query_index}_Guides_found.csv",
 		be_report_out = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/{query_index}_BaseEditors_found.csv",
 		guide_search_params="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params/{query_index}_guide_search_params.pkl",
@@ -186,18 +200,26 @@ Wildcards in this rule:
 		"py/process_genome.py"
 
 # noinspection SmkAvoidTabWhitespace
-# TODO: Compile all altgenome reports
 rule aggregate_altgenome_reports:
 	input:
-		a = ""
+		diff_guides=expand("{{root_dir}}/{{mode}}/jobs/{{run_name}}/guide_prediction-{{sequence_id}}/guides_report_{vcf_id}/{{query_index}}_Guide_differences.csv",
+			vcf_id=config["vcf_id"]),
+		alt_var=expand("{{root_dir}}/{{mode}}/jobs/{{run_name}}/guide_prediction-{{sequence_id}}/guides_report_{vcf_id}/{{query_index}}_Alternative_genome_variants.csv",
+			vcf_id=config["vcf_id"])
 	output:
-		b = ""
-	params:
-		c = ""
+		aggr_diff_guides="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_alt/{query_index}_Aggregated_Guide_differences.csv",
+		aggr_alt_var="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_alt/{query_index}_Alternative_genome_variants.csv",
 	conda:
 		"../envs/vcf.yaml"
+	params:
+		float_cols=config["float_cols"]
 	message:
 		"""
+# === PREDICT GUIDES ON ALTERNATIVE GENOMES === #	
+Inputs used:
+--> Guide differences report inputs:\n {input.diff_guides}
+Outputs generated:
+--> Aggregated Guide differences output:\n {output.aggr_diff_guides}
 		"""
 	script:
-		"py/"
+		"py/aggregate_alt_genomes.py"
