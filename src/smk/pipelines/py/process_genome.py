@@ -1,4 +1,5 @@
 # Native Modules
+import logging
 import pickle
 import subprocess
 # Installed Modules
@@ -8,15 +9,6 @@ import logging
 # == Pysam REQUIRED ==
 # Project Modules
 from dataH import DataHandler
-
-# Configure the logging system
-logging.basicConfig(
-	level=logging.DEBUG,  # Set the minimum log level (DEBUG logs everything)
-	format="%(asctime)s %(message)s",  # Define log format
-	handlers=[
-		logging.FileHandler("/groups/doudna/projects/daniel_projects/mEdit/debug_altgenomes.txt"),  # Log to a file
-	]
-)
 
 #################################
 # Compares ALT VCF to Guide found in Hg38
@@ -77,7 +69,7 @@ def make_ALTseq(extracted_seq, pos, ref, alt):
 	if len(ref) == len(alt):  ##substitution
 		variant_seq = (extracted_seq[0:pos] + alt.lower() + extracted_seq[pos + len(alt):])
 	else:
-		print("SNV sites only accepted at this time")
+		logging.warning("SNV sites only accepted at this time. Allele {ref} will not be processed. Skipping")
 	return variant_seq
 
 
@@ -276,7 +268,7 @@ def fetch_ALT_guides(filtered_vcf,
 	# {'X': [['NM_004208.4:c.696+3G>A', 'NM_145812.3', '-', 'AIFM1', '-', 'C', 'T', 'intron', 'GGCTGG...
 	hg38_snvinfo = pickle.load(open(snv_site_info, 'rb'))
 
-	print("Searching for ALT genome changes")
+	logging.info(f"Searching for changes in genome {altgenome_name}")
 	# Check to see if there's alt variants in vcf and if so, find guides
 	ALTinfo, ALTguides_dict = find_overlapping_variants(filtered_vcf, models_path, hg38_snvinfo, search_params,be_search_params)
 
@@ -290,11 +282,11 @@ def fetch_ALT_guides(filtered_vcf,
 			ALTguides_df.to_csv(diffguides_out, index=False)
 		else:
 
-			print(f'no overlapping variants detected in {altgenome_name}')
+			logging.info(f'No overlapping variants detected in {altgenome_name}')
 			with open(diffguides_out, 'w') as f:
 				f.write(f"No guide differences found based on the VCF {altgenome_name}")
 	else:
-		print(f'no overlapping variants detected in {altgenome_name}')
+		logging.info(f'no overlapping variants detected in {altgenome_name}')
 		with open(altvar_out, 'w') as f:
 			f.write(f"No Nearby variants found based on the VCF {altgenome_name}")
 
@@ -311,14 +303,24 @@ def main():
 	# === Outputs ===
 	diffguides_out = str(snakemake.output.diff_guides)
 	altvar_out = str(snakemake.output.alt_var)
+	#   == Log File ==
+	logfile_path = str(snakemake.output.logfile_path)
 	# === Params ===
-	# idx_filtered_vcf = str(snakemake.params.idx_filtered_vcf)
-	# ==* The models_path ideally should not be here.
-	#       Once the DataHandler class is properly instantiated this can be removed
 	models_path = str(snakemake.params.models_path)
 	# === Wildcards ===
 	altgenome_name = str(snakemake.wildcards.vcf_id)
-	refgenome_name = str(snakemake.wildcards.sequence_id)
+
+	# === Log Process Initialization
+	# Configure the logging system
+	logging.basicConfig(
+		level=logging.DEBUG,  # Set the minimum log level (DEBUG logs everything)
+		format='%(asctime)s [%(levelname)s] %(message)s',  # Define log format
+		handlers=[
+			logging.FileHandler(logfile_path),  # Log to file
+		]
+	)
+
+	logging.info('=== INITIALIZING ALTERNATIVE GENOME COMPARISON ROUTINE ===')
 
 	# == Create dummy files for the outputs
 	dummy_outputs = [diffguides_out, altvar_out]
@@ -328,12 +330,10 @@ def main():
 		# Export the empty DataFrame to a CSV file
 		df.to_csv(str(report))
 
-	# Generate vcf index with tabix
-	# print(f"Generate tabix file on:\n {idx_filtered_vcf}")
-	# subprocess.run(f"tabix -f {filtered_vcf}", shell=True)
-
 	fetch_ALT_guides(filtered_vcf, guides_report, be_report, guide_search_params, guide_be_search_params, models_path,
 					 snv_site_info, diffguides_out, altvar_out, altgenome_name)
+
+	logging.info('=== ALTERNATIVE GENOME COMPARISON ROUTINE FINALIZED ===')
 
 
 if __name__ == "__main__":

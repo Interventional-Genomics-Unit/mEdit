@@ -36,6 +36,9 @@ variant_query: ""
 # Parent database folder
 support_tables: ""
 
+# Path to Log file
+logfile_path: ""
+
 # == TABLE FORMATING
 # == Define the columns in *_Guide_differences tables that need to be transformed into float type
 #       at the aggregation step

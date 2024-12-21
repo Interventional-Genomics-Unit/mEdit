@@ -1,18 +1,20 @@
 # == Native Modules ==
-import subprocess
 import gzip
-import shutil
+import logging
 from datetime import datetime
-import secrets
-import string
 import pytz
 import os
 import os.path
-import re
-import requests
 import pathlib
 from pathlib import Path
 import pickle
+import re
+import requests
+import secrets
+import select
+import shutil
+import string
+import subprocess
 # == Installed Modules ==
 from alive_progress import alive_bar
 import yaml
@@ -23,7 +25,6 @@ import boto3
 from botocore.exceptions import NoCredentialsError
 from botocore import UNSIGNED
 from botocore.config import Config
-
 import pandas as pd
 # == Project Modules ==
 
@@ -191,6 +192,17 @@ def handle_shell_exception(subprocess_result, shell_command, verbose: bool):
 		return
 
 
+def init_logging(logfile_path):
+	# Configure the logging system
+	logging.basicConfig(
+		level=logging.DEBUG,  # Set the minimum log level (DEBUG logs everything)
+		format='%(asctime)s [%(levelname)s] %(message)s',  # Define log format
+		handlers=[
+			logging.FileHandler(logfile_path),  # Log to file
+		]
+	)
+
+
 def is_bgzipped(file_path: str) -> bool:
 	with open(file_path, 'rb') as f:
 		# Check if the file starts with the bgzip magic bytes
@@ -207,6 +219,9 @@ def is_gzipped(file_path: str):
 def launch_shell_cmd(command: str, verbose=False, **kwargs):
 	message = kwargs.get('message', False)
 	check_exist = kwargs.get('check_exist', False)
+
+	command = f"stdbuf -oL -eL {command}"
+
 	if message:
 		verbose = False
 		print(message)
@@ -217,14 +232,51 @@ def launch_shell_cmd(command: str, verbose=False, **kwargs):
 	if verbose:
 		prCyan(f"--> Invoking command-line call:\n{command}")
 
-	result = subprocess.run(command,
-	                        shell=True,
-	                        stderr=subprocess.PIPE,
-	                        stdout=subprocess.PIPE,
-							text=True,
-	                        universal_newlines=True
-	                        )
-	handle_shell_exception(result, command, verbose)
+	# CURRENTLY IN REVISION
+	process = subprocess.Popen(
+		command,
+		shell=True,
+		stdout=subprocess.PIPE,
+		stderr=subprocess.PIPE,
+		text=True,  # Ensures strings are returned instead of bytes
+		universal_newlines=True
+	)
+
+	# Create a polling object to monitor both streams
+	poll = select.poll()
+	poll.register(process.stdout.fileno(), select.POLLIN)
+	poll.register(process.stderr.fileno(), select.POLLIN)
+
+	try:
+		while True:
+			# Poll both streams
+			events = poll.poll()
+			for fd, event in events:
+				if fd == process.stdout.fileno():
+					# Read and print stdout
+					line = process.stdout.readline()
+					if line:
+						prGreen(line, False)
+				elif fd == process.stderr.fileno():
+					# Read and print stderr
+					line = process.stderr.readline()
+					if line:
+						prCyan(line, False)
+
+			# Exit the loop if the process finishes
+			if process.poll() is not None:
+				break
+
+		# Ensure remaining lines are flushed
+		for line in process.stdout:
+			prRed(line, False)
+		for line in process.stderr:
+			prRed(line, False)
+
+	except Exception as e:
+		print(f"An error occurred: {e}")
+		process.terminate()
+		process.wait()
 
 
 def list_files_by_extension(root_path, extension: str):
@@ -261,16 +313,25 @@ def pickle_chromosomes(genome_fasta, output_dir):
 					bar()
 
 
-def prCyan(skk):
-	print("\033[96m {}\033[00m".format(skk))
+def prCyan(skk, newline=True):
+	if newline:
+		print("\033[96m {}\033[00m".format(skk))
+	else:
+		print("\033[96m {}\033[00m".format(skk), end='')
 
 
-def prGreen(skk):
-	print("\033[92m {}\033[00m".format(skk))
+def prGreen(skk, newline=True):
+	if newline:
+		print("\033[92m {}\033[00m".format(skk))
+	else:
+		print("\033[92m {}\033[00m".format(skk), end='')
 
 
-def prRed(skk):
-	print("\033[0;31;47m {}\033[00m".format(skk))
+def prRed(skk, newline=True):
+	if newline:
+		print("\033[0;31;47m {}\033[00m".format(skk))
+	else:
+		print("\033[0;31;47m {}\033[00m".format(skk), end='')
 
 
 def project_file_path(path_from_toplevel: str, filename: str):

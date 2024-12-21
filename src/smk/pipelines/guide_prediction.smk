@@ -41,7 +41,8 @@ rule predict_guides:
 		guide_search_params = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params/{query_index}_guide_search_params.pkl",
 		guide_be_search_params= "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params/{query_index}_guide_be_search_params.pkl",
 		snv_site_info = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params/{query_index}_snv_site_info.pkl",
-		guides_not_found_out = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/{query_index}_Guides_not-found.csv"
+		guides_not_found_out = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/{query_index}_Guides_not-found.csv",
+		logfile_path = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/{query_index}_guide_prediction.log",
 	params:
 		# == Main output path
 		main_out = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref",
@@ -64,7 +65,7 @@ rule predict_guides:
 		# == Run Parameters ==
 		qtype = config["qtype"],
 		be_request = config["be_request"],
-		editor_request = config["editor_request"]
+		editor_request = config["editor_request"],
 	conda:
 		"../envs/medit.yaml"
 	message:
@@ -82,8 +83,8 @@ Run parameters:
 
 Outputs generated:
 --> Generate reports on:\n {output.guides_report_out}\n {output.be_report_out}
-Wildcards in this rule:
---> {wildcards}
+Log file path:
+--> {output.logfile_path}
         """
 	script:
 		"py/fetchGuides.py"
@@ -175,11 +176,10 @@ rule process_altgenomes:
 	output:
 		diff_guides = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_{vcf_id}/{query_index}_Guide_differences.csv",
 		alt_var = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_{vcf_id}/{query_index}_Alternative_genome_variants.csv",
+		logfile_path= "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_{vcf_id}/{query_index}_guide_prediction.log"
 	params:
 		idx_filtered_vcf = "{root_dir}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.filtered.vcf.gz.tbi",
-		models_path=config["models_path"]
-	# 	# == Main output path
-	# 	main_out = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_{vcf_id}/"
+		models_path=config["models_path"],
 	conda:
 		"../envs/vcf.yaml"
 	message:
@@ -193,8 +193,8 @@ Inputs used:
 
 Outputs generated:
 --> Guide differences report output on:\n {output.diff_guides}
-Wildcards in this rule:
---> {wildcards}
+Log file path:
+--> {output.logfile_path}
 		"""
 	script:
 		"py/process_genome.py"
@@ -209,10 +209,11 @@ rule aggregate_altgenome_reports:
 	output:
 		aggr_diff_guides="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_alt/{query_index}_Aggregated_Guide_differences.csv",
 		aggr_alt_var="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_alt/{query_index}_Alternative_genome_variants.csv",
+		logfile_path= "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_alt/{query_index}_guide_prediction.log"
 	conda:
 		"../envs/vcf.yaml"
 	params:
-		float_cols=config["float_cols"]
+		float_cols=config["float_cols"],
 	message:
 		"""
 # === PREDICT GUIDES ON ALTERNATIVE GENOMES === #	
@@ -220,6 +221,8 @@ Inputs used:
 --> Guide differences report inputs:\n {input.diff_guides}
 Outputs generated:
 --> Aggregated Guide differences output:\n {output.aggr_diff_guides}
+Log file path:
+--> {output.logfile_path}
 		"""
 	script:
 		"py/aggregate_alt_genomes.py"

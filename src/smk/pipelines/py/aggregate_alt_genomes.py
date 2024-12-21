@@ -1,5 +1,6 @@
 # == Native Modules
 from decimal import Decimal
+import logging
 # == Installed Modules
 import pandas as pd
 import numpy as np
@@ -51,6 +52,8 @@ def main():
 	# === Outputs ===
 	aggr_diff_guides = str(snakemake.output.aggr_diff_guides)
 	aggr_alt_var = str(snakemake.output.aggr_alt_var)
+	#   == Log File ==
+	logfile_path = str(snakemake.output.logfile_path)
 	# === Params ===
 	float_cols = list(snakemake.params.float_cols)
 
@@ -61,6 +64,18 @@ def main():
 	# altvar_out_list = ['/Users/bellieny/projects/mEdit/dump/guides_report_HG02886/0_Guide_differences.csv',
 	# 					   '/Users/bellieny/projects/mEdit/dump/guides_report_HG03453/0_Guide_differences.csv',
 	# 					   '/Users/bellieny/projects/mEdit/dump/guides_report_HG02622/0_Guide_differences.csv']
+
+	# === Log Process Initialization
+	# Configure the logging system
+	logging.basicConfig(
+		level=logging.DEBUG,  # Set the minimum log level (DEBUG logs everything)
+		format='%(asctime)s [%(levelname)s] %(message)s',  # Define log format
+		handlers=[
+			logging.FileHandler(logfile_path),  # Log to file
+		]
+	)
+
+	logging.info('=== INITIALIZING AGGREGATION ROUTINE FOR ALTERNATIVE GENOMES REPORTS ===')
 
 	# == Compile guide differences and alternative variants tables from different alternative genomes
 	diffguides_full_df = compile_tables(diffguides_out_list, float_cols)
@@ -73,6 +88,8 @@ def main():
 	# === Save to CSV
 	aggregated_diff_data.to_csv(aggr_diff_guides, index=False)
 	aggregated_altvar_data.to_csv(aggr_alt_var, index=False)
+
+	logging.info('=== AGGREGATION ROUTINE FOR ALTERNATIVE GENOMES REPORTS FINALIZED ===')
 
 
 if __name__ == "__main__":
