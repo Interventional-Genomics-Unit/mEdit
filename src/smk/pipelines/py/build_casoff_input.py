@@ -13,7 +13,8 @@ def create_guidescan_infile(casoff_input_path, guides,editor_pam, gnames,coords)
 					grna.upper(),
 					editor_pam.upper(),
 					f"chr{coord.split(':')[0]}",
-					coord.split(':')[1][:-1],coord[-1],"\n"]))
+					coord.split(':')[1][:-1].split("-")[0],
+							  coord[-1]+"\n"]))
 
 def main():
 	# SNAKEMAKE IMPORTS
@@ -36,3 +37,19 @@ def main():
 
 if __name__ == "__main__":
 	main()
+
+
+'''
+dynamic_params_dir = standard/jobs/standard_TEST_standard/guide_prediction-hg38_GCA_000001405.15/offtarget_prediction/dynamic_params'
+input_dir = "standard/jobs/standard_TEST_standard/guide_prediction-hg38_GCA_000001405.15/offtarget_prediction/input_files"
+editor = "spCas9
+guides_report_per_editor_path = f'{dynamic_params_dir}/0_{editor}.pkl'
+casoff_input_path = f"{input_dir}/0_{editor}_guidescan_input.csv"
+editor_pam = 'NGG'
+guides_report_per_editor = pickle.load(open(guides_report_per_editor_path, 'rb'))
+
+guides, gnames, coords = list(guides_report_per_editor.gRNA), list(guides_report_per_editor.Guide_ID), list(
+guides_report_per_editor.Coordinates + guides_report_per_editor.Strand)
+
+create_guidescan_infile(casoff_input_path, guides, editor_pam, gnames, coords)
+'''
