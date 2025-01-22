@@ -19,11 +19,11 @@ def fix_cfd(lines,models_dir,score_guides=True):
 	:return:
 	'''
 	new_lines = []
-	new_lines.append(lines[0].replace("\n",",Distance"))
+	new_lines.append(lines[0]+",Distance")
 	if score_guides:
 		mm_scores, pam_scores = load_model_params('cfd', models_dir)
 	for line in lines[1:]:
-		line = line.replace("\n","").split(",")
+		line = line.split(",")
 		seq1 = line[1][:-3]
 		seq2 = line[6][:-3]
 		pam = line[6][-3:]
@@ -40,7 +40,7 @@ def fix_cfd(lines,models_dir,score_guides=True):
 
 def reformat_ref_and_alt(lines,offtarget_genome,genome_type):
 	lines_reformatted = []
-	header = 'id,sequence,match_chrm,match_position,match_strand,match_distance,match_sequence,rna_bulges,dna_bulges,specificity,alt_site_impact,alt_var,alt_genome\n'
+	header = 'id,sequence,match_chrm,match_position,match_strand,match_distance,match_sequence,rna_bulges,dna_bulges,specificity,alt_site_impact,alt_var,alt_genome'
 	ref = True if genome_type != 'extended' else False
 	lines_reformatted.append(header)
 	for line in lines:
@@ -48,8 +48,8 @@ def reformat_ref_and_alt(lines,offtarget_genome,genome_type):
 		line_split[6] = line_split[6].replace(".","-")
 		line_split[1] = line_split[1].replace(".", "-")
 		if ref:
-			newline = ",".join(line_split[:10])+"\n"
-			lines_reformatted.append(newline.replace("\n",",na,na,none\n"))
+			newline = ",".join(line_split[:10]) + ",na,na,none"
+			lines_reformatted.append(newline)
 		else:
 
 			variant = line_split[11:]
@@ -61,7 +61,7 @@ def reformat_ref_and_alt(lines,offtarget_genome,genome_type):
 				for alt_allele in variant[4:]: #incase multi-allelic
 					hgvs += f"{alt_allele}|"
 				newline = line_split[:11] + [hgvs[:-1]] +[str(offtarget_genome)]
-				lines_reformatted.append(",".join(newline)+"\n")
+				lines_reformatted.append(",".join(newline))
 	return lines_reformatted
 
 def compile_mutliple_alignments(dist_lines,max_bulge):

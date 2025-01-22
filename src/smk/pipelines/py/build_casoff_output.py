@@ -167,7 +167,7 @@ class OffTargets_Library:
 	def add_data_from_file(self,offtarget_csv,offtarget_genome,genome_type):
 		# 'Guide_ID,Match_Coords,Mismatch,RNA_Bulges,DNA_Bulges,Alt Site Impact,Feature'
 
-		data = np.genfromtxt(offtarget_csv, delimiter=',', usecols=(0,2,3,5,6,10,14),dtype=str,  skip_header=1)
+		data = np.genfromtxt(offtarget_csv, delimiter=',',usecols=(0,2,3,5,6,10,14),dtype=str,  skip_header=1)
 		cfd_scores = np.genfromtxt(offtarget_csv, delimiter=',', usecols=(7), skip_header=1)
 
 		site_thresholds =  np.char.add(np.char.add(data[:, 2], data[:, 3]), data[:, 4])
@@ -261,7 +261,7 @@ def create_summary_report(expanded_offtarget_report,guides_report):
 
 	return summary_report
 
-def compile_per_editor_input(editors_list):
+def compile_per_editor_input(editors_list,off_target_dir,query_index):
 
 	guides_report = pd.DataFrame()
 
@@ -277,7 +277,7 @@ def compile_per_editor_input(editors_list):
 
 def aggregate_guidescan_results(off_target_dir,editors_list,offtarget_genomes,thresholds,
 								query_index,offtarget_summary_file,offtarget_expanded_summary_file):
-	coords_per_guide,guides_report = compile_per_editor_input(editors_list)
+	coords_per_guide,guides_report = compile_per_editor_input(editors_list,off_target_dir,query_index)
 
 	offtarget_lib = OffTargets_Library(thresholds, coords_per_guide, offtarget_genomes)
 
