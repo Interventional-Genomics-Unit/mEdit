@@ -1,7 +1,5 @@
 # Native Modules
 from subprocess import Popen, PIPE
-import os
-
 # Installed Modules
 from Bio.Seq import Seq
 
@@ -10,6 +8,7 @@ from Bio.Seq import Seq
 ###      1: Load list of genomic coordinates and ncbiRefSeq.bed file path
 ###      2: Call upon any of these coordinates using the NCBI transcript ID or coordinates
 ###         to retreive  gene names, features, reading frame, feature positions and transcript sequence
+###         Created by T.Hudson
 ########
 
 class Transcript:
@@ -260,11 +259,7 @@ class Transcript:
 
         elif t_snvpos in range(self.flanking[0][0],self.flanking[0][1]+1) or t_snvpos in range(self.flanking[1][0],self.flanking[1][1]+1):
 
-            if self.entry['strand']=='+' and t_snvpos in range(self.flanking[0][1] -25,self.flanking[0][1] -36):
-                feature = 'flanking - upstream - promoter'
-            elif self.entry['strand']=='-' and t_snvpos in range(self.flanking[1][1] +25,self.flanking[1][1] +36):
-                feature = 'flanking - upstream - promoter'
-            elif t_snvpos in range(self.flanking[0][0],self.flanking[0][1]+1):
+            if t_snvpos in range(self.flanking[0][0],self.flanking[0][1]+1):
                 feature = 'flanking-upstream' if self.entry['strand'] == '+' else 'flanking-downstream'
             else:
                 feature = 'flanking-downstream' if self.entry['strand'] == '+' else 'flanking-downstream'
@@ -307,31 +302,3 @@ class Transcript:
         self.feature, self.rf = feature, rf
 
 
-'''test
-annote_path = '/groups/clinical/projects/editability/tables/processed_tables/ncbiRefSeq.bed.gz'
-snvcoords = ['chr11:5225460-5225460','chr11:5226676-5226676',
-             'chr3:136250375-136250375','chr16:57744390-57744390',
-             'chr16:136330169-136330169','chr18:58671560-58671560']
-             
-Transcript.load_transcripts(annote_path,snvcoords)
-for snv in snvcoords:
-    pos_in_transcript = Transcript.transcript(snv)
-    if pos_in_transcript != 'intergenic':
-        print(pos_in_transcript.tx_info())
-        print(pos_in_transcript.feature)
-    else:
-        print('intergenic', snv)
-        
-#('ENST00000335295.4', 'NM_000518.5', 'HBB', '-', 5225463)
-#flanking-downstream
-#('ENST00000335295.4', 'NM_000518.5', 'HBB', '-', 5225463)
-#exon
-#('-', 'NM_001178014.2', 'PCCB', '+', 136250339)
-#start_codon
-#('ENST00000379661.8', 'NM_005886.3', 'KATNB1', '+', 57735769)
-#intron
-#('ENST00000649217.2', 'NM_006785.4', 'MALT1', '+', 58671464)
-#5utr
-
-
-'''

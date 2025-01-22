@@ -180,10 +180,10 @@ def guide_compare(guides_report,be_report,ALTguides_dict,ALTinfo,refgenome_name,
 	REFrows = refgdf.to_dict('tight')['data']
 	ALTrows = altgdf.to_dict('tight')['data']
 
-	rename_columns = [f'{altgenome_name} {x}' if 'core' in x or 'B' in x else x for x in altgdf.columns[8:]]
-	columns = ['QueryTerm','GeneName', 'Editor',f'{altgenome_name} Guide Impact',
-			   'Coordinates','Strand',f'{altgenome_name} gRNA', f'{altgenome_name} Pam',
-			   f'{refgenome_name} gRNA', f'{refgenome_name} Pam'] + rename_columns
+	rename_columns = [f'Alt {x}' if 'core' in x or 'B' in x else x for x in altgdf.columns[8:]]
+	columns = ['QueryTerm','GeneName', 'Editor', "Guide_ID",'Alt Guide Impact',"Alt Genome",
+			   'Coordinates','Strand','Ref gRNA', 'Alt Pam',
+			   f'Ref gRNA', f'Ref Pam'] + rename_columns
 
 
 	for rrow in REFrows:
@@ -201,7 +201,7 @@ def guide_compare(guides_report,be_report,ALTguides_dict,ALTinfo,refgenome_name,
 					break
 
 				elif REFpam == ALTpam and ALTgrna != REFgrna:  # same pam which means change is in grna
-					newrow = rrow[0:3] + ['protospacer changed & conserved'] + rrow[4:6] + arow[6:8] + rrow[6:8] + arow[8:]
+					newrow = rrow[0:3] + [f"alt_{rrow[3]}"]+ ['protospacer changed & conserved'] + [altgenome_name]+ rrow[4:6] + arow[6:8] + rrow[6:8] + arow[8:]
 					new_guides.append(newrow)
 					#print('impact;grna_changed_conserved', REFpam, '->', ALTpam, REFgrna, '->', ALTgrna)
 					ALTrows.remove(arow)
@@ -209,7 +209,7 @@ def guide_compare(guides_report,be_report,ALTguides_dict,ALTinfo,refgenome_name,
 					break
 
 				elif REFgrna == ALTgrna:  # pam is changed but conserved
-					newrow = rrow[0:3] + ['PAM changed & conserved'] + rrow[4:6] + arow[6:8] + rrow[6:8] + arow[8:]
+					newrow = rrow[0:3] + [f"alt_{rrow[3]}"]+ ['PAM changed & conserved'] + [altgenome_name]+ rrow[4:6] + arow[6:8] + rrow[6:8] + arow[8:]
 					new_guides.append(newrow)
 					#print('impact;pam_changed_conserved', REFpam, '->', ALTpam, REFgrna, '->', ALTgrna)
 					ALTrows.remove(arow)
@@ -219,14 +219,14 @@ def guide_compare(guides_report,be_report,ALTguides_dict,ALTinfo,refgenome_name,
 					pass
 
 		if cnt == 1:  # old guides remaining and not matched == no longer exsist
-			newrow = rrow[0:3] + ['PAM changed & removed'] + rrow[4:6] +["-","-"] + rrow[6:8] + len(rrow[8:]) * ['-']
+			newrow = rrow[0:3]  + [f"alt_{rrow[3]}"]+['PAM changed & removed'] +[altgenome_name]+  rrow[4:6] +["-","-"] + rrow[6:8] + len(rrow[8:]) * ['-']
 			new_guides.append(newrow)
 			#print('impact;pam_changed_removed', REFpam, '->', '-', REFgrna, '->', '-')
 
 
 	if len(ALTrows) > 0:  # new guides remaining and not matched == new guides are made
 		for arow in ALTrows:
-			newrow = arow[0:3] + ['PAM changed & added'] + arow[4:8] + ["-", "-"] + arow[8:]
+			newrow = arow[0:3] + [f"alt_{arow[3]}_"] + ['PAM changed & added'] +[altgenome_name]+  arow[4:8] + ["-", "-"] + arow[8:]
 			new_guides.append(newrow)
 		   # print('impact;pam_changed_added', '-', '->', arow[8], '-', '->', arow[7])
 
@@ -234,14 +234,14 @@ def guide_compare(guides_report,be_report,ALTguides_dict,ALTinfo,refgenome_name,
 	return ALTguides_df
 
 def create_ALTvcf_report(ALTinfo,altgenome_name):
-	columns = ['QueryTerm',f'{altgenome_name} VCF Variant ID',
+	columns = ['QueryTerm','Genome','Alt VCF Variant ID',
 			   'REF Allele','ALT Examined','ALT allele(s)',
 			   'Variant Coordinates','Zygosity','Variant Type','Relative Position to Query']
 	rows = []
 	for query in ALTinfo.keys():
 		#{ALTid : [ALTid,ALTref, ALTalt, ALTalts, ALTcoord, zyg, vtype, rel_pos]}
 		for variant, info in ALTinfo[query].items():
-			rows.append([query]+info)
+			rows.append([query,altgenome_name]+info)
 
 	nearby_variants_df = pd.DataFrame(rows,columns=columns)
 	return nearby_variants_df
@@ -341,3 +341,21 @@ def main():
 
 if __name__ == "__main__":
 	main()
+
+altgenome_name = "HG02257"
+outdir = "/groups/clinical/projects/editability/medit_queries/medit_test_3/standard/jobs/standard_TEST_standard/guide_prediction-hg38_GCA_000001405.15"
+db = "/groups/clinical/projects/editability/medit_queries/medit_database"
+filtered_vcf = f"/groups/clinical/projects/clinical_shared_data/hprc/hprc-v1.1-combined-phased-decomposed/{altgenome_name}.vcf.gz"
+guides_report = f"{outdir}/guides_report_ref/0_Guides_found.csv"
+be_report= f"{outdir}/guides_report_ref/0_BaseEditors_found.csv"
+guide_search_params = f"{outdir}/dynamic_params/0_guide_search_params.pkl"
+guide_be_search_params= f"{outdir}/dynamic_params/0_guide_be_search_params.pkl"
+models_path =f"{db}/pkl/models/"
+snv_site_info = f"{outdir}/dynamic_params/0_snv_site_info.pkl"
+diffguides_out = f"{outdir}/guides_report_{altgenome_name}/0_Guide_differences.csv"
+altvar_out = f"{outdir}/guides_report_{altgenome_name}/0_Alternative_genome_variants.csv"
+refgenome_name = "hg38"
+
+
+df =pd.read_csv(diffguides_out)
+df.Guide_ID

@@ -1,22 +1,26 @@
 #
 # === Offtarget Analysis Paths
-#   == Parent output directory where files should be stored after processing ==
+# Directory were parameters where guide pickle files are stored
 guides_per_editor_path: ""
+# List of directories where each genome off_target predictions are stored
+off_target_output_paths: ""
+# Directory where the guide_scan input files are stored
+input_files_path: ""
+#Directory where aggregated summary reports are stored
+summary_report_path: ""
 
-# Temporary file and parent path used during the casOffinder input file preparation
-tmp_processing_casoff: "tmp_casoff/tmp_bulge_processing"
-tmp_casoff_path: "tmp_casoff"
 
 # List of editors ingested by offtarget_prediction.py based on a previous mEdit run
 editors_list: ""
 
 # List of genomes that will be processed on CasOFFinder
 offtarget_genomes: ""
+offtarget_bed_files: ""
 offtarget_extended: ""
 reference_id: ""
 
 #editor_pam expanded to put in guidescan input file
-expanded_pams: ""
+pams_list: ""
 
 #editor_pams expanded to put in alt_pam guidescan command
 alt_pams_list: ""
