@@ -70,13 +70,32 @@ def check_format(variable, data_type, paramater_name, default_value):
 				print(f"Invalid data type for {paramater_name}: '{variable}'. Please double-check the documentation.")
 				exit(0)
 
-
 def check_iupac(sequence):
 	# Get the valid IUPAC characters (both unambiguous and ambiguous nucleotides)
 	iupac_nucleotides = set(IUPACData.ambiguous_dna_letters)
 
 	# Convert the sequence to uppercase and check if all characters are valid
 	return all(base in iupac_nucleotides for base in sequence.upper())
+
+def combine_guide_tables(combined_guide_report,path_to_report,genome_type):
+	# if guide report exists add to compiled list of guides to run in guidescan2
+	if file_exists(path_to_report):
+		df = pd.read_csv(path_to_report)
+		if df.empty:
+			pass
+		elif genome_type == 'main_ref':
+			df.insert(4, "Alt Guide Impact", [None] * df.shape[0])
+			df.insert(5, "Alt Genome", [None] * df.shape[0])
+			combined_guide_report = pd.concat([combined_guide_report,df])
+		elif genome_type == 'extended':
+			select_columns = [x for x in df.columns if "Ref " not in x]
+			df = df.loc[df['Alt Guide Impact'] != "PAM changed & removed",select_columns]
+			df.columns = df.columns.to_list()[:5] +[x.replace("Alt ","") for x in df.columns[5:]]
+			combined_guide_report = pd.concat([combined_guide_report, df])
+		else:
+			pass
+	return combined_guide_report
+
 
 
 def date_tag():
@@ -126,23 +145,31 @@ def download_s3_objects(s3_bucket_name: str, s3_object_name: str, destination_pa
 def expand_pam(pam):
 	# guidescan will not accept anything aside ACGTN
 	# if a pam has a different base this will make a list of variants to be give to guidescan
-	iupac_codes = {"A":"A","T":"T","C":"C",
-				   "G":"G","N":"N","R":"AG","Y":"CT",
-				   "S":"CG","W":"AT","K":"GT","M":"AC","B":"CGT",
-				   "D":"AGT","H":"ACT","V":"ACG"}
+	iupac_codes = {"A": "A", "T": "T", "C": "C",
+				   "G": "G", "N": "N", "R": "AG", "Y": "CT",
+				   "S": "CG", "W": "AT", "K": "GT", "M": "AC", "B": "CGT",
+				   "D": "AGT", "H": "ACT", "V": "ACG"}
+	pam = pam.upper()
+	try:
+		expanded = [list(iupac_codes[base]) for base in pam]
+		expanded_pams = [''.join(x) for x in itertools.product(*expanded)]
+		input_file_pam = expanded_pams[0]
+		cmd_line_alt_pams = ",".join(expanded_pams[1:]) if len(expanded_pams) > 1 else "no_alt_pam"
+	except KeyError:
+		print(f"invalid PAM given: {pam}")
+		print(f"PAM accepted characters 'ATCGNRYSWKMBDHV' ")
+		exit(0)
 
-	expanded = [list(iupac_codes[base]) for base in pam]
-	expanded_pams = [''.join(x) for x in itertools.product(*expanded)]
-	return expanded_pams
+	return [input_file_pam, cmd_line_alt_pams]
 
 def export_guides_by_editor(guide_df_by_editor_dict: dict, output_dir: (str, Path)):
 	editors_list = []
+	set_export("/".join(str(output_dir).split("/")[:-1]))
 	for editor in guide_df_by_editor_dict:
 		editors_list.append(editor)
 		guide_df = pd.DataFrame(guide_df_by_editor_dict[editor][0])
 		filepath = f"{output_dir}{editor}.pkl"
 		# Create output directory if non-existent
-		set_export(output_dir)
 		with open(filepath, 'wb') as guide_df_handle:
 			pickle.dump(guide_df, guide_df_handle)
 	return editors_list
@@ -152,12 +179,11 @@ def file_exists(file_path):
 	return os.path.exists(file_path)
 
 
-def group_guide_table(guide_table_path: pathlib.Path, editor_filter: (list, str)):
-	guides_df = pd.read_csv(guide_table_path)
+def group_guide_table(allguides_df,editor_filter: (list, str)):
 	if editor_filter:
-		guides_df = guides_df[guides_df['Editor'].isin(editor_filter)]
+		allguides_df = allguides_df[allguides_df['Editor'].isin(editor_filter)]
 	try:
-		grouped_guides_df = guides_df.groupby('Editor')
+		grouped_guides_df = allguides_df.groupby('Editor')
 	except KeyError:
 		print("Column name 'Editor' not found in <Guides_found.csv>. Please check the file path and try again.")
 		exit(0)
@@ -256,9 +282,10 @@ def offtarget_mode_formatting(mode, dynamic_config_guidepred):
 	:param dynamic_config_guidepred: YAML-imported Config dict
 	:return: Tuple of size n>=1 with the sequence IDs and respective labels: Either 'main_ref' or 'extended'
 	"""
-	sequence_id = [(dynamic_config_guidepred['sequence_id'][0]), 'main_ref']
+	sequence_id = [((dynamic_config_guidepred['sequence_id'][0]), 'main_ref')]
 	if mode != 'fast':
-		sequence_id.extend((dynamic_config_guidepred['vcf_id'], 'extended_ref'))
+		for vcf_id in dynamic_config_guidepred['vcf_id']:
+			sequence_id.extend([(vcf_id, 'extended')])
 	return sequence_id
 
 

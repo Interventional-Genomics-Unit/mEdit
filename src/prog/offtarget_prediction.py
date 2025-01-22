@@ -1,3 +1,10 @@
+# == Native Modules
+from os.path import abspath
+import pickle
+import subprocess
+from pathlib import Path
+
+import pandas as pd
 # == Installed Modules
 import yaml
 # == Project Modules
@@ -10,43 +17,17 @@ from prog.medit_lib import (
     offtarget_mode_formatting,
     project_file_path,
     set_export,
-    write_yaml_to_file
+    write_yaml_to_file,
+    combine_guide_tables
 )
 
 #########
-# Note for DANIEL ***LOOK HERE**
 # GUIDESCAN only takes PAMs with ATCGN in the manifest made by build_casoff_input.py
 # BUT......guidescan takes whichever PAM is in the manifest plus additional pams used for command the "-a" variable
 # in the case of saCas9 with "NNGRR" We can put "NNGAA" in the manifest and then run in the guidescan command line -a NNGAG,NNGGA,NNGGG
 # TO DO THIS -------
 # I wrote an expand_pam function in medit_lib
 # in the config file for snakemake to give to snakemake; do/add the following
-'''
-editors_list = []
-pams_list = []
-alt_pams_list = []
-pam_is_first_list = []
-guide_search_params = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/dynamic_params/{query_index}_guide_search_params.pkl"
-be_search_params =  "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/dynamic_params/{query_index}_be_search_params.pkl"
-
-for editor in editing_tool_request:
-    editors_list.append(editor)
-
-    if editor in guide_search_params.keys():
-        search_params = guide_search_params
-    else:
-        search_params = be_search_params
-
-    pam = search_params[editor][0]
-    expanded_pams = medit_lib.expand_pam(pam)
-
-    pams_list.append(expanded_pam[0]) # this is for the guidescan manifest or build_casoff_input.py
-    alt_pams_list.append(",".join(expanded_pams[1:]))  # this is for command line guidescan --alt-pam arg
-
-    pam_is_first_list.append(upper(str(search_params[editor][1]).upper())) # this is for command line guidescan --start argument
-
-# then add all the list to the config file :)
-'''
 
 
 def offtarget_prediction(args, jobtag):
@@ -112,8 +93,9 @@ def offtarget_prediction(args, jobtag):
     # === Import Variables from Configuration File ===
     run_name = str(dynamic_config_guidepred['run_name'])
     mode = str(dynamic_config_guidepred['processing_mode'])
-    query_index = list(dynamic_config_guidepred['query_index'])
-    root_dir = str(dynamic_config_guidepred['output_directory'])
+    query_index = (dynamic_config_guidepred['query_index'])
+    root_dir = str(dynamic_config_guidepred['output_directory']) # this is in here twice?
+
     # === mEdit offtarget prediction will process reference genome and alternate genomes ===
     # == Set internal variables for Off-target processing
     offtarget_genomes = offtarget_mode_formatting(mode, dynamic_config_guidepred)
@@ -125,63 +107,100 @@ def offtarget_prediction(args, jobtag):
 
 
     # == Get available options of already run editors or base editors
-    guide_search_params_path = f"{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_genome}/dynamic_params/{query_index}_guide_search_params.pkl"
-    be_search_params_path = f"{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_genome}/dynamic_params/{query_index}_be_search_params.pkl"
+    guide_search_params_path = f"{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_genome}/dynamic_params/{query_index[0]}_guide_search_params.pkl"
+    be_search_params_path = f"{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_genome}/dynamic_params/{query_index[0]}_guide_be_search_params.pkl"
 
-    with open(guide_search_params_path, 'r') as file:
-        guide_search_params= yaml.safe_load(file)
-    with open(be_search_params_path, 'r') as file:
-        be_search_params = yaml.safe_load(file)
+    with open(guide_search_params_path, 'rb') as file:
+        guide_search_params= pickle.load(file)
+    with open(be_search_params_path, 'rb') as file:
+        be_search_params = pickle.load(file)
 
-    endonucleases_run = list(guide_search_params.keys())
-    be_run = list(be_search_params.keys())
+    for editor,stats in be_search_params.items():
+        guide_search_params[editor] = stats[0]
+
 
     # == Setup core off-target variables
     editors_list = []
     pams_list = []
     alt_pams_list = []
     pam_is_first_list = []
+    off_target_output_paths = {}
+    guides_per_editor_path = ""
+    input_file_path = ""
+    summary_report_path = ""
+    repeat_data_collection_flag = True # saves time sinces much of this is repeative data collection
 
-    guides_per_editor_path = ''
     for index in query_index:
+
+        if repeat_data_collection_flag:
+
+            combined_guide_report = pd.DataFrame()
+
         for offtarget_genome, genome_type in offtarget_genomes:
+
+
             # == Set output paths ==
-            guides_per_editor_path = str(
-                f"{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_genome}/offtarget_prediction/{offtarget_genome}/{index}_")
+            # Note that all genomes searched will have the same inputs guides report, editors, etc.
+            # I'm exporting the guides_per_editor_path to a dynamic params folder one time
+            # however, for every genome I will make a directory for outputs and not inputs every genome I am also making
+            off_target_output_path = set_export(str(f"{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_genome}/offtarget_prediction/{offtarget_genome}"))
+            off_target_output_paths[offtarget_genome] = off_target_output_path
 
-            if genome_type == 'main_ref':
+
+            if repeat_data_collection_flag:
+                # set one time directories for inputs and summary reports
+                guides_per_editor_path = str(f"{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_genome}/offtarget_prediction/dynamic_params")
+                summary_report_path = set_export(str(f"{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_genome}/offtarget_prediction/summary_reports"))
+                input_file_path = set_export(str(f"{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_genome}/offtarget_prediction/input_files"))
+
                 # == Recover Guide Prediction filepath ==
+                if genome_type == 'main_ref':
 
-                guides_report_path = Path(f"{root_dir}/{mode}/jobs/{run_name}/"
-                                          f"guide_prediction-{reference_genome}/guides_report_ref/{index}_Guides_found.csv")
 
-                be_report_path = Path(f"{root_dir}/{mode}/jobs/{run_name}/"
-                                          f"guide_prediction-{reference_genome}/guides_report_ref/{index}_BaseEditors_found.csv")
-                # TODO: Add BE report
-                # == Group guides by editor and export DF as pickles by editor
-                grouped_guide_dict = group_guide_table(guides_report_path, editing_tool_request)
-                editors_list.extend(export_guides_by_editor(grouped_guide_dict, guides_per_editor_path))
+                    guides_report_path = Path(f"{root_dir}/{mode}/jobs/{run_name}/"
+                                              f"guide_prediction-{reference_genome}/guides_report_ref/{index}_Guides_found.csv")
 
-            # Account for alternate genomes
-            if genome_type == 'extended':
-                guides_diff_path = Path(f"{root_dir}/{mode}/jobs/{run_name}/"
-                                        f"guide_prediction-{reference_genome}/guides_report_{offtarget_genome}/{index}_Guide_differences.csv")
-                grouped_diff_guide_dict = group_guide_table(guides_diff_path, editing_tool_request)
-                editors_list.extend(export_guides_by_editor(grouped_diff_guide_dict, guides_per_editor_path))
+
+                    combined_guide_report = combine_guide_tables(combined_guide_report,guides_report_path, genome_type)
+
+                    be_report_path = Path(f"{root_dir}/{mode}/jobs/{run_name}/"
+                                              f"guide_prediction-{reference_genome}/guides_report_ref/{index}_BaseEditors_found.csv")
+
+                    combined_guide_report = combine_guide_tables(combined_guide_report, be_report_path, genome_type)
+
+                # Account for alternate genomes
+                if genome_type == 'extended':
+                    guides_diff_path = Path(f"{root_dir}/{mode}/jobs/{run_name}/"
+                                            f"guide_prediction-{reference_genome}/guides_report_{offtarget_genome}/{index}_Guide_differences.csv")
+                    # Check if diff guides is empty and concatenates if it is not
+                    combined_guide_report = combine_guide_tables(combined_guide_report, guides_diff_path, genome_type)
+
+                grouped_diff_guide_dict = group_guide_table(combined_guide_report, editing_tool_request)
+                editors_extracted_from_guides = export_guides_by_editor(grouped_diff_guide_dict, guides_per_editor_path+f"/{index}_")
+            ## does not need to repeat data gathering after this
+
+            editors_list = editors_extracted_from_guides# configure pams in extended forms if there's an IUPAC that is not N
+            pams_list = [expand_pam(pam=guide_search_params[editor][0])[0] for editor in editors_extracted_from_guides]
+            alt_pams_list=[expand_pam(pam=guide_search_params[editor][0])[1] for editor in editors_extracted_from_guides]
+            pam_is_first_list= ["--start" if guide_search_params[editor][1] is True else "start_flag_off" for editor in editors_extracted_from_guides]
+
+            if repeat_data_collection_flag:
+                repeat_data_collection_flag = False
 
     # === Export Variables to Configuration File ===
     # NOTE: This whole block (until the end) was inside the index loop
-
     config_template['guides_per_editor_path'] = guides_per_editor_path
-    config_template['editors_list'] = list(set(editors_list))
-    config_template['tmp_processing_casoff'] = f"{root_dir}/{config_template['tmp_processing_casoff']}"
+    config_template['input_file_path'] = input_file_path
+    config_template['summary_report_path'] = summary_report_path
+    config_template['off_target_output_paths'] = off_target_output_paths
+    config_template['editors_list'] = editors_list
+    config_template['pams_list'] = pams_list
+    config_template['pam_is_first_list'] = pam_is_first_list
+    config_template['alt_pams_list'] = alt_pams_list
     config_template['offtarget_genomes'] = {str(tup[0]): str(tup[1]) for tup in offtarget_genomes}
     config_template['offtarget_extended'] = {str(tup[0]): str(tup[1]) for tup in offtarget_genomes if
-                                             tup[0] == 'extended'}
+                                             tup[1] == 'extended'}
     config_template['reference_id'] = reference_genome
-
-    # == Set the temporary directory up for CasOffinder ==
-    set_export(config_template['tmp_casoff_path'])
 
     # === Write YAML configs to mEdit Root Directory ===
     write_yaml_to_file(config_template, dynamic_config_off_path)

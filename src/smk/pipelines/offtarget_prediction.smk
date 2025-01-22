@@ -146,7 +146,7 @@ Wildcards in this rule:
         if [[ {input.genome_type} == "extended" ]]; then
         
             #convert guidescan csv to bed
-            awk -F',' 'NR>1 {print $3 "\t" $4 "\t" $4+30 "\t" $0",added"}' {output.guidescan_tmp_full_csv} | bedtools sort -i > {output.guidescan_tmp_full_bed}
+            awk -F',' 'NR>1 {print $3 "\t" $4-1 "\t" $4+30 "\t" $0",added"}' {output.guidescan_tmp_full_csv} | bedtools sort -i > {output.guidescan_tmp_full_bed}
             
             #subset ref sites that are missing the alt guidescan
             bedtools subtract -a {input.ref_guidescan_full_bed} -b {output.guidescan_tmp_full_bed} -wa > {output.guidescan_tmp_missing_from_ref_bed}
@@ -164,7 +164,7 @@ Wildcards in this rule:
         
         # Reference -- simply make bed, no filtering needed
         else
-            awk -F',' 'NR>1 {print $3 "\t" $4 "\t" $4+30 "\t" $0",removed"}' {output.guidescan_tmp_full_csv} | bedtools sort -i > {output.guidescan_filtered_bed}
+            awk -F',' 'NR>1 {print $3 "\t" $4-1 "\t" $4+30 "\t" $0",removed"}' {output.guidescan_tmp_full_csv} | bedtools sort -i > {output.guidescan_filtered_bed}
         fi
     
         rm {output.guidescan_tmp_full_csv}
