@@ -188,19 +188,20 @@ def guide_prediction(args, jobtag):
 		# downstram processes must acknowledge that this is a standard run
 		mode = 'standard'
 
-	# === Assign Variables to Configuration File ===
+	# === Assign Key Variables to Configuration File ===
 	config_template['run_name'] = f"{mode}_{jobtag}"
+	config_template['logfile_path'] = f"{jobtag}.log"
 	config_template['support_tables'] = db_path_full
 	config_template['processing_mode'] = mode
 	config_template['output_directory'] = root_dir
 	config_template['variant_query'] = list(formatted_query_input_list)
 	config_template['query_index'] = list(range(len(formatted_query_input_list)))
-	# Assign run parameters to config
+	# ==  Assign run parameters to Configuration File ==
 	config_template['qtype'] = qtype
 	config_template['editor_request'] = editor_request
 	config_template['be_request'] = be_request
 	config_template['distance_from_cutsite'] = cutdist
-	# Assign custom editor parameters to config
+	# == Assign custom editor parameters to Configuration File ==
 	config_template['pam'] = pam
 	config_template['guide_length'] = guide_length
 	config_template['pam_is_first'] = pam_is_first
@@ -208,7 +209,7 @@ def guide_prediction(args, jobtag):
 	config_template['editing_window'] = editing_window
 	config_template['target_base'] = target_base
 	config_template['result_base'] = result_base
-	# Assign cluster options
+	# == Assign cluster options ==
 	cluster_template['__default__']['cores'] = ncores
 	cluster_template['__default__']['time'] = maxtime
 
@@ -234,6 +235,7 @@ def guide_prediction(args, jobtag):
 							 f"--use-conda "
 							 f"--keep-going "
 							 f"--rerun-incomplete "
+							 f"--keep-incomplete "
 							 f"{dryrun_setup}",
 							 smk_verbosity[smk_setup_idx]
 							 )
