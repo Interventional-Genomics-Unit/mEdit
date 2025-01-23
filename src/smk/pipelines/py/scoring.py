@@ -70,14 +70,14 @@ def preprocess_seq(data):
     return DATA_X
 
 
-def deepspcas9(cas9_sites, models_dir):
+def deepspcas9(cas9_sites, model,sess_path):
     '''
     Hui Kwon Kim et al. ,SpCas9 activity prediction by DeepSpCas9,
     a deep learning–based model with high generalization performance.Sci. Adv.5,eaax9249(2019).
     predicts the likelihood of getting a spCas9 indel at the desired target
     This script is copied and modified from https://github.com/MyungjaeSong/Paired-Library
     '''
-    model, sess_path = load_model_params('deepspcas9', models_dir)
+    #model, sess_path = load_model_params('deepspcas9', models_dir)
     processed_seqs = preprocess_seq(cas9_sites)
 
     # TensorFlow config
@@ -316,32 +316,27 @@ def oofscore(seq):
 
 
 # === Off-target Specifity Scoring ===
-def cfd_score(seq1, seq2, models_dir):
+def cfd_score(seq1, seq2, seq2_pam,mm_scores, pam_scores):
     '''
     Doench 2016 off-target scoring
     Doench, Fusi, et al.  Nature Biotechnology 34, 184–191 (2016)."
-
     '''
-    mm_scores, pam_scores = load_model_params('cfd', models_dir)
-    pam = seq2[-3:]
-    seq1 = seq1.upper().replace('T', 'U')
-    seq2 = seq2[:-3].upper().replace('T', 'U')
-    m_seq1 = re.search('[^ATCGU\\-]', seq1)
-    m_seq2 = re.search('[^ATCGU\\-]', seq2)
-
+    m_seq1 = str(seq1).upper().replace('T', 'U')
+    m_seq2 = str(seq2).upper().replace('T', 'U')
+    pam = str(seq2_pam).upper()
     score =1
-
-    if (m_seq1 is None) and (m_seq2 is None):
-        if seq1 != seq2:
-            shorter, longer = sorted([seq1, seq2], key=len)
-            for i in range(-len(shorter), 0):
-                if (seq1[i] != seq2[i]):
-                    key = 'r' + seq1[i] + ':d' + revcom(seq2[i]) + ',' + str(20 + i + 1)
-                    score *= mm_scores[key]
-
-            score *= pam_scores[pam[-2:]]
-    else:
-        score = -1
+    shorter, longer = sorted([m_seq1, m_seq2], key=len)
+    try:
+        for i in range(-len(shorter), 0):
+            if (m_seq1[i] != m_seq2[i]):
+                key = 'r' + m_seq1[i] + ':d' + revcom(m_seq2[i]) + ',' + str(20 + i + 1)
+                score *= mm_scores[key]
+    except KeyError:
+        return -1
+    try:
+        score *= pam_scores[pam[-2:]]
+    except KeyError:
+        return round(score,4)
     return round(score,4)
 
 
@@ -362,12 +357,13 @@ spacer = 'GTGCGGCTGGCCCAGGACCT'
 target = spacer + pam
 target30mer = 'CTTGTGCGGCTGGCCCAGGACCTAGGCGAG'
 target60mer = 'ATCTCTTACAACGACTTCTTGTGCGGCTGGCCCAGGACCTAGGCGAGGCAGTAGGGGATGACA'
-off_target_seqs = ['GTGGGGCTGACCCAGGACCTGAG','GGGCCTCTGGCCCAGGACCTGGG']
+off_target_seqs = ['GTGGGGCTGACCCAGGACCT','GGGCCTCTGGCCCAGGACCT','GGGCCTCTGGCCCAGGACCT']
+off_target_pams = ['GAG','GGG',"G-G"]
 
 print('Microhomology Out-Of-Frame score: ',oofscore(seq = target60mer))
 # Ans: 3730.1, 64.2
 
-print('Azimuth on-target score: ',azimuth([target30mer],models_dir)[0])
+print('Azimuth on-target score: ',azimuth([target30mer],mod""els_dir)[0])
 #Ans: 0.38
 
 print('CFD score ',cfd_score(spacer, off_target_seqs[1],models_dir = models_dir))

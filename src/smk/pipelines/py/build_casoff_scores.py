@@ -1,232 +1,220 @@
 # == Native Modules
 # == Installed Modules
+import pandas as pd
 # == Project Modules
-import pickle
-
-from build_casoff_input import (check_bulge, parse_bulge)
-from scoring import (cfd_score, cfd_spec_score)
+from scoring import cfd_score,load_model_params
 from annotate import Transcript
 
+#######
+# Reformats guidescan output to include 1) corrected cfd scores 2) distances 3) genome found 4) genomic annotations
+# For alternative genomes, eliminates any sites that do not differ from reference genome
+# By Taylor H.
+######
 
-def parse_nobulge(tmp_processing_filename):
-	nobulge_dict = {}
-	with open(tmp_processing_filename, 'r') as inf:
-		for line in inf:
-			entry = line.strip().split(' ')
-			if len(entry) > 2 and len(entry[-1]) > 3:
-				seq, mm, gid = entry
-				nobulge_dict[seq] = [gid, mm]
-	return nobulge_dict
-
-
-def write_casoff_output(raw_casoff_out, casoff_support_file, formatted_output, bulge_check):
-	with open(raw_casoff_out) as fi, open(formatted_output, 'w') as fo:
-		fo.write('Coordinates\tDirection\tGuide_ID\tBulge type\tcrRNA\tDNA\tMismatches\tBulge Size\n') \
-
-		ot_coords = []
-		for line in fi:
-			entries = line.strip().split('\t')
-			ncnt = 0
-
-			if not bulge_check:
-				nobulge_dict = parse_nobulge(casoff_support_file)
-				gid, mm = nobulge_dict[entries[0]]
-				coord = f'{entries[1]}:{entries[2]}-{int(entries[2]) + len(entries[0])}'
-				fo.write(f'{coord}\t{entries[4]}\t{gid}\tX\t{entries[0]}\t{entries[3]}\t{entries[5]}\t0\n')
-				ot_coords.append(coord)
-			if bulge_check:
-				(isreversed,
-				 chrom_path,
-				 seq_pam,
-				 rnabulge_dic,
-				 id_dict,
-				 len_pam,
-				 pattern,
-				 bulge_dna,
-				 bg_tgts) = parse_bulge(casoff_support_file)
-
-				if isreversed:
-					for c in entries[0][::-1]:
-						if c == 'N':
-							ncnt += 1
-							break
-					if ncnt == 0:
-						ncnt = -len(entries[0])
-				else:
-					for c in entries[0]:
-						if c == 'N':
-							ncnt += 1
-						else:
-							break
-
-				if entries[0] in rnabulge_dic:
-					gid = id_dict[entries[0]]
-					for pos, query_mismatch, seq in rnabulge_dic[entries[0]]:
-						if isreversed:
-							tgt = (seq_pam + entries[0][len_pam:len_pam + pos] + seq + entries[0][len_pam + pos:-ncnt],
-								   entries[3][:len_pam + pos] + '-' * len(seq) + entries[3][len_pam + pos:-ncnt])
-						else:
-							tgt = (entries[0][ncnt:ncnt + pos] + seq + entries[0][ncnt + pos:-len_pam] + seq_pam,
-								   entries[3][ncnt:ncnt + pos] + '-' * len(seq) + entries[3][ncnt + pos:])
-						if query_mismatch >= int(entries[5]):
-							start = int(entries[2]) + (ncnt if (not isreversed and entries[4] == "+") or (
-									isreversed and ncnt > 0 and entries[4] == "-") else 0)
-							coord = f'{entries[1]}:{start}-{int(start) + len(tgt[1])}'
-							ot_coords.append(coord)
-							fo.write(
-								f'{coord}\t{entries[4]}\t{gid}\tRNA\t{tgt[0]}\t{tgt[1]}\t{int(entries[5])}\t{len(seq)}\n')
-
-				else:
-					gid = id_dict[entries[0]]
-					nbulge = 0
-					if isreversed:
-						for c in entries[0][:-ncnt][len_pam:]:
-							if c == 'N':
-								nbulge += 1
-							elif nbulge != 0:
-								break
-						tgt = (seq_pam + entries[0][:-ncnt][len_pam:].replace('N', '-'), entries[3][:-ncnt])
-					else:
-						for c in entries[0][ncnt:][:-len_pam]:
-							if c == 'N':
-								nbulge += 1
-							elif nbulge != 0:
-								break
-						tgt = (entries[0][ncnt:][:-len_pam].replace('N', '-') + seq_pam, entries[3][ncnt:])
-					start = int(entries[2]) + (ncnt if (not isreversed and entries[4] == "+") or (
-							isreversed and ncnt > 0 and entries[4] == "-") else 0)
-					btype = 'X' if nbulge == 0 else 'DNA'
-					coord = f'{entries[1]}:{start}-{int(start) + len(tgt[1])}'
-					ot_coords.append(coord)
-					fo.write(
-						f'{entries[1]}:{start}-{start + len(tgt[1])}\t{entries[4]}\t{gid}\t{btype}\t{tgt[0]}\t{tgt[1]}\t{int(entries[5])}\t{nbulge}\n')
-
-		editor = gid.split('_')[0]
-		print(f'{len(ot_coords)} off targets found for {editor}')
-
-
-def score_ot(crrna,otseq,models_dir):
-	score = 0
-	if '-' not in crrna[:-3]:
-		if '-' not in otseq[:-4]:
-			# TODO: NEEDS
-			#raise Exception("The function scoring.cfd_score requires a path to the model files")
-			score = cfd_score(crrna[:-3].upper(), otseq.upper(),models_dir)
-	return score
-
-
-def annotate_ots(output_filename, annote_path, models_dir):
+def fix_cfd(lines,models_dir,score_guides=True):
 	'''
-	Reads output, Scores each off-target seq and annotates each off_target
+	fixes guidescan2 cfd scoring and adds edit distance to each site
+	:param lines: lines from guidescan bed file
+	:param models_dir: cfd score model weights
+	:return:
 	'''
-
-	editor = output_filename.split('_casoff')[0].split('_')[-1]
-	coords = []
-	scores = []
-	spec_scores = {}
-	res = open(output_filename, 'r').readlines()
-	for line in res[1:]:
-		line = line.strip().split('\t')
-		coords.append(line[0])
-		if line[2] not in spec_scores.keys():
-			spec_scores[line[2]] = 0 if editor == 'spCas9' else '.'
-		if editor == 'spCas9':
-			score = score_ot(line[4], line[5],models_dir)
-			if score > 0 and score != 1:
-				spec_scores[line[2]] = spec_scores[line[2]] + score
-		else:
-			score = '.'
-		scores.append(score)
-
-	Transcript.load_transcripts(annote_path,coords)
-
 	new_lines = []
-	annotate_out = output_filename.replace('_output', '_annotated')
-	with open(annotate_out, 'w') as anout:
-		anout.write(res[0].strip() + f'\tAnnotation\tScore\n')
-		cnt = 0
-		for line in res[1:]:
-			line = line.strip().split('\t')
-			ans = Transcript.transcript(line[0])
-
-			if ans != 'intergenic':
-				tid, gname = ans.tx_info()[1:3]
-				feature = ans.feature
-				x = '|'.join([feature, gname, tid])
-				new_line = line + [x, str(scores[cnt])]
-				new_lines.append(new_line)
-
-			else:
-				x = 'intergenic'
-				new_line = line + [x, str(scores[cnt])]
-				new_lines.append(new_line)
-			cnt += 1
-			anout.write('\t'.join(new_line) + '\n')
-
-	if editor == 'spCas9':
-		for gid, sum_score in spec_scores.items():
-			if sum_score!= 0:
-				spec_scores[gid] = cfd_spec_score(sum_score)
+	new_lines.append(lines[0]+",Distance")
+	if score_guides:
+		mm_scores, pam_scores = load_model_params('cfd', models_dir)
+	for line in lines[1:]:
+		line = line.split(",")
+		seq1 = line[1][:-3]
+		seq2 = line[6][:-3]
+		pam = line[6][-3:]
+		if score_guides and (int(line[7]) + int(line[8]))== 0:
+			score = cfd_score(seq1, seq2, pam,mm_scores, pam_scores)
 		else:
-			spec_scores[gid] = "."
-	#remove(output_filename)
-	return new_lines, spec_scores
+			score = -1
+		dist = int(line[5]) + int(line[7]) + int(line[8])
+		line[-4] = str(score)
+		line.append(str(dist))
+		new_lines.append(','.join(line))
+	return new_lines
 
 
-def agg_results(lines,mmco):
-	'''
-	sums the number of off-targets for each guide
-	aggregates by mismatch cutoff and bulge size
-	'''
-	ots_dict = {}
+def reformat_ref_and_alt(lines,offtarget_genome,genome_type):
+	lines_reformatted = []
+	header = 'id,sequence,match_chrm,match_position,match_strand,match_distance,match_sequence,rna_bulges,dna_bulges,specificity,alt_site_impact,alt_var,alt_genome'
+	ref = True if genome_type != 'extended' else False
+	lines_reformatted.append(header)
 	for line in lines:
-		gid, btype, mm, bsize = line[2], line[3], line[6], line[7]
-		if gid not in ots_dict.keys():
-			ots_dict[gid] = {}
-			for i in ['X', 'RNA', 'DNA']:
-				for j in range(mmco+1):
-					ots_dict[gid][(i,j)] = 0
-		ots_dict[gid][(btype, int(mm))] += 1
-	return ots_dict
+		line_split = line.strip().replace("\t",",").split(",")[3:]
+		line_split[6] = line_split[6].replace(".","-")
+		line_split[1] = line_split[1].replace(".", "-")
+		if ref:
+			newline = ",".join(line_split[:10]) + ",na,na,none"
+			lines_reformatted.append(newline)
+		else:
+
+			variant = line_split[11:]
+			#drop lines where variants are not in sequence
+			dist_from_variant = (int(line_split[12])+2) - int(line_split[3])
+
+			if dist_from_variant < len(line_split[6].replace("-","")) and dist_from_variant > 0:
+				hgvs = f"{variant[0]}:{variant[1]}{variant[3]}>"
+				for alt_allele in variant[4:]: #incase multi-allelic
+					hgvs += f"{alt_allele}|"
+				newline = line_split[:11] + [hgvs[:-1]] +[str(offtarget_genome)]
+				lines_reformatted.append(",".join(newline))
+	return lines_reformatted
+
+def compile_mutliple_alignments(dist_lines,max_bulge):
+	# creates a dict for every sites that has mulitple alignments
+	ot_dict = {}
+	for line in dist_lines[1:]:
+		line = line.strip().split(",")
+		pos = int(line[3])
+		prefix = line[0]+"_"+line[11]+"_"+line[2] + "_"
+		not_found = True
+		for i in range(0, max_bulge):
+
+			if f"{prefix}{str(pos+i)}" in ot_dict.keys():
+				ot_dict[f"{prefix}{str(pos+i)}"].append(line)
+				not_found = False
+				break
+			elif f"{prefix}{str(pos-i)}" in ot_dict.keys():
+				ot_dict[f"{prefix}{str(pos-i)}"].append(line)
+				not_found = False
+				break
+			else:
+				pass
+		if not_found:
+			ot_dict[f"{prefix}{str(pos)}"] = [line]
+
+	return ot_dict
+
+def config_alt_variants(df,find_alt_unique_sites):
+	'''
+	concatenates variants that span the same site
+	'''
+	if find_alt_unique_sites:
+		cols = [x for x in df.columns if x != "alt_var"]
+		new_df = df.groupby(cols, as_index=False).agg({"alt_var": lambda x: "|".join(sorted(set(x)))})
+
+	else:
+		cols = [x for x in df.columns if x != "alt_var"] + ['alt_var']
+		new_df = df.loc[:,cols]
+	return new_df
+
+def de_dup(dist_lines,max_bulge):
+	new_lines = []
+	header = dist_lines[0].strip().split(",")
+	header.append("Alt Alignment [0=No/1=Yes]")
+	new_lines.append(header)
+	ot_dict = compile_mutliple_alignments(dist_lines,max_bulge)
+	for coord,lines in ot_dict.items():
+		if len(lines) ==1:
+			bestline = lines[0]
+			alt_alignment = '0'
+		else:
+			alt_alignment = '1'
+			dist, mm,score = 100,0,-100
+			bestline = ''
+			for line in lines:
+				if int(line[-1]) < dist:
+					bestline = line
+					dist, mm, score = int(line[-1]), int(line[5]), float(line[9])
+				elif int(line[-1]) == dist:
+					if int(line[5]) > mm:
+						bestline = line
+						dist, mm, score = int(line[-1]), int(line[5]), float(line[9])
+					elif int(line[-1]) == mm:
+						if float(line[-1]) > score:
+							bestline = line
+							dist, mm, score = int(line[-1]), int(line[5]), float(line[9])
+					else:
+						pass
+				else:
+
+					pass
+		new_lines.append(bestline+[alt_alignment])
+	return new_lines
+
+def add_annotations(df,annote_path):
+
+	coords = df['match_chrm'] + ":" + df['match_position'].astype('str') + "-" + df['match_position'].astype('str')
+	Transcript.load_transcripts(annote_path, coords)
+	Gene, Feature = [], []
+	for snv in coords:
+		pos_in_transcript = Transcript.transcript(snv)
+		if pos_in_transcript != 'intergenic':
+			Gene.append(pos_in_transcript.tx_info()[2])
+			Feature.append(pos_in_transcript.feature)
+		else:
+			Gene.append(".")
+			Feature.append('intergenic')
+
+	df['Gene'] = Gene
+	df['Feature'] = Feature
+	df['match_chrm'] = df['match_chrm'] + ":" + df['match_position'].astype('str') + df['match_strand'].astype('str')
+
+	df = df.iloc[:, [0, 1, 2, 5, 6, 7, 8, 9, 12, 13, 10, 11, 14,15, 16]]
+	header = ['Guide_ID', 'On_Target_Sequence', "Match_Coords",'Mismatch',
+			  'Match_Sequence', 'RNA_Bulges', 'DNA_Bulges',
+			  'CFD_Score', "Distance", 'Multi Alignment [0=No/1=Yes]', "Alt Site Impact",
+			  "Alt Genome","Alt Variants",
+			 "Feature","Gene"]
+
+	df.columns = header
+	df = df.sort_values("Mismatch",ascending = False).sort_values("Distance",ascending = True)
+	return df
+
+def reformat_guidescan(casoff_output_path,
+					   formatted_casoff_out,
+					   genome_type,
+					   offtarget_genome,
+					   max_bulge,
+					   annote_path,
+					   models_dir):
+
+	final_df = pd.DataFrame()
+	find_alt_unique_sites = True if genome_type == 'extended' else False
+	lines = open(casoff_output_path,"r").readlines()
+
+	if len(lines) ==1:
+		editing_tool = casoff_output_path.split('/')[-1].split("_").replace("_guidescan_filtered.bed","").split("_")[-1]
+		print(f"No offtargets found for {editing_tool} in {genome_type}")
+		print("skipping......")
+	else:
+		lines_reformatted = reformat_ref_and_alt(lines,offtarget_genome,genome_type)
+		scored_lines = fix_cfd(lines_reformatted, models_dir)
+		condensed_lines = de_dup(scored_lines,max_bulge)
+		df = pd.DataFrame(condensed_lines[1:], columns=condensed_lines[0])
+		adjusted_for_variants_df = config_alt_variants(df,find_alt_unique_sites)
+		final_df = add_annotations(adjusted_for_variants_df,annote_path)
+	final_df.to_csv(formatted_casoff_out,index = False)
 
 
 def main():
 	# SNAKEMAKE IMPORTS
 	# === Inputs ===
-	raw_casoff_output_path = str(snakemake.input.casoff_out)
-	casoff_support_path = str(snakemake.input.casoff_support)
+	guidescan_filtered_bed = str(snakemake.input.guidescan_filtered_bed)
 	# === Outputs ===
-	offtarget_scores = str(snakemake.output.offtarget_scores)
-	formatted_casoff_temp = str(snakemake.output.formatted_casoff_temp)
+	formatted_casoff_out = str(snakemake.output.formatted_casoff_out)
 	# === Params ===
-	rna_bulge = str(snakemake.params.rna_bulge)
-	dna_bulge = str(snakemake.params.dna_bulge)
-	maximum_mismatches = str(snakemake.params.max_mismatch)
-	PU = str(snakemake.params.casoff_accelerator)
+	genome_type= str(snakemake.params.genome_type)
+	offtarget_genome = str(snakemake.params.offtarget_genome)
 	annote_path = str(snakemake.params.annote_path)
 	models_path = str(snakemake.params.models_path)
+	rna_bulge = str(snakemake.params.rna_bulge)
+	dna_bulge = str(snakemake.params.dna_bulge)
 
-	# Check bulge based on pre-defined Cas-Offinder params
-	casoff_params = (maximum_mismatches, rna_bulge, dna_bulge, PU)
-	bulge_check = check_bulge(casoff_params)
 
-	write_casoff_output(raw_casoff_output_path,
-						casoff_support_path,
-						formatted_casoff_temp,
-						bulge_check)
+	max_bulge = max(rna_bulge,dna_bulge)
 
-	# == Process off-target scoring
-	new_lines, spec_scores = annotate_ots(formatted_casoff_temp, annote_path, models_path)
-	ot_dict = agg_results(new_lines, casoff_params[0])  # sum off-targets
-
-	# == Compile and export scores
-	ots = {}
-	for k, v in ot_dict.items():
-		v['spec_score'] = spec_scores[k]
-		ots[k] = v
-	with open(offtarget_scores, 'wb') as pickle_handle:
-		pickle.dump(ots, pickle_handle)
-
+	reformat_guidescan(guidescan_filtered_bed,
+					   formatted_casoff_out,
+					   genome_type,
+					   offtarget_genome,
+					   max_bulge,
+					   annote_path,
+					   models_path)
 
 if __name__ == "__main__":
 	main()
