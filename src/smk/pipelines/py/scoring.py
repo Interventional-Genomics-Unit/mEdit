@@ -70,14 +70,14 @@ def preprocess_seq(data):
     return DATA_X
 
 
-def deepspcas9(cas9_sites, model,sess_path):
+def deepspcas9(cas9_sites, models_dir):
     '''
     Hui Kwon Kim et al. ,SpCas9 activity prediction by DeepSpCas9,
     a deep learning–based model with high generalization performance.Sci. Adv.5,eaax9249(2019).
     predicts the likelihood of getting a spCas9 indel at the desired target
     This script is copied and modified from https://github.com/MyungjaeSong/Paired-Library
     '''
-    #model, sess_path = load_model_params('deepspcas9', models_dir)
+    model, sess_path = load_model_params('deepspcas9', models_dir)
     processed_seqs = preprocess_seq(cas9_sites)
 
     # TensorFlow config
