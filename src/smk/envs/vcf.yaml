@@ -1,4 +1,4 @@
-name: vcf
+name: medit_vcf
 channels:
   - conda-forge
   - bioconda
@@ -124,4 +124,4 @@ dependencies:
   - yarl=1.9.3
   - zipp=3.17.0
   - zstd=1.5.5
-prefix: /home/danielbr/miniconda3/envs/vcf
+prefix: /home/danielbr/miniconda3/envs/medit_vcf

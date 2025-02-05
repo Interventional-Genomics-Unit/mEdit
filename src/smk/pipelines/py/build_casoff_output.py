@@ -1,6 +1,7 @@
 # == Native Modules
 import numpy as np
 import pickle
+import re
 # == Installed Modules
 import pandas as pd
 import copy
@@ -10,6 +11,7 @@ import copy
 # creates aggregated genomic tables
 # A) guide cumilative CFD, mismatches and total sites
 # cols = Query,Guide_ID,Coords
+
 
 class Offtarget_Aggregator():
 	def __init__(self,
@@ -147,6 +149,7 @@ class Offtarget_Aggregator():
 			stats.append([self.gid,self.offtarget_genome,(site_threshold[0]),int(site_threshold[1]),int(site_threshold[2]),count,score]+f_counts)
 		return stats
 
+
 class OffTargets_Library:
 	def __init__(self,
 				 thresholds,coords_per_guide,offtarget_genomes):
@@ -163,7 +166,6 @@ class OffTargets_Library:
 		self.gid_stats = self.populate_empty_library()
 		# {'spCas9_0': {'hg38_GCA_000001405.15': Offtarget_Compilier(), 'HG02557' :Offtarget_Compilier()....}
 
-
 	def add_data_from_file(self,offtarget_csv,offtarget_genome,genome_type):
 		# 'Guide_ID,Match_Coords,Mismatch,RNA_Bulges,DNA_Bulges,Alt Site Impact,Feature'
 
@@ -174,30 +176,36 @@ class OffTargets_Library:
 		nrows = data.shape[0]
 
 		if nrows != 0:
-			# For alternative genomes set intial counts to the ref sites which do not differ. Subtract and add based on the sites that do differ
+			# For alternative genomes set intial counts to the ref sites which do not differ.
+			# Subtract and add based on the sites that do differ
 			if genome_type == "extended":
 
 				for guide_id in set(data[:,0]):
-					#guide_id = 'spCas9_0'
-					aggregator = self.gid_stats[guide_id][offtarget_genome]
-					if aggregator.ref_counts_set:
-						pass
-					else:
-						ref_aggregator = self.gid_stats[guide_id][self.ref_genome]
-						ref_counts = ref_aggregator.site_counts
-						ref_cfd_sums = ref_aggregator.cfd_sums
-						ref_features = ref_aggregator.feature_counts
-						aggregator.set_ref_counts(ref_counts, ref_features,ref_cfd_sums)
-						self.gid_stats[guide_id][offtarget_genome] = aggregator
-
+					# SAFETY MEASURE -> Some Guide_ids from the "Offtargets_found.csv" were absent in guidescan Inputs
+					try:
+						aggregator = self.gid_stats[guide_id][offtarget_genome]
+						if aggregator.ref_counts_set:
+							pass
+						else:
+							ref_aggregator = self.gid_stats[guide_id][self.ref_genome]
+							ref_counts = ref_aggregator.site_counts
+							ref_cfd_sums = ref_aggregator.cfd_sums
+							ref_features = ref_aggregator.feature_counts
+							aggregator.set_ref_counts(ref_counts, ref_features,ref_cfd_sums)
+							self.gid_stats[guide_id][offtarget_genome] = aggregator
+					except KeyError:
+						continue
 
 			for i in range(nrows):
-				aggregator = self.gid_stats[data[i,0]][offtarget_genome]
-				aggregator.add_site(site_thresholds[i],data[i,1],cfd_scores[i],data[i,5],data[i,6])
-				self.gid_stats[data[i, 0]][offtarget_genome] = aggregator
-				#if 'spCas9_0' in data[i, 0]:
-				#	print(f"Updated counts for {data[i, 0]} in {offtarget_genome}: {aggregator.site_counts.values()}, CFD Sum: {aggregator.cfd_sum}")
-
+				# SAFETY MEASURE -> Some Guide_ids from the "Offtargets_found.csv" were absent in guidescan Inputs
+				try:
+					aggregator = self.gid_stats[data[i,0]][offtarget_genome]
+					aggregator.add_site(site_thresholds[i],data[i,1],cfd_scores[i],data[i,5],data[i,6])
+					self.gid_stats[data[i, 0]][offtarget_genome] = aggregator
+					#if 'spCas9_0' in data[i, 0]:
+					#	print(f"Updated counts for {data[i, 0]} in {offtarget_genome}: {aggregator.site_counts.values()}, CFD Sum: {aggregator.cfd_sum}")
+				except KeyError:
+					continue
 
 	def populate_empty_library(self):
 		gid_stats = {}
@@ -213,7 +221,6 @@ class OffTargets_Library:
 																			on_target_coords)
 		return gid_stats
 
-
 	def generate_rows(self):
 		header = ['Guide_ID','Offtarget Genome', 'Number of Mismatches','Number of RNA Bulges','Number of DNA Bulges',
 		 'Total Site Count','CFD/Guidescan Spec Score','Stop/Start Codon Site Count', 'Exon Site Count', 'UTR Site Count',
@@ -225,6 +232,21 @@ class OffTargets_Library:
 		return rows
 
 
+def extract_genome_name(filepath: str, pattern: str):
+	return re.search(pattern, filepath).group(0)
+
+
+def compile_genome_types(list_of_files, extented_genomes, reference_genome):
+	genome_type_dict = {}
+	for extended_genome in extented_genomes:
+		for filepath in list_of_files:
+			try:
+				genome_name = extract_genome_name(filepath, extended_genome)
+				genome_type_dict.setdefault(genome_name, 'extended')
+			except AttributeError:
+				continue
+	genome_type_dict.setdefault(reference_genome, 'main_ref')
+	return genome_type_dict
 
 
 def create_count_table(ots_dict):
@@ -255,37 +277,36 @@ def create_summary_report(expanded_offtarget_report,guides_report):
 	df = df['Total Site Count'].astype('str').groupby(level=[0,1]).apply('|'.join).to_frame()
 
 	df['CFD/Guidescan Spec Score'] = scores
-	df  = df.join(annotation_totals).reset_index()
+	df = df.join(annotation_totals).reset_index()
 	summary_report = guides_report[['QueryTerm', 'GeneName', 'Editor', 'Guide_ID', 'Alt Guide Impact',
        'Alt Genome', 'Coordinates', 'Strand', 'gRNA', 'Pam']].join(df.set_index('Guide_ID'),on='Guide_ID')
 
 	return summary_report
 
-def compile_per_editor_input(editors_list,off_target_dir,query_index):
+
+def compile_per_editor_input(guides_per_editor_list):
 
 	guides_report = pd.DataFrame()
 
-	for i in range(len(editors_list)):
-		editor = editors_list[i]
-		guides_report_per_editor_path = (f"{off_target_dir}/dynamic_params/{query_index}_{editor}.pkl")
-		guides_report_per_editor = pickle.load(open(guides_report_per_editor_path, 'rb'))
-		guides_report = pd.concat([guides_report,guides_report_per_editor])
+	for guides_per_editor in guides_per_editor_list:
+		guides_report_per_editor = pickle.load(open(guides_per_editor, 'rb'))
+		guides_report = pd.concat([guides_report, guides_report_per_editor])
 
-	coords_per_guide = guides_report[['Guide_ID','Coordinates']].set_index('Guide_ID').to_dict()['Coordinates']
-	return coords_per_guide,guides_report
+	coords_per_guide = guides_report[['Guide_ID', 'Coordinates']].set_index('Guide_ID').to_dict()['Coordinates']
+	return coords_per_guide, guides_report
 
 
-def aggregate_guidescan_results(off_target_dir,editors_list,offtarget_genomes,thresholds,
-								query_index,offtarget_summary_file,offtarget_expanded_summary_file):
-	coords_per_guide,guides_report = compile_per_editor_input(editors_list,off_target_dir,query_index)
+def aggregate_guidescan_results(guides_per_editor_list, formatted_casoff_list,
+								offtarget_genomes, thresholds,
+								offtarget_summary_file, offtarget_expanded_summary_file):
+
+	coords_per_guide, guides_report = compile_per_editor_input(guides_per_editor_list)
 
 	offtarget_lib = OffTargets_Library(thresholds, coords_per_guide, offtarget_genomes)
 
-	for i in range(len(editors_list)):
-		editor = editors_list[i]
+	for formatted_casoff in formatted_casoff_list:
 		for offtarget_genome, genome_type in offtarget_genomes.items():
-			offtarget_csv = f"{off_target_dir}/{offtarget_genome}/{query_index}_{editor}_Offtargets_found.csv"
-			offtarget_lib.add_data_from_file(offtarget_csv,offtarget_genome, genome_type)
+			offtarget_lib.add_data_from_file(formatted_casoff, offtarget_genome, genome_type)
 
 	rows = offtarget_lib.generate_rows()
 	expanded_offtarget_report = pd.DataFrame(rows[1:],columns=rows[0])
@@ -296,33 +317,35 @@ def aggregate_guidescan_results(off_target_dir,editors_list,offtarget_genomes,th
 	summary_report.to_csv(offtarget_summary_file,index = False)
 
 
-
 def main():
 	# SNAKEMAKE IMPORTS
 	# === Inputs ===
-	off_target_dir = snakemake.output.offtarget_directory
+	guides_per_editor_list = list(snakemake.input.guides_per_editor_list)
+	formatted_casoff_list = list(snakemake.input.formatted_casoff_list)
 	# === Outputs ===
 	offtarget_summary_file = str(snakemake.output.offtarget_summary)
-	offtarget_summary_expanded_file = str(snakemake.output.offtarget_summary_expanded)
+	offtarget_summary_expanded_file = str(snakemake.output.off_target_summary_expanded)
 	# === Params ===
-	offtarget_genomes = dict(snakemake.offtarget_genomes)
-	editors_list = list(snakemake.editors_list)
-	query_index = str(snakemake.query_index)
+	extended_genomes = list(snakemake.params.extended_genomes)
+	maximum_mismatches = int(snakemake.params.max_mismatch)
 	rna_bulge = int(snakemake.params.rna_bulge)
 	dna_bulge = int(snakemake.params.dna_bulge)
-	maximum_mismatches = int(snakemake.params.max_mismatch)
+	# === Wildcards ===
+	reference_genome = str(snakemake.wildcards.reference_id)
 
+	# === Compile genome types of all the genomes ('extended' and 'main_ref')
+	offtarget_genomes = compile_genome_types(formatted_casoff_list, extended_genomes, reference_genome)
 
-	thresholds = (maximum_mismatches,dna_bulge,rna_bulge,dna_bulge+rna_bulge)
+	thresholds = (maximum_mismatches, dna_bulge, rna_bulge, dna_bulge+rna_bulge)
 
-	aggregate_guidescan_results(off_target_dir,
-								editors_list,
+	aggregate_guidescan_results(guides_per_editor_list,
+								formatted_casoff_list,
 								offtarget_genomes,
 								thresholds,
-								query_index,
 								offtarget_summary_file,
 								offtarget_summary_expanded_file
 								)
+
 
 if __name__ == "__main__":
 	main()

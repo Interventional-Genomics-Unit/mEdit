@@ -3,7 +3,7 @@
 # Directory were parameters where guide pickle files are stored
 guides_per_editor_path: ""
 # List of directories where each genome off_target predictions are stored
-off_target_output_paths: ""
+#off_target_output_paths: ""
 # Directory where the guide_scan input files are stored
 input_files_path: ""
 #Directory where aggregated summary reports are stored
@@ -18,20 +18,21 @@ offtarget_genomes: ""
 offtarget_bed_files: ""
 offtarget_extended: ""
 reference_id: ""
+# genome_types stores a dictionary that labels each genome
+#  in the analysis as 'main_ref' or 'extended'
+genome_types: ""
 
 #editor_pam expanded to put in guidescan input file
-pams_list: ""
+pam_per_editor_dict: ""
 
 #editor_pams expanded to put in alt_pam guidescan command
-alt_pams_list: ""
+alt_pam_per_editor_dict: ""
 
 # needed to indicate pam position
-pam_is_first_list: ""
+pam_is_first_per_editor_dict: ""
 # RNA bulge, a deletion in the off-target
 RNAbb: "0"
 # DNA bulge, an insertion in the off-target
 DNAbb: "0"
 # Maximum allowable mismatch
 max_mismatch: "3"
-# guidescan threads
-threads: 8

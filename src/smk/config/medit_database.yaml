@@ -3,15 +3,19 @@
 #   == Parent output directory where files should be stored after processing ==
 meditdb_path: ""
 # === Remote Configuration Sources ===
-# == Canonical storage folder for FASTA References
+# == Folder with FASTA References
+# -- These names must always adhere to the nomenclature stated at the cloud storage
 fasta_root_path: "genome_pkl"
+# Folder that contains Bed database
+bed_path: "bed_files"
+# Folder with GuideScan consensus indices
+gscan_indices_path: "gscan_indices"
+
 # == Informs mEdit whether the latest reference genome available was
 #   included in the database unpacking
 latest_reference: ""
 # == Informs mEdit whether the user has provided a custom reference or not
 custom_reference: ""
-# == Current hg38 assembly accession
-assembly_acc: "GCA_000001405.15"
 
 # == PROCESSED TABLES ==
 # Main path for processed tables
@@ -22,16 +26,12 @@ hgvs_lookup: "HGVSlookup.csv"
 #clinvar_update: "clinvar_lastUpdate.txt"
 refseq_table: "ncbiRefSeq.bed"
 
-# == RAW TABLES ==
-# Main path for raw tables
-#raw_tables: "raw_tables"
-# Raw filepaths
-#clinvar_summary: "variant_summary.txt.gz"
-#hpa: "proteinatlas.tsv"
-#gencode: "GENEonly_cleaned_genecode_annotation.csv" ####DANIEL No Longer needed
-
 # === Local Configuration Sources ===
 # BEs / Editors
 editors: "pkl/editors.pkl"
 base_editors: "pkl/base_editors.pkl"
 models_path: "pkl/models"
+
+# === FILE PREFIXES ===
+# Reference genome prefix
+sequence_id: "GRCh38.p14"

@@ -38,23 +38,23 @@ def parse_arguments():
 							  help=textwrap.dedent('''
 	                          Provide the path where the "mEdit_database" 
 	                          directory will be created ahead of the analysis.
-	                          Requires ~3.2GB in-disk storage 
+	                          Requires ~5GB in-disk storage 
 	                          [default: ./mEdit_database]\n'''))
-	ref_db_parse.add_argument('-l',
-							  dest='latest_reference',
-							  action='store_true',
-							  help=textwrap.dedent('''
-							  Request the latest human genome reference as part
-							  of mEdit database unpacking. This is especially 
-							  recommended when running predictions on private 
-							  genome assemblies. [default: False]\n'''))
-	ref_db_parse.add_argument('-c',
-							  dest='custom_reference',
-							  help=textwrap.dedent('''
-							  Provide the path to a custom human reference 
-							  genome  in FASTA format. 
-							  ***Chromosome annotation must follow a
-							  ">chrN" format (case sensitive)\n'''))
+	# ref_db_parse.add_argument('-l',
+	# 						  dest='latest_reference',
+	# 						  action='store_true',
+	# 						  help=textwrap.dedent('''
+	# 						  Request the latest human genome reference as part
+	# 						  of mEdit database unpacking. This is especially
+	# 						  recommended when running predictions on private
+	# 						  genome assemblies. [default: False]\n'''))
+	# ref_db_parse.add_argument('-c',
+	# 						  dest='custom_reference',
+	# 						  help=textwrap.dedent('''
+	# 						  Provide the path to a custom human reference
+	# 						  genome  in FASTA format.
+	# 						  ***Chromosome annotation must follow a
+	# 						  ">chrN" format (case sensitive)\n'''))
 	ref_db_parse.add_argument('-t',
 							  dest='threads',
 							  default='1',
@@ -62,6 +62,15 @@ def parse_arguments():
 	                          Provide the number of cores for parallel 
 	                          decompression of mEdit databases.
 	                          \n'''))
+	# ref_db_parse.add_argument('-m',
+	# 						  dest='db_mode',
+	# 						  default='mini',
+	# 						  help=textwrap.dedent('''
+	# 	                          Database download mode: Either "mini", or "full".
+	# 	                          By default, "mini" will unpack ~5GB of data, allowing users
+	# 	                          to carry out most of mEdit's functionalities, except for off-target
+	# 	                          analysis utilizing HPRC's pangenomes. The "full" mode[default: "mini"].
+	# 	                          \n'''))
 
 	# === Editors List ===
 	list_parser = programs.add_parser(
@@ -325,7 +334,7 @@ def parse_arguments():
 	cluster_opt.add_argument(
 		'--ncores',
 		dest='ncores',
-		default=2,
+		default=1,
 		help=textwrap.dedent('''
 			Specify the number of cores through which each parallel process 
 			will be computed. [default = 2]\n''')
@@ -399,6 +408,7 @@ def parse_arguments():
 	off_cluster_opt.add_argument(
 		'-p',
 		dest='parallel_processes',
+		default=1,
 		help=textwrap.dedent('''
 					Most processes in mEdit can be submitted to SLURM.
 					When submitting mEdit jobs to SLURM, the user can specify
@@ -408,7 +418,7 @@ def parse_arguments():
 	off_cluster_opt.add_argument(
 		'--ncores',
 		dest='ncores',
-		default=2,
+		default=1,
 		help=textwrap.dedent('''
 				Specify the number of cores through which each parallel 
 				process will be computed. [default = 2]\n''')

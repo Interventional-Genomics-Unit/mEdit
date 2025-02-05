@@ -1,7 +1,0 @@
-# This config contains the list of HGVSs to be analyzed by the pipeline
-# In the functional version of the application as an online tool,
-#  this file should be generated dynamically ahead of the guide_prediction.smk run
-# Then, all the user-requested HGVSs can be loaded into this list and supplied to the above pipeline
-hgvs_path: ['/groups/clinical/projects/editability/medit_queries/medit_test/test_in/hgvs_test_queries.csv']
-
-run_name_suffix: ['test_file']

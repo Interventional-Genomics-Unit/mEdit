@@ -48,7 +48,7 @@ def guide_prediction(args, jobtag):
 	# === Load SLURM-related values ===
 	ncores = args.ncores
 	maxtime = args.maxtime
-	parallel_processes = args.parallel_processes
+	parallel_processes = int(args.parallel_processes)
 	dry_run = args.dry_run
 
 	# === Define dynamic SMK call variables ===
@@ -111,12 +111,12 @@ def guide_prediction(args, jobtag):
 		mode = 'vcf'
 		custom_vcfs = args.custom_vcf.split(",")
 	#   == Check the request to run on a cluster
-	if parallel_processes:
+	if parallel_processes > 1:
 		# --> Upon SLURM run request, the guide_prediction.smk is split in two separate runs
 		# --> That's because samtool's conda package crashes on a libcrypto error when
 		#       it's deployed by snakemake on a SLURM node
 		cluster_smk_setup = ['', '--cluster "sbatch -t {cluster.time} -n {cluster.cores}" '
-								 '--cluster-config config/medit_cluster.yaml']
+								 f'--cluster-config {cluster_template_path}']
 		allowed_rules = ['--until "consensus_fasta"', '']
 		smk_verbosity = [False, True]
 	#   == Check the dry run request
@@ -223,22 +223,14 @@ def guide_prediction(args, jobtag):
 	for smk_setup_idx in range(len(allowed_rules)):
 		try:
 			# --> When cluster submission is switched on,
-			launch_shell_cmd(f"snakemake "
-							 f"--snakefile {project_file_path('smk.pipelines', 'guide_prediction.smk')} "
-							 # f"--directory {project_file_path('smk.pipelines', 'guide_prediction.smk')} "
-							 f"-j {ncores} "
-							 f"{smk_run_triggers} "
-							 f"{allowed_rules[smk_setup_idx]} "
-							 f"{cluster_smk_setup[smk_setup_idx]} "
-							 f"--configfile {config_db_path} "
-							 f"{dynamic_config_path} "
-							 f"--use-conda "
-							 f"--keep-going "
-							 f"--rerun-incomplete "
-							 f"--keep-incomplete "
-							 f"{dryrun_setup}",
-							 smk_verbosity[smk_setup_idx]
-							 )
+			smk_command = (f"snakemake  "
+						   f"--snakefile {project_file_path('smk.pipelines', 'guide_prediction.smk')}  "
+						   f"-j {parallel_processes}  {smk_run_triggers} "
+						   f"{allowed_rules[smk_setup_idx]} {cluster_smk_setup[smk_setup_idx]} "
+						   f"--configfile {config_db_path} {dynamic_config_path} "
+						   f"--use-conda --keep-going --rerun-incomplete --keep-incomplete {dryrun_setup}")
+			shell_result = launch_shell_cmd(smk_command, smk_verbosity[smk_setup_idx])
+			handle_shell_exception(shell_result, smk_command, verbose=True)
 		except subprocess.CalledProcessError as e:
 			print(f"Error: {e}")
 		except ValueError:

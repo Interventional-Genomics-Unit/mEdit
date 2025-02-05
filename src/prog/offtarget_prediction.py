@@ -3,7 +3,6 @@ from os.path import abspath
 import pickle
 import subprocess
 from pathlib import Path
-
 import pandas as pd
 # == Installed Modules
 import yaml
@@ -13,6 +12,8 @@ from prog.medit_lib import (
     export_guides_by_editor,
     file_exists,
     group_guide_table,
+    handle_offtarget_request,
+    handle_shell_exception,
     launch_shell_cmd,
     offtarget_mode_formatting,
     project_file_path,
@@ -39,8 +40,18 @@ def offtarget_prediction(args, jobtag):
     # == Load SLURM-related values ==
     ncores = args.ncores
     maxtime = args.maxtime
-    parallel_processes = args.parallel_processes
+    parallel_processes = int(args.parallel_processes)
     dry_run = args.dry_run
+    
+    # === Mode alias Switch===
+    #   == This takes into account that whenever 'fast' mode is activated, 
+    #       this is actually stored in the standard file structure. 
+    #       This happens because 'fast' is a variation of 'standard'
+    mode_alias = {
+        "fast": "standard",
+        "standard": "standard",
+        "vcf": "vcf"
+    }
 
     # == Set export paths tied to the SMK pipeline ==
     config_dir_path = f"{root_dir}/config"
@@ -61,7 +72,7 @@ def offtarget_prediction(args, jobtag):
 
     #   == Load template configuration files ==
     config_template_path = project_file_path("smk.config", "medit_offtarget.yaml")
-    config_cluster_path = project_file_path("smk.config", "medit_cluster.yaml")
+    cluster_template_path = project_file_path("smk.config", "medit_cluster.yaml")
 
     # == Define dynamic SMK call variables ==
     cluster_smk_setup = ''
@@ -75,132 +86,137 @@ def offtarget_prediction(args, jobtag):
     if user_jobtag:
         smk_run_triggers = '--rerun-triggers "mtime"'
     #   == Check the request to run on a cluster
-    if parallel_processes:
-        # --> Upon SLURM run request, the guide_prediction.smk is split in two separate runs
-        # --> That's because samtool's conda package crashes on a libcrypto error when
-        #       it's deployed by snakemake on a SLURM node
+    if parallel_processes > 1:
         cluster_smk_setup = ('--cluster "sbatch -t {cluster.time} -n {cluster.cores}" '
-                             f'--cluster-config  {config_cluster_path}')
+                             f'--cluster-config  {cluster_template_path}')
     # == Define dynamic SMK call variable ==
     allowed_rules = ['']
 
     # ->=== CONFIG FILES IMPORT ===<-
+    with open(config_db_path, 'r') as config_db_handle:
+        config_db = yaml.safe_load(config_db_handle)
     with open(dynamic_config_guidepred_path, 'r') as dynamic_config_handle:
         dynamic_config_guidepred = yaml.safe_load(dynamic_config_handle)
     with open(config_template_path, 'r') as config_handle:
         config_template = yaml.safe_load(config_handle)
+    with open(cluster_template_path, 'r') as cluster_handle:
+        cluster_template = yaml.safe_load(cluster_handle)
 
     # === Import Variables from Configuration File ===
     run_name = str(dynamic_config_guidepred['run_name'])
     mode = str(dynamic_config_guidepred['processing_mode'])
     query_index = (dynamic_config_guidepred['query_index'])
-    root_dir = str(dynamic_config_guidepred['output_directory']) # this is in here twice?
+    root_dir = str(dynamic_config_guidepred['output_directory'])
 
     # === mEdit offtarget prediction will process reference genome and alternate genomes ===
     # == Set internal variables for Off-target processing
-    offtarget_genomes = offtarget_mode_formatting(mode, dynamic_config_guidepred)
-    reference_genome = str(dynamic_config_guidepred['sequence_id'][0])
+    reference_genome = str(config_db['sequence_id'])
+    offtarget_genomes = offtarget_mode_formatting(mode, reference_genome, dynamic_config_guidepred)
 
-    # === Adjust SMK run based on processing_mode
-    if mode == 'fast':
-        allowed_rules = ['--omit-from symlink_genomes']
-
+    # === Assess the run 'mode' in light of available resources
+    if not dryrun_setup:
+        mode_checkpoint, mode = handle_offtarget_request(mode, db_path_full, offtarget_genomes)
+        if mode == 'fast':
+            offtarget_genomes = offtarget_mode_formatting(mode, reference_genome, dynamic_config_guidepred)
+        if not mode_checkpoint:
+            # == The user was consulted and decided NOT to proceed
+            exit(0)
 
     # == Get available options of already run editors or base editors
-    guide_search_params_path = f"{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_genome}/dynamic_params/{query_index[0]}_guide_search_params.pkl"
-    be_search_params_path = f"{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_genome}/dynamic_params/{query_index[0]}_guide_be_search_params.pkl"
+    guide_search_params_path = f"{root_dir}/{mode_alias[mode]}/jobs/{run_name}/guide_prediction-{reference_genome}/dynamic_params/{query_index[0]}_guide_search_params.pkl"
+    be_search_params_path = f"{root_dir}/{mode_alias[mode]}/jobs/{run_name}/guide_prediction-{reference_genome}/dynamic_params/{query_index[0]}_guide_be_search_params.pkl"
 
     with open(guide_search_params_path, 'rb') as file:
         guide_search_params= pickle.load(file)
     with open(be_search_params_path, 'rb') as file:
         be_search_params = pickle.load(file)
 
-    for editor,stats in be_search_params.items():
+    for editor, stats in be_search_params.items():
         guide_search_params[editor] = stats[0]
 
-
     # == Setup core off-target variables
-    editors_list = []
-    pams_list = []
-    alt_pams_list = []
-    pam_is_first_list = []
-    off_target_output_paths = {}
+    pam_per_editor_dict = {}
+    alt_pam_per_editor_dict = {}
+    pam_is_first_per_editor_dict = {}
     guides_per_editor_path = ""
-    input_file_path = ""
-    summary_report_path = ""
-    repeat_data_collection_flag = True # saves time sinces much of this is repeative data collection
+    # input_file_path = ""
+    # summary_report_path = ""
+    # off_target_output_paths = {}
+    # repeat_data_collection_flag = True
+    genome_type_dict = {}
 
     for index in query_index:
-
-        if repeat_data_collection_flag:
-
-            combined_guide_report = pd.DataFrame()
-
+        combined_guide_report = pd.DataFrame()
         for offtarget_genome, genome_type in offtarget_genomes:
-
-
+            # print(f"GENOMES ANALYZED: {offtarget_genome} {genome_type}")
             # == Set output paths ==
             # Note that all genomes searched will have the same inputs guides report, editors, etc.
             # I'm exporting the guides_per_editor_path to a dynamic params folder one time
             # however, for every genome I will make a directory for outputs and not inputs every genome I am also making
-            off_target_output_path = set_export(str(f"{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_genome}/offtarget_prediction/{offtarget_genome}"))
-            off_target_output_paths[offtarget_genome] = off_target_output_path
+            # off_target_output_path = set_export(str(f"{root_dir}/{mode_alias[mode]}/jobs/{run_name}/guide_prediction-{reference_genome}/offtarget_prediction/{offtarget_genome}"))
+            # off_target_output_paths[offtarget_genome] = off_target_output_path
 
+            # if repeat_data_collection_flag:
 
-            if repeat_data_collection_flag:
-                # set one time directories for inputs and summary reports
-                guides_per_editor_path = str(f"{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_genome}/offtarget_prediction/dynamic_params")
-                summary_report_path = set_export(str(f"{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_genome}/offtarget_prediction/summary_reports"))
-                input_file_path = set_export(str(f"{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_genome}/offtarget_prediction/input_files"))
+            # set one time directories for inputs and summary reports
+            guides_per_editor_path = str(f"{root_dir}/{mode_alias[mode]}/jobs/{run_name}/guide_prediction-{reference_genome}/offtarget_prediction/dynamic_params")
+            # summary_report_path = set_export(str(f"{root_dir}/{mode_alias[mode]}/jobs/{run_name}/guide_prediction-{reference_genome}/offtarget_prediction/summary_reports"))
+            # input_file_path = set_export(str(f"{root_dir}/{mode_alias[mode]}/jobs/{run_name}/guide_prediction-{reference_genome}/offtarget_prediction/input_files"))
 
-                # == Recover Guide Prediction filepath ==
-                if genome_type == 'main_ref':
+            # == Recover Guide Prediction filepath ==
+            if genome_type == 'main_ref':
 
+                # == Define path to Report tables
+                guides_report_path = Path(f"{root_dir}/{mode_alias[mode]}/jobs/{run_name}/"
+                                          f"guide_prediction-{reference_genome}/guides_report_ref/{index}_Guides_found.csv")
+                be_report_path = Path(f"{root_dir}/{mode_alias[mode]}/jobs/{run_name}/"
+                                      f"guide_prediction-{reference_genome}/guides_report_ref/{index}_BaseEditors_found.csv")
+                # == Combine guides reports for endonucleases and BEs
+                combined_guide_report = combine_guide_tables(combined_guide_report, guides_report_path, genome_type)
+                combined_guide_report = combine_guide_tables(combined_guide_report, be_report_path, genome_type)
 
-                    guides_report_path = Path(f"{root_dir}/{mode}/jobs/{run_name}/"
-                                              f"guide_prediction-{reference_genome}/guides_report_ref/{index}_Guides_found.csv")
+            # Account for alternate genomes
+            if genome_type == 'extended':
+                guides_diff_path = Path(f"{root_dir}/{mode_alias[mode]}/jobs/{run_name}/"
+                                        f"guide_prediction-{reference_genome}/guides_report_{offtarget_genome}/{index}_Guide_differences.csv")
+                # Check if diff guides is empty and concatenates if it is not
+                combined_guide_report = combine_guide_tables(combined_guide_report, guides_diff_path, genome_type)
+            genome_type_dict.setdefault(str(offtarget_genome), str(genome_type))
 
+            # print(f"DF HEADER: \n{combined_guide_report}")
 
-                    combined_guide_report = combine_guide_tables(combined_guide_report,guides_report_path, genome_type)
+            grouped_diff_guide_dict = group_guide_table(combined_guide_report, editing_tool_request)
+            editors_extracted_from_guides = export_guides_by_editor(grouped_diff_guide_dict, guides_per_editor_path+f"/{index}_")
 
-                    be_report_path = Path(f"{root_dir}/{mode}/jobs/{run_name}/"
-                                              f"guide_prediction-{reference_genome}/guides_report_ref/{index}_BaseEditors_found.csv")
+            for editor in editors_extracted_from_guides:
+                # configure pams in extended forms if there's an IUPAC that is not N
+                pam_per_editor_dict.setdefault(editor, expand_pam(guide_search_params[editor][0])[0])
+                alt_pam_per_editor_dict.setdefault(offtarget_genome, {}).setdefault(editor, expand_pam(guide_search_params[editor][0])[1])
+                pam_is_first_per_editor_dict.setdefault(offtarget_genome, {}).setdefault(editor, "--start" if guide_search_params[editor][1] is True else " ")
 
-                    combined_guide_report = combine_guide_tables(combined_guide_report, be_report_path, genome_type)
-
-                # Account for alternate genomes
-                if genome_type == 'extended':
-                    guides_diff_path = Path(f"{root_dir}/{mode}/jobs/{run_name}/"
-                                            f"guide_prediction-{reference_genome}/guides_report_{offtarget_genome}/{index}_Guide_differences.csv")
-                    # Check if diff guides is empty and concatenates if it is not
-                    combined_guide_report = combine_guide_tables(combined_guide_report, guides_diff_path, genome_type)
-
-                grouped_diff_guide_dict = group_guide_table(combined_guide_report, editing_tool_request)
-                editors_extracted_from_guides = export_guides_by_editor(grouped_diff_guide_dict, guides_per_editor_path+f"/{index}_")
-            ## does not need to repeat data gathering after this
-
-            editors_list = editors_extracted_from_guides# configure pams in extended forms if there's an IUPAC that is not N
-            pams_list = [expand_pam(pam=guide_search_params[editor][0])[0] for editor in editors_extracted_from_guides]
-            alt_pams_list=[expand_pam(pam=guide_search_params[editor][0])[1] for editor in editors_extracted_from_guides]
-            pam_is_first_list= ["--start" if guide_search_params[editor][1] is True else "start_flag_off" for editor in editors_extracted_from_guides]
-
-            if repeat_data_collection_flag:
-                repeat_data_collection_flag = False
+            # print(f"Genome {offtarget_genome} -> PAMS list: {pams_list}")
+            # print(f"ALT Genome {offtarget_genome} -> ALT PAMS list: {alt_pams_list}")
+            # if repeat_data_collection_flag:
+            #     repeat_data_collection_flag = False
 
     # === Export Variables to Configuration File ===
     # NOTE: This whole block (until the end) was inside the index loop
     config_template['guides_per_editor_path'] = guides_per_editor_path
-    config_template['input_file_path'] = input_file_path
-    config_template['summary_report_path'] = summary_report_path
-    config_template['off_target_output_paths'] = off_target_output_paths
-    config_template['editors_list'] = editors_list
-    config_template['pams_list'] = pams_list
-    config_template['pam_is_first_list'] = pam_is_first_list
-    config_template['alt_pams_list'] = alt_pams_list
+    # config_template['input_file_path'] = input_file_path
+    # config_template['summary_report_path'] = summary_report_path
+    # config_template['off_target_output_paths'] = off_target_output_paths
+    # config_template['editors_list'] = editors_list
+    config_template['pam_per_editor_dict'] = pam_per_editor_dict
+    config_template['alt_pam_per_editor_dict'] = alt_pam_per_editor_dict
+    config_template['pam_is_first_per_editor_dict'] = pam_is_first_per_editor_dict
     config_template['offtarget_genomes'] = {str(tup[0]): str(tup[1]) for tup in offtarget_genomes}
     config_template['offtarget_extended'] = {str(tup[0]): str(tup[1]) for tup in offtarget_genomes if
                                              tup[1] == 'extended'}
     config_template['reference_id'] = reference_genome
+    config_template['genome_types'] = genome_type_dict
+    # == Assign cluster options ==
+    cluster_template['__default__']['cores'] = ncores
+    cluster_template['__default__']['time'] = maxtime
 
     # === Write YAML configs to mEdit Root Directory ===
     write_yaml_to_file(config_template, dynamic_config_off_path)
@@ -210,19 +226,19 @@ def offtarget_prediction(args, jobtag):
     for smk_setup_idx in range(len(allowed_rules)):
         try:
             # --> When cluster submission is switched on,
-            launch_shell_cmd(f"snakemake "
-                             f"--snakefile {project_file_path('smk.pipelines', 'offtarget_prediction.smk')} "
-                             f"{smk_run_triggers} "
-                             f"{allowed_rules[smk_setup_idx]} "
-                             f"-j {ncores} "
-                             f"{cluster_smk_setup} "
-                             f"--configfile {config_db_path} "
-                             f"{dynamic_config_guidepred_path} {dynamic_config_off_path} "
-                             f"--use-conda "
-                             f"--rerun-incomplete "
-                             f"{dryrun_setup} ",
-                             smk_verbosity[smk_setup_idx]
-                             )
+            smk_command = (f"snakemake "
+                           f"--snakefile {project_file_path('smk.pipelines', 'offtarget_prediction.smk')} "
+                           f"{smk_run_triggers} "
+                           f"{allowed_rules[smk_setup_idx]} "
+                           f"-j {parallel_processes} "
+                           f"{cluster_smk_setup} "
+                           f"--configfile {config_db_path} "
+                           f"{dynamic_config_guidepred_path} {dynamic_config_off_path} "
+                           f"--use-conda "
+                           f"--rerun-incomplete "
+                           f"{dryrun_setup} ")
+            shell_result = launch_shell_cmd(smk_command, smk_verbosity[smk_setup_idx])
+            handle_shell_exception(shell_result, smk_command, verbose=True)
         except subprocess.CalledProcessError as e:
             print(f"Error: {e}")
         except ValueError:

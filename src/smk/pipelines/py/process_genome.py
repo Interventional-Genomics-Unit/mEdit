@@ -187,7 +187,7 @@ def guide_compare(guides_report, be_report, ALTguides_dict, ALTinfo, altgenome_n
 
 	rename_columns = [f'Alt {x}' if 'core' in x or 'B' in x else x for x in altgdf.columns[8:]]
 	columns = ['QueryTerm','GeneName', 'Editor', "Guide_ID",'Alt Guide Impact',"Alt Genome",
-			   'Coordinates','Strand','Ref gRNA', 'Alt Pam',
+			   'Coordinates','Strand','Alt gRNA', 'Alt Pam',
 			   f'Ref gRNA', f'Ref Pam'] + rename_columns
 
 	for rrow in REFrows:
@@ -340,20 +340,20 @@ def main():
 if __name__ == "__main__":
 	main()
 
-altgenome_name = "HG02257"
-outdir = "/groups/clinical/projects/editability/medit_queries/medit_test_3/standard/jobs/standard_TEST_standard/guide_prediction-hg38_GCA_000001405.15"
-db = "/groups/clinical/projects/editability/medit_queries/medit_database"
-filtered_vcf = f"/groups/clinical/projects/clinical_shared_data/hprc/hprc-v1.1-combined-phased-decomposed/{altgenome_name}.vcf.gz"
-guides_report = f"{outdir}/guides_report_ref/0_Guides_found.csv"
-be_report= f"{outdir}/guides_report_ref/0_BaseEditors_found.csv"
-guide_search_params = f"{outdir}/dynamic_params/0_guide_search_params.pkl"
-guide_be_search_params= f"{outdir}/dynamic_params/0_guide_be_search_params.pkl"
-models_path =f"{db}/pkl/models/"
-snv_site_info = f"{outdir}/dynamic_params/0_snv_site_info.pkl"
-diffguides_out = f"{outdir}/guides_report_{altgenome_name}/0_Guide_differences.csv"
-altvar_out = f"{outdir}/guides_report_{altgenome_name}/0_Alternative_genome_variants.csv"
-refgenome_name = "hg38"
-
-
-df =pd.read_csv(diffguides_out)
-df.Guide_ID
+# altgenome_name = "HG02257"
+# outdir = "/groups/clinical/projects/editability/medit_queries/medit_test_3/standard/jobs/standard_TEST_standard/guide_prediction-hg38_GCA_000001405.15"
+# db = "/groups/clinical/projects/editability/medit_queries/medit_database"
+# filtered_vcf = f"/groups/clinical/projects/clinical_shared_data/hprc/hprc-v1.1-combined-phased-decomposed/{altgenome_name}.vcf.gz"
+# guides_report = f"{outdir}/guides_report_ref/0_Guides_found.csv"
+# be_report= f"{outdir}/guides_report_ref/0_BaseEditors_found.csv"
+# guide_search_params = f"{outdir}/dynamic_params/0_guide_search_params.pkl"
+# guide_be_search_params= f"{outdir}/dynamic_params/0_guide_be_search_params.pkl"
+# models_path =f"{db}/pkl/models/"
+# snv_site_info = f"{outdir}/dynamic_params/0_snv_site_info.pkl"
+# diffguides_out = f"{outdir}/guides_report_{altgenome_name}/0_Guide_differences.csv"
+# altvar_out = f"{outdir}/guides_report_{altgenome_name}/0_Alternative_genome_variants.csv"
+# refgenome_name = "hg38"
+#
+#
+# df =pd.read_csv(diffguides_out)
+# df.Guide_ID

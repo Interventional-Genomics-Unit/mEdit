@@ -1,30 +1,44 @@
-name: samtools
+name: medit_samtools
 channels:
   - conda-forge
   - bioconda
 dependencies:
-  - bcftools=1.16
+  - _libgcc_mutex=0.1
+  - _openmp_mutex=4.5
+  - bcftools=1.21
   - bzip2=1.0.8
-  - c-ares=1.25.0
-  - ca-certificates=2023.11.17
+  - ca-certificates=2024.12.14
+  - curl=8.10.1
   - gsl=2.7
-  - htslib=1.16
-  - krb5=1.20.1
+  - htslib=1.21
+  - keyutils=1.6.1
+  - krb5=1.21.3
   - libblas=3.9.0
   - libcblas=3.9.0
-  - libcurl=7.87.0
+  - libcurl=8.10.1
   - libcxx=16.0.6
+  - libcxxabi=16.0.6
   - libedit=3.1.20191231
   - libev=4.33
-  - libnghttp2=1.51.0
+  - libgcc=14.2.0
+  - libgcc-ng=14.2.0
+  - libgfortran=14.2.0
+  - libgfortran-ng=14.2.0
+  - libgfortran5=14.2.0
+  - libgomp=14.2.0
+  - libnghttp2=1.58.0
   - libopenblas=0.3.25
-  - libssh2=1.10.0
-  - libzlib=1.2.13
+  - libssh2=1.11.1
+  - libstdcxx=14.2.0
+  - libstdcxx-ng=14.2.0
+  - libxcrypt=4.4.36
+  - libzlib=1.3.1
   - llvm-openmp=17.0.6
-  - ncurses=6.4
-  - openssl=1.1.1w
+  - ncurses=6.4.20240210
+  - openssl=3.4.0
   - perl=5.32.1
-  - samtools=1.16.1
+  - samtools=1.3.1
   - xz=5.2.6
-  - zlib=1.2.13
-prefix: /Users/bellieny/miniconda3/envs/samtools
+  - zlib=1.3.1
+  - zstd=1.5.6
+prefix: /home/danielbr/miniconda3/envs/medit_samtools

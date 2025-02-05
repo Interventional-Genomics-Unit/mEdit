@@ -3,7 +3,7 @@
   <component name="WebServers">
     <option name="servers">
       <webServer id="02a8587d-b907-4fc4-9703-db5576094fd5" name="aws_medit">
-        <fileTransfer rootFolder="/home/ubuntu/projects/" accessType="SFTP" host="ec2-18-144-8-170.us-west-1.compute.amazonaws.com" port="22" sshConfigId="7af6ceee-d62f-4a57-af77-483a7c79c0e3" sshConfig="medit_aws" keyPair="true">
+        <fileTransfer rootFolder="/home/ubuntu/projects/" accessType="SFTP" host="ec2-54-193-6-253.us-west-1.compute.amazonaws.com" port="22" sshConfigId="7af6ceee-d62f-4a57-af77-483a7c79c0e3" sshConfig="medit_aws" keyPair="true">
           <advancedOptions>
             <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" isUseRsync="true" />
           </advancedOptions>

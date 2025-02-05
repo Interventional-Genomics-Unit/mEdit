@@ -7,6 +7,8 @@ threads: 1
 # ::date+time:: -> YYMMDDHHMMSSf
 # ::random alphanumeric:: -> 9m7aQ0KRZx
 run_name: ""
+# Run's main directory
+output_directory: ""
 # Must be the same as specified for the run_name
 processing_mode: ""
 # mEdit can process more than one query file at a time
@@ -51,17 +53,4 @@ aws_url: "https://s3-us-west-2.amazonaws.com/human-pangenomics/working/HPRC"
 aws_path: "assemblies/year1_freeze_assembly_v2/assembly_qc/dipcall_v0.2"
 vcf_filename: "hprc-v1.1-mc-grch38.vcfbub.a100k.wave"
 filename_suffix: "f1_assembly_v2.dip"
-vcf_id: ["HG03453", "HG02622", "HG02886"] #, "HG03516", "HG01891", "HG03579", "HG02630", "HG03540", "HG02717", "HG02572", "HG02559", "HG02257", "HG02486", "HG00741", "HG00735", "HG01175", "HG01106", "HG01361", "HG01071", "HG01258", "HG00438", "HG00673", "HG00621", "HG01978", "HG01952", "HG02148", "HG01928"]
-
-# === FILE PREFIXES ===
-# Reference genome prefix
-sequence_id: ["hg38_GCA_000001405.15"]#"NA18906.paternal"]#, "HG03453.maternal", "NA18906.paternal"]
-
-
-
-
-
-
-
-
-
+vcf_id: ["HG03453"] # "HG02622", "HG02886"] #, "HG03516", "HG01891", "HG03579", "HG02630", "HG03540", "HG02717", "HG02572", "HG02559", "HG02257", "HG02486", "HG00741", "HG00735", "HG01175", "HG01106", "HG01361", "HG01071", "HG01258", "HG00438", "HG00673", "HG00621", "HG01978", "HG01952", "HG02148", "HG01928"]

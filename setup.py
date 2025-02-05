@@ -10,7 +10,7 @@ long_description = (this_directory / "README.md").read_text()
 
 setup(
     name='meditability',
-    version='0.3.1',
+    version='0.4.0',
     description='',
     long_description=long_description,
     long_description_content_type='text/markdown',
@@ -31,12 +31,15 @@ setup(
     install_requires=[
         'snakemake>=7.32.4',
         'pulp<2.8.0',
+        'pandas>=2.1.1',
+        'numpy>=1.23.5',
         'wrapt>=1.15.0',
         'biopython>=1.81',
         'pyyaml>=6.0',
         'importlib-resources>=6.1.1',
         'pytz>=2023.3',
         'boto3>=1.28.57',
+        'requests>=2.32.3',
         'alive-progress>=3.1.5',
         'xmltodict>=0.13.0'
     ],

@@ -64,6 +64,7 @@ def reformat_ref_and_alt(lines,offtarget_genome,genome_type):
 				lines_reformatted.append(",".join(newline))
 	return lines_reformatted
 
+
 def compile_mutliple_alignments(dist_lines,max_bulge):
 	# creates a dict for every sites that has mulitple alignments
 	ot_dict = {}
@@ -89,6 +90,7 @@ def compile_mutliple_alignments(dist_lines,max_bulge):
 
 	return ot_dict
 
+
 def config_alt_variants(df,find_alt_unique_sites):
 	'''
 	concatenates variants that span the same site
@@ -101,6 +103,7 @@ def config_alt_variants(df,find_alt_unique_sites):
 		cols = [x for x in df.columns if x != "alt_var"] + ['alt_var']
 		new_df = df.loc[:,cols]
 	return new_df
+
 
 def de_dup(dist_lines,max_bulge):
 	new_lines = []
@@ -136,6 +139,7 @@ def de_dup(dist_lines,max_bulge):
 		new_lines.append(bestline+[alt_alignment])
 	return new_lines
 
+
 def add_annotations(df,annote_path):
 
 	coords = df['match_chrm'] + ":" + df['match_position'].astype('str') + "-" + df['match_position'].astype('str')
@@ -164,6 +168,7 @@ def add_annotations(df,annote_path):
 	df.columns = header
 	df = df.sort_values("Mismatch",ascending = False).sort_values("Distance",ascending = True)
 	return df
+
 
 def reformat_guidescan(casoff_output_path,
 					   formatted_casoff_out,
@@ -196,17 +201,21 @@ def main():
 	# === Inputs ===
 	guidescan_filtered_bed = str(snakemake.input.guidescan_filtered_bed)
 	# === Outputs ===
-	formatted_casoff_out = str(snakemake.output.formatted_casoff_out)
+	formatted_casoff_out = str(snakemake.output.formatted_casoff)
 	# === Params ===
-	genome_type= str(snakemake.params.genome_type)
-	offtarget_genome = str(snakemake.params.offtarget_genome)
-	annote_path = str(snakemake.params.annote_path)
 	models_path = str(snakemake.params.models_path)
-	rna_bulge = str(snakemake.params.rna_bulge)
-	dna_bulge = str(snakemake.params.dna_bulge)
+	annote_path = str(snakemake.params.annote_path)
+	extended_genomes = list(snakemake.params.extended_genomes)
+	rna_bulge = int(snakemake.params.rna_bulge)
+	dna_bulge = int(snakemake.params.dna_bulge)
+	# === Wildcards ===
+	offtarget_genome = str(snakemake.wildcards.offtarget_genomes)
 
+	genome_type = 'main_ref'
+	if offtarget_genome in set(extended_genomes):
+		genome_type = 'extended'
 
-	max_bulge = max(rna_bulge,dna_bulge)
+	max_bulge = max(rna_bulge, dna_bulge)
 
 	reformat_guidescan(guidescan_filtered_bed,
 					   formatted_casoff_out,
@@ -215,6 +224,7 @@ def main():
 					   max_bulge,
 					   annote_path,
 					   models_path)
+
 
 if __name__ == "__main__":
 	main()

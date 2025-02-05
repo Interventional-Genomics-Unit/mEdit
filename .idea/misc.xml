@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="mEdit on biotite" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="Remote Python 3.11.7 (sftp://ubuntu@ec2-18-144-8-170.us-west-1.compute.amazonaws.com:22/home/ubuntu/miniforge3/envs/medit/bin/python)" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="mEdit on biotite" project-jdk-type="Python SDK" />
 </project>

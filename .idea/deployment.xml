@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="medit_aws (3)" remoteFilesAllowedToDisappearOnAutoupload="false" showNewOnSourceInSync="false" showNewOnTargetInSync="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="biotite" remoteFilesAllowedToDisappearOnAutoupload="false" confirmBeforeUploading="false" showDifferentInSync="false" showNewOnTargetInSync="false" showExcludedInSync="true">
+    <option name="confirmBeforeUploading" value="false" />
     <serverData>
       <paths name="biotite">
         <serverdata>
           <mappings>
-            <mapping deploy="editability/daniel_sandbox/editability" local="$PROJECT_DIR$" />
+            <mapping deploy="mEdit" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>
@@ -37,6 +38,13 @@
           </mappings>
         </serverdata>
       </paths>
+      <paths name="medit_aws">
+        <serverdata>
+          <mappings>
+            <mapping deploy="mEdit" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
       <paths name="medit_aws (2)">
         <serverdata>
           <mappings>
@@ -47,7 +55,7 @@
       <paths name="medit_aws (3)">
         <serverdata>
           <mappings>
-            <mapping deploy="/home/ubuntu/projects/mEdit" local="$PROJECT_DIR$" />
+            <mapping deploy="mEdit" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>

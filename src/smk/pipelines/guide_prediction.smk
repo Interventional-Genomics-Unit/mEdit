@@ -1,26 +1,24 @@
 # **** Import Packages ****
 import glob
 
-# Description:
-
 # noinspection SmkAvoidTabWhitespace
 rule all:
 	input:
-		# Predicted guides using the most recent human genome assembly
+		# === Predicted guides using the most recent human genome assembly ===
 		expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/{query_index}_Guides_found.csv",
 			root_dir=config["output_directory"],mode=config["processing_mode"],
 			run_name=config["run_name"],sequence_id=config["sequence_id"],
 			query_index=config['query_index']),
-		# With the relevant VCF downloaded, proceed with creating consensus FASTA
-		expand("{meditdb_path}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.fa",
+		# === With the relevant VCF processed, proceed with creating consensus FASTA ===
+		expand("{meditdb_path}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.filtered.vcf.gz",
 			meditdb_path=config["meditdb_path"],mode=config["processing_mode"],
 			vcf_id=config["vcf_id"],sequence_id=config["sequence_id"]),
-		# Predicted guides on alternative genomes based on the reference listed above
+		# === Predicted guides on alternative genomes based on the reference listed above ===
 		expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_{vcf_id}/{query_index}_Guide_differences.csv",
 			root_dir=config["output_directory"],mode=config["processing_mode"],
 			run_name=config["run_name"],sequence_id=config["sequence_id"],
 			vcf_id=config["vcf_id"],query_index=config['query_index']),
-		# Compile Information from all alternative genomes (if any) into one single CSV
+		# === Compile Information from all alternative genomes (if any) into one single CSV ===
 		expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_alt/{query_index}_Aggregated_Guide_differences.csv",
 			root_dir=config["output_directory"],mode=config["processing_mode"],
 			run_name=config["run_name"],sequence_id=config["sequence_id"],
@@ -92,10 +90,10 @@ Log file path:
 # noinspection SmkAvoidTabWhitespace
 rule consensus_fasta:
 	input:
-		assembly_path=lambda wildcards: glob.glob("{fasta_root_path}/{sequence_id}.fa.gz".format(
-			fasta_root_path=config["fasta_root_path"],sequence_id=wildcards.sequence_id)),
-		source_vcf=lambda wildcards: glob.glob("{meditdb_path}/{mode}/source_vcfs/{vcf_filename}.vcf.gz".format(
-			meditdb_path=wildcards.meditdb_path,vcf_filename=config["vcf_filename"], mode=wildcards.mode))
+		assembly_path=lambda wildcards: glob.glob("{fasta_root_path}/{sequence_id}.filtered.fa.gz".format(
+			fasta_root_path=config["fasta_root_path"], sequence_id=wildcards.sequence_id)),
+		source_vcf=lambda wildcards: glob.glob("{meditdb_path}/{mode}/source_vcfs/{vcf_filename}.vcf".format(
+			meditdb_path=wildcards.meditdb_path, mode=wildcards.mode, vcf_filename=config["vcf_filename"]))
 		# source_vcf="{meditdb_path}/{mode}/source_vcfs/{vcf_id}.vcf.gz"
 	output:
 		consensus_fasta="{meditdb_path}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.fa",
@@ -103,6 +101,7 @@ rule consensus_fasta:
 	params:
 		split_vcf='{meditdb_path}/{mode}/source_vcfs/{vcf_id}.vcf.gz',
 		source_vcf_prefix="{meditdb_path}/{mode}/consensus_refs/{sequence_id}/{vcf_id}",
+		link_directory="{meditdb_path}/{mode}/consensus_refs/{sequence_id}/",
 		dump_dir="{meditdb_path}/consensus_refs/downloads",
 		fasta_root_path=config["fasta_root_path"]
 	conda:
@@ -111,7 +110,7 @@ rule consensus_fasta:
 	# 	mem_mb=100000
 	message:
 		"""
-# === CREATE CONSENSUS FASTA === #
+# === CREATE FILTERED VCF and CONSENSUS FASTA === #
 This rule creates a consensus sequence based on a VCF file.
 Inputs used:
 --> Human genome assembly: {input.assembly_path}
@@ -133,7 +132,7 @@ Wildcards in this rule:
 		
 		# Inspect the number of genomes in the VCF file
 		num_samples=$(bcftools query -l {input.source_vcf} | wc -l)
-		echo $num_sample
+		echo $num_samples
 
 		# Check VCF only had one genome
 		if [ $num_samples -le 1 ]; then
@@ -152,17 +151,17 @@ Wildcards in this rule:
 		        
 		# 3) Making a consensus
 		#previously made a seperate hg38 Ref Fasta that only have standard chromsomes --> /groups/clinical/projects/editability/tables/raw_tables/VCFs/hg38_standard.fa.gz
-		samtools dict {input.assembly_path} -o {params.fasta_root_path}/{wildcards.sequence_id}.dict
-		samtools faidx {input.assembly_path} -o {input.assembly_path}.fai
+		samtools dict {input.assembly_path}
+		samtools faidx {input.assembly_path}
 		
-		bcftools consensus -f {input.assembly_path} {output.filtered_vcf} -o {output.consensus_fasta}
+		bcftools consensus -f {input.assembly_path} {output.filtered_vcf} -o {output.consensus_fasta} || true
         """
 
 # noinspection SmkAvoidTabWhitespace
 rule process_altgenomes:
 	input:
-		filtered_vcf=lambda wildcards: glob.glob("{meditdb_path}/{mode}/source_vcfs/{vcf_id}.vcf.gz".format(
-			meditdb_path=config["meditdb_path"],mode=wildcards.mode,vcf_id=wildcards.vcf_id
+		filtered_vcf=lambda wildcards: glob.glob("{meditdb_path}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.filtered.vcf.gz".format(
+			meditdb_path=config["meditdb_path"], mode=wildcards.mode, sequence_id=wildcards.sequence_id, vcf_id=wildcards.vcf_id
 		)),
 		# filtered_vcf=lambda wildcards: glob.glob("{meditdb_path}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.filtered.vcf.gz".format(
 		# 	meditdb_path=config["meditdb_path"],mode=wildcards.mode,
@@ -216,11 +215,12 @@ rule aggregate_altgenome_reports:
 		float_cols=config["float_cols"],
 	message:
 		"""
-# === PREDICT GUIDES ON ALTERNATIVE GENOMES === #	
+# === AGGREGATE REPORTS OF PREDICTED GUIDES ON ALTERNATIVE GENOMES === #	
 Inputs used:
 --> Guide differences report inputs:\n {input.diff_guides}
 Outputs generated:
---> Aggregated Guide differences output:\n {output.aggr_diff_guides}
+--> Aggregate Guide differences output:\n {output.aggr_diff_guides}
+--> Aggregate Alternative variants output:\n {output.aggr_alt_var}
 Log file path:
 --> {output.logfile_path}
 		"""
