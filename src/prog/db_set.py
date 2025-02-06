@@ -97,16 +97,16 @@ def dbset(args):
 	# === Download Data ===
 	#   == SeqRecord Pickles
 	print("# ---*--- Processing Database of Genomic References ---*---")
-	skip_genome_pkl = download_s3_objects("medit.db", "genome_pkl", fasta_root_path)
+	download_s3_objects("medit.db", "genome_pkl", fasta_root_path)
 
-	standard_ref_path = f"{fasta_root_path}/{standard_ref_prefix}.fa"
-	if not skip_genome_pkl:
-		launch_shell_cmd(f"bgzip -df -@ {threads} {standard_ref_path}.gz > {standard_ref_path}",
-						 message="Decompressing human reference genome")
-		pickle_chromosomes(standard_ref_path, fasta_root_path)
-		launch_shell_cmd(f"bgzip -cf -@ {threads} {standard_ref_path} > {standard_ref_path}.gz")
-		launch_shell_cmd(f"rm {standard_ref_path}",
-						 message="Cleaning up unused files")
+	# standard_ref_path = f"{fasta_root_path}/{standard_ref_prefix}.fa"
+	# if not skip_genome_pkl:
+	# 	launch_shell_cmd(f"bgzip -df -@ {threads} {standard_ref_path}.gz > {standard_ref_path}",
+	# 					 message="Decompressing human reference genome")
+	# 	pickle_chromosomes(standard_ref_path, fasta_root_path)
+	# 	launch_shell_cmd(f"bgzip -cf -@ {threads} {standard_ref_path} > {standard_ref_path}.gz")
+	# 	launch_shell_cmd(f"rm {standard_ref_path}",
+	# 					 message="Cleaning up unused files")
 	# # == Download the latest human reference genome by request
 	# if latest_genome_download:
 	# 	download_s3_objects("medit.db", "latest_genome_ref", fasta_root_path)

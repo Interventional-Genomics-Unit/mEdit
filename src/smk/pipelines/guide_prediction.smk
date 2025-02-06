@@ -4,6 +4,10 @@ import glob
 # noinspection SmkAvoidTabWhitespace
 rule all:
 	input:
+		# === Serialize Chromosomes for further processing
+		expand("{root_dir}/{mode}/jobs/{run_name}/tmp/{sequence_id}_chr_manifest.csv",
+			root_dir=config["output_directory"],mode=config["processing_mode"],
+			run_name=config["run_name"],sequence_id=config["sequence_id"]),
 		# === Predicted guides using the most recent human genome assembly ===
 		expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/{query_index}_Guides_found.csv",
 			root_dir=config["output_directory"],mode=config["processing_mode"],
@@ -24,10 +28,40 @@ rule all:
 			run_name=config["run_name"],sequence_id=config["sequence_id"],
 			query_index=config['query_index'])
 
+
+rule serialize_chromosomes:
+	input:
+		assembly_path=lambda wildcards: glob.glob("{fasta_root_path}/{sequence_id}.fa.gz".format(
+			fasta_root_path=config["fasta_root_path"],sequence_id=wildcards.sequence_id)),
+	output:
+		serialized_chr_manifest="{root_dir}/{mode}/jobs/{run_name}/tmp/{sequence_id}_chr_manifest.csv"
+	params:
+		decompressed_assembly=lambda wildcards: f"{config['fasta_root_path']}/{wildcards.sequence_id}.fa",
+		output_dir="{root_dir}/{mode}/jobs/{run_name}/tmp"
+	conda:
+		"../envs/tabix.yaml"
+	threads:
+		config["threads"]
+	message:
+		"""
+# === SERIALIZE CHROMOSOMES ON REFERENCE GENOMES === #	
+Inputs used:\n {input.assembly_path}
+Outputs stored on:\n {params.output_dir}		
+		"""
+	shell:
+		"""
+		bgzip -df -@ {threads} {input.assembly_path} > {params.decompressed_assembly}
+		python py/serialize_chromosomes.py {input.assembly_path} {output.serialized_chr_manifest} {params.output_dir}
+		bgzip -cf -@ {threads} {params.decompressed_assembly} > {input.assembly_path}
+		"""
+
+
+
 # noinspection SmkAvoidTabWhitespace
 rule predict_guides:
 	input:
 		query_manifest = "{root_dir}/queries/{run_name}_{query_index}.csv",
+		serialized_chr_manifest="{root_dir}/{mode}/jobs/{run_name}/tmp/{sequence_id}_chr_manifest.csv",
 		assembly_dir_path = lambda wildcards: glob.glob("{fasta_root_path}".format(
 			fasta_root_path=config["fasta_root_path"]))
 	output:
@@ -86,6 +120,7 @@ Log file path:
         """
 	script:
 		"py/fetchGuides.py"
+
 
 # noinspection SmkAvoidTabWhitespace
 rule consensus_fasta:
