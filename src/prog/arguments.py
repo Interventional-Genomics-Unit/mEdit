@@ -38,7 +38,7 @@ def parse_arguments():
 							  help=textwrap.dedent('''
 	                          Provide the path where the "mEdit_database" 
 	                          directory will be created ahead of the analysis.
-	                          Requires ~5GB in-disk storage 
+	                          Requires ~7.5GB in-disk storage 
 	                          [default: ./mEdit_database]\n'''))
 	# ref_db_parse.add_argument('-l',
 	# 						  dest='latest_reference',
@@ -325,6 +325,7 @@ def parse_arguments():
 	cluster_opt.add_argument(
 		'-p',
 		dest='parallel_processes',
+		default=1,
 		help=textwrap.dedent('''
 				Most processes in mEdit can be submitted to SLURM.
 				When submitting mEdit jobs to SLURM, the user can specify

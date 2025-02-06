@@ -92,7 +92,7 @@ rule consensus_fasta:
 	input:
 		assembly_path=lambda wildcards: glob.glob("{fasta_root_path}/{sequence_id}.filtered.fa.gz".format(
 			fasta_root_path=config["fasta_root_path"], sequence_id=wildcards.sequence_id)),
-		source_vcf=lambda wildcards: glob.glob("{meditdb_path}/{mode}/source_vcfs/{vcf_filename}.vcf".format(
+		source_vcf=lambda wildcards: glob.glob("{meditdb_path}/{mode}/source_vcfs/{vcf_filename}.vcf.gz".format(
 			meditdb_path=wildcards.meditdb_path, mode=wildcards.mode, vcf_filename=config["vcf_filename"]))
 		# source_vcf="{meditdb_path}/{mode}/source_vcfs/{vcf_id}.vcf.gz"
 	output:
@@ -132,7 +132,6 @@ Wildcards in this rule:
 		
 		# Inspect the number of genomes in the VCF file
 		num_samples=$(bcftools query -l {input.source_vcf} | wc -l)
-		echo $num_samples
 
 		# Check VCF only had one genome
 		if [ $num_samples -le 1 ]; then
@@ -150,19 +149,16 @@ Wildcards in this rule:
 		bcftools index -f -t {output.filtered_vcf}
 		        
 		# 3) Making a consensus
-		#previously made a seperate hg38 Ref Fasta that only have standard chromsomes --> /groups/clinical/projects/editability/tables/raw_tables/VCFs/hg38_standard.fa.gz
 		samtools dict {input.assembly_path}
 		samtools faidx {input.assembly_path}
 		
-		bcftools consensus -f {input.assembly_path} {output.filtered_vcf} -o {output.consensus_fasta} || true
+		bcftools consensus -f {input.assembly_path} {output.filtered_vcf} -o {output.consensus_fasta} > bcftools.tmp.info || true
         """
 
 # noinspection SmkAvoidTabWhitespace
 rule process_altgenomes:
 	input:
-		filtered_vcf=lambda wildcards: glob.glob("{meditdb_path}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.filtered.vcf.gz".format(
-			meditdb_path=config["meditdb_path"], mode=wildcards.mode, sequence_id=wildcards.sequence_id, vcf_id=wildcards.vcf_id
-		)),
+		filtered_vcf=lambda wildcards: f"{config['meditdb_path']}/{wildcards.mode}/consensus_refs/{wildcards.sequence_id}/{wildcards.vcf_id}.filtered.vcf.gz",
 		# filtered_vcf=lambda wildcards: glob.glob("{meditdb_path}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.filtered.vcf.gz".format(
 		# 	meditdb_path=config["meditdb_path"],mode=wildcards.mode,
 		# 	vcf_id=wildcards.vcf_id,sequence_id=wildcards.sequence_id
@@ -192,6 +188,8 @@ Inputs used:
 
 Outputs generated:
 --> Guide differences report output on:\n {output.diff_guides}
+Wildcards in this rule:
+--> {wildcards}
 Log file path:
 --> {output.logfile_path}
 		"""
