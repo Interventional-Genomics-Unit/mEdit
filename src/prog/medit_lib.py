@@ -327,21 +327,21 @@ def group_guide_table(allguides_df, editor_filter: (list, str)):
 
 
 def handle_offtarget_request(mode, meditdb_path, requested_genomes):
-	gscan_indices_path = f"{meditdb_path}/{mode}/gscan_indices"
+	gscan_indices_path = f"{meditdb_path}/gscan_indices"
 	issue_warning = False
-	n_genomes_found = 0
+	n_genomes_found = []
+	genome_ids = [t[0] for t in requested_genomes]
 	n_genomes_to_process = len(requested_genomes)
+
 	if mode != 'fast':
 		if is_empty_or_nonexistent(gscan_indices_path):
 			issue_warning =True
 		elif not is_empty_or_nonexistent(gscan_indices_path):
 			# Precompute regex patterns for all requested genomes (case-insensitive, whole-word match)
 			regex_patterns = [
-				re.compile(rf"\b{re.escape(genome)}\b", re.IGNORECASE)  # Match whole words only
-				for genome in requested_genomes
+				re.compile(rf"{genome}.*\.index\..*", re.IGNORECASE)  # Match whole words only
+				for genome in genome_ids
 			]
-			# Use a set to track unique genomes found (ensures no duplicates)
-			found_genomes = set()
 
 			for root, dirs, files in os.walk(gscan_indices_path):
 				for file in files:
@@ -349,18 +349,18 @@ def handle_offtarget_request(mode, meditdb_path, requested_genomes):
 					for pattern in regex_patterns:
 						if pattern.search(file):
 							# Extract the matched genome name (case-insensitive)
-							matched_genome = requested_genomes[regex_patterns.index(pattern)]
-							found_genomes.add(matched_genome.lower())  # Case-insensitive uniqueness
+							matched_genome = genome_ids[regex_patterns.index(pattern)]
+							n_genomes_found.append(matched_genome.lower())  # Case-insensitive uniqueness
 							break  # Stop checking other genomes for this file
 
-			if len(requested_genomes) > n_genomes_found:
-				n_genomes_to_process = len(requested_genomes) - (n_genomes_found + 1)
+			if len(requested_genomes) > len(n_genomes_found):
+				n_genomes_to_process = len(requested_genomes) - (len(n_genomes_found) + 1)
 				issue_warning = True
 
 	if issue_warning:
 		prRed(f"!! WARNING !! Read this carefully:\n"
 			  f"- This execution is about to carry out an off-target analysis "
-			  f"utilizing more than one genome.\n"
+			  f"utilizing more than one genome.\n <{genome_ids}>"
 			  f"- The current mEdit database does not contain the necessary support files on this path:\n"
 			  f"[{gscan_indices_path}]\n"
 			  f"- You'll need {n_genomes_to_process} genomes processed for the current run setup.\n "
@@ -381,44 +381,8 @@ def handle_offtarget_request(mode, meditdb_path, requested_genomes):
 			return False, mode
 
 	# Continue with the off-target analysis
-	print("Continuing with the off-target analysis...")
+	print("Resuming off-target analysis...")
 	return True, mode
-
-
-# def handle_shell_exception(subprocess_result, shell_command, verbose: bool):
-# 	# === Silverplate Errors
-# 	#   == File not found
-# 	if re.search("FileNotFound", str(subprocess_result)):
-# 		prRed(f"QUERY FILEPATH NOT FOUND: Please note:"
-# 			  f"- This is the invalid filepath: {shell_command}"
-# 			  f"- If providing more than one query path make sure the paths are comma-separated")
-# 		exit(0)
-# 	#	== Config Not Found
-# 	if re.search("ConfigNotFound", str(subprocess_result)):
-# 		prRed(f" Couldn't find the file {shell_command}."
-# 			  f" Please double-check the path to <medit_database> and provide the path via '-d' option")
-# 		exit(0)
-# 	# === Handle SMK exceptions through subprocess
-# 	#   == Unlock directory if necessary for SMK run
-# 	if re.findall("Directory cannot be locked.", subprocess_result.stdout) or re.findall("Directory cannot be locked.", subprocess_result.stderr):
-# 		print("--> Target directory locked. Unlocking...")
-# 		unlock_smk_command = f"{shell_command} --unlock"
-# 		launch_shell_cmd(unlock_smk_command, verbose)
-# 		launch_shell_cmd(shell_command, verbose)
-# 		return
-# 	#	== Handle Missing Output Error in Snakemake
-# 	if re.findall("MissingOutputException", subprocess_result.stdout):
-# 		prRed("--> The association between Inputs/Outputs is not valid. Outputs may not be generated")
-# 		return
-# 	#   == Skipping rule call that has already been completed
-# 	if re.findall(r"ValueError: min\(\) arg is an empty sequence", subprocess_result.stderr):
-# 		print("--> A consensus FASTA has already been generated for this job. Skipping.")
-# 		return
-# 	if not re.findall(r"ValueError: min\(\) arg is an empty sequence", subprocess_result.stderr):
-# 		if verbose:
-# 			print(subprocess_result.stderr)
-# 			prGreen(subprocess_result.stdout)
-# 		return
 
 
 def handle_shell_exception(result: SubprocessResult, shell_command: str, verbose: bool) -> None:
@@ -554,76 +518,6 @@ def is_empty_or_nonexistent(directory_path):
 	return not os.path.isdir(directory_path) or not any(os.scandir(directory_path))
 
 
-# def launch_shell_cmd(command: str, verbose=False, **kwargs):
-# 	message = kwargs.get('message', False)
-# 	check_exist = kwargs.get('check_exist', False)
-#
-# 	# Check if 'decompress' appears in the command and replace it
-# 	if 'decompress' in command:
-# 		if shutil.which("pigz"):
-# 			command = command.replace('decompress', 'pigz -p $(nproc)')
-# 		else:
-# 			command = command.replace('decompress', 'gzip')
-#
-# 	command = f"stdbuf -oL -eL {command}"
-#
-# 	if message:
-# 		verbose = False
-# 		print(message)
-# 	if check_exist:
-# 		if os.path.isfile(check_exist):
-# 			print(f"File {check_exist} exists. Skipping process.")
-# 			return
-# 	if verbose:
-# 		prCyan(f"--> Invoking command-line call:\n{command}")
-#
-# 	# CURRENTLY IN REVISION
-# 	process = subprocess.Popen(
-# 		command,
-# 		shell=True,
-# 		stdout=subprocess.PIPE,
-# 		stderr=subprocess.PIPE,
-# 		text=True,  # Ensures strings are returned instead of bytes
-# 		universal_newlines=True
-# 	)
-#
-# 	# Create a polling object to monitor both streams
-# 	poll = select.poll()
-# 	poll.register(process.stdout.fileno(), select.POLLIN)
-# 	poll.register(process.stderr.fileno(), select.POLLIN)
-#
-# 	try:
-# 		while True:
-# 			# Poll both streams
-# 			events = poll.poll()
-# 			for fd, event in events:
-# 				if fd == process.stdout.fileno():
-# 					# Read and print stdout
-# 					line = process.stdout.readline()
-# 					if line:
-# 						prGreen(line, False)
-# 				elif fd == process.stderr.fileno():
-# 					# Read and print stderr
-# 					line = process.stderr.readline()
-# 					if line:
-# 						prCyan(line, False)
-#
-# 			# Exit the loop if the process finishes
-# 			if process.poll() is not None:
-# 				break
-#
-# 		# Ensure remaining lines are flushed
-# 		for line in process.stdout:
-# 			prRed(line, False)
-# 		for line in process.stderr:
-# 			prRed(line, False)
-#
-# 	except Exception as e:
-# 		print(f"An error occurred: {e}")
-# 		process.terminate()
-# 		process.wait()
-
-
 def launch_shell_cmd(command: str, verbose: bool = False, **kwargs) -> SubprocessResult:
 	"""Execute a shell command with real-time output capture and error handling."""
 	message = kwargs.get('message')
@@ -721,17 +615,6 @@ def offtarget_mode_formatting(mode, reference_genome, dynamic_config_guidepred):
 		for vcf_id in dynamic_config_guidepred['vcf_id']:
 			sequence_id.extend([(vcf_id, 'extended')])
 	return sequence_id
-
-
-def pickle_chromosomes(genome_fasta, output_dir):
-	records = SeqIO.parse(open(genome_fasta, 'rt'), "fasta")
-	with alive_bar(25, title=f'Serializing human chromosomes') as bar:
-		for record in records:
-			if re.search(r"chr\w{0,2}$", record.id, re.IGNORECASE):
-				outfile = f"{output_dir}/{record.id}.pkl"
-				with open(outfile, 'ab') as gfile:
-					pickle.dump(record, gfile)
-					bar()
 
 
 def prCyan(skk, newline=True):

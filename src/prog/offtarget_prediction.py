@@ -22,14 +22,6 @@ from prog.medit_lib import (
     combine_guide_tables
 )
 
-#########
-# GUIDESCAN only takes PAMs with ATCGN in the manifest made by build_casoff_input.py
-# BUT......guidescan takes whichever PAM is in the manifest plus additional pams used for command the "-a" variable
-# in the case of saCas9 with "NNGRR" We can put "NNGAA" in the manifest and then run in the guidescan command line -a NNGAG,NNGGA,NNGGG
-# TO DO THIS -------
-# I wrote an expand_pam function in medit_lib
-# in the config file for snakemake to give to snakemake; do/add the following
-
 
 def offtarget_prediction(args, jobtag):
     # == Load Run Parameters values ==
@@ -139,33 +131,16 @@ def offtarget_prediction(args, jobtag):
     alt_pam_per_editor_dict = {}
     pam_is_first_per_editor_dict = {}
     guides_per_editor_path = ""
-    # input_file_path = ""
-    # summary_report_path = ""
-    # off_target_output_paths = {}
-    # repeat_data_collection_flag = True
     genome_type_dict = {}
 
     for index in query_index:
         combined_guide_report = pd.DataFrame()
         for offtarget_genome, genome_type in offtarget_genomes:
-            # print(f"GENOMES ANALYZED: {offtarget_genome} {genome_type}")
-            # == Set output paths ==
-            # Note that all genomes searched will have the same inputs guides report, editors, etc.
-            # I'm exporting the guides_per_editor_path to a dynamic params folder one time
-            # however, for every genome I will make a directory for outputs and not inputs every genome I am also making
-            # off_target_output_path = set_export(str(f"{root_dir}/{mode_alias[mode]}/jobs/{run_name}/guide_prediction-{reference_genome}/offtarget_prediction/{offtarget_genome}"))
-            # off_target_output_paths[offtarget_genome] = off_target_output_path
-
-            # if repeat_data_collection_flag:
 
             # set one time directories for inputs and summary reports
             guides_per_editor_path = str(f"{root_dir}/{mode_alias[mode]}/jobs/{run_name}/guide_prediction-{reference_genome}/offtarget_prediction/dynamic_params")
-            # summary_report_path = set_export(str(f"{root_dir}/{mode_alias[mode]}/jobs/{run_name}/guide_prediction-{reference_genome}/offtarget_prediction/summary_reports"))
-            # input_file_path = set_export(str(f"{root_dir}/{mode_alias[mode]}/jobs/{run_name}/guide_prediction-{reference_genome}/offtarget_prediction/input_files"))
-
             # == Recover Guide Prediction filepath ==
             if genome_type == 'main_ref':
-
                 # == Define path to Report tables
                 guides_report_path = Path(f"{root_dir}/{mode_alias[mode]}/jobs/{run_name}/"
                                           f"guide_prediction-{reference_genome}/guides_report_ref/{index}_Guides_found.csv")
@@ -182,9 +157,7 @@ def offtarget_prediction(args, jobtag):
                 # Check if diff guides is empty and concatenates if it is not
                 combined_guide_report = combine_guide_tables(combined_guide_report, guides_diff_path, genome_type)
             genome_type_dict.setdefault(str(offtarget_genome), str(genome_type))
-
-            # print(f"DF HEADER: \n{combined_guide_report}")
-
+            # Group and export guides per editing tool
             grouped_diff_guide_dict = group_guide_table(combined_guide_report, editing_tool_request)
             editors_extracted_from_guides = export_guides_by_editor(grouped_diff_guide_dict, guides_per_editor_path+f"/{index}_")
 
@@ -194,18 +167,8 @@ def offtarget_prediction(args, jobtag):
                 alt_pam_per_editor_dict.setdefault(offtarget_genome, {}).setdefault(editor, expand_pam(guide_search_params[editor][0])[1])
                 pam_is_first_per_editor_dict.setdefault(offtarget_genome, {}).setdefault(editor, "--start" if guide_search_params[editor][1] is True else " ")
 
-            # print(f"Genome {offtarget_genome} -> PAMS list: {pams_list}")
-            # print(f"ALT Genome {offtarget_genome} -> ALT PAMS list: {alt_pams_list}")
-            # if repeat_data_collection_flag:
-            #     repeat_data_collection_flag = False
-
     # === Export Variables to Configuration File ===
-    # NOTE: This whole block (until the end) was inside the index loop
     config_template['guides_per_editor_path'] = guides_per_editor_path
-    # config_template['input_file_path'] = input_file_path
-    # config_template['summary_report_path'] = summary_report_path
-    # config_template['off_target_output_paths'] = off_target_output_paths
-    # config_template['editors_list'] = editors_list
     config_template['pam_per_editor_dict'] = pam_per_editor_dict
     config_template['alt_pam_per_editor_dict'] = alt_pam_per_editor_dict
     config_template['pam_is_first_per_editor_dict'] = pam_is_first_per_editor_dict

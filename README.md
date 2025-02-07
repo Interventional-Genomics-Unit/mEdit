@@ -32,18 +32,22 @@
 
 ### Features
  * Reference Human Genome
-   * mEdit has three different options for loading reference genomes:
-   * 1- The latest compatible reference used by the HPRC on human pangenome assemblies
-   * 2- The latest RefSeq human genome reference
-   * 3- Custom version provided by the user
+   * mEdit uses the RefSeq human genome reference GRCh38.p14
+   * Alternatively, the user can provide a custom human assembly. [See [db_set](#database-setup) for details]
+ * Alternative Genomes
+   * mEdit can work with alternative genomes which are compared to the reference assembly
+   * Pangenomes made public by the HPRC are built into mEdit and can be included in the analysis in 'standard' mode
+ * Flexible editing tool selection
+   * Several endonucleases and base-editors are built into mEdit and can be requested in any combination. [See options in [guide\_prediction](#3-guide-prediction)].
+   * Custom editing tools can also be ingested by mEdit. [See how to format custom editors in [guide\_prediction](#3-guide-prediction)]
+
 ## Getting Started
 ### Prerequisites
- * The current version has 4 prerequisites:
+ * The current version has 3 prerequisites:
    * [PIP](#pip)
    * [Anaconda](#anaconda)
    * [Mamba](#mamba)
-   * [Tabix](#tabix)
-   
+
 #### PIP
   - Make sure `gcc` is installed
     ```
@@ -57,6 +61,7 @@
     ```
     apt install python3-pip
     ```
+
 #### Anaconda
   - mEdit utilizes Anaconda to build its own environments under the hood. 
   - Install Miniconda:
@@ -69,7 +74,7 @@
     conda update --all
     conda config --set channel_priority strict
     ```
- 
+
 #### Mamba
   - The officially supported way of installing Mamba is through Miniforge.
   - The Miniforge repository holds the minimal installers for Conda and Mamba specific to conda-forge.
@@ -82,41 +87,32 @@
       bash Miniforge-pypy3-<your-OS>.sh
       ```
 
-#### Tabix
- * This allows mEdit to use bgzip for file compression.
-   * In linux systems, install `tabix`.
-      ```
-        apt install tabix
-     ```
-   * On macOS machines, intall `htslib`.
-      ```
-        brew install htslib
-     ```
-
 ### Installation
-mEdit is compatible with UNIX-based systems running on Intel processors and it's conveniently available via pyPI:
+ * mEdit is compatible with UNIX-based systems running on Intel processors and it's conveniently available via pyPI:
 ```
 pip install meditability
 ```
 
 ### Running Tests
 
+ - As a Snakemake-based application, mEdit supports dry runs.
+ - A dry run evaluates the presence of supporting data, and I/O necessary for each process  
+ - All mEdit programs can be used called with the `--dry` option
+
+
 ## Usage
 
-This section is under the assumption mEdit is installed properly and every runs simply using the command medit 
-
-To run mEdit and view its sub-commands, simple execute with the  —-help flag
+ * To obtain information on how to run mEdit and view its programs, simply execute with the  `—-help` flag
 
 ```
  medit —-help
 ```
 
-There are four sub-commands available for mEdit
-
-* **db\_set**: Setup the necessary background data to run mEdit  
-* **list**: Prints the current set of editors available on mEdit.  
-* **guide\_prediction**: The core mEdit program finds potential guides for variants specified on the input by searching a diverse set of editors.  
-* **offtarget**: Predict off-target effect for the guides found  
+* There are four programs available in the current version
+  * [db_set](#database-setup): Set up the necessary background data to run mEdit. This downloads ~7GB of data. 
+  * [list](#2-editor-list): Prints the current set of editors available on mEdit.  
+  * [guide\_prediction](#3-guide-prediction): This program scans for potential guides for variants specified on the input by searching a diverse set of editors.  
+  * [offtarget](#4-off-target-analysis): Predicts off-target effect for the guides found  
 
 
 ### 1. **Database Setup**
@@ -125,15 +121,15 @@ There are four sub-commands available for mEdit
 $ mEdit db_set [-h] [-d DB_PATH] [-l] [-c CUSTOM_REFERENCE] [-t THREADS]
 ```
 
-Database Setup is used to retrieve the required information and datasets to run medit. The contents include the reference human genome, HPRC pangenome vcf files, Refseq, MANE, clinvar and more. See the database structure below.
+ * Database Setup is used to retrieve the required information and datasets to run medit. The contents include the reference human genome, HPRC pangenome vcf files, Refseq, MANE, clinvar and more. See the database structure below.
 
 
-| Args | Description |
-| :---- | :---- |
-| \-d DB\_PATH | Provide the path where the "mEdit\_database" directory will be created ahead of the analysis. Requires \~3.2GB in-disk storage   \[default: ./mEdit\_database\] |
+| Args | Description                                                                                                                                                                             |
+| :---- |:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| \-d DB\_PATH | Provide the path where the "mEdit\_database" directory will be created ahead of the analysis. Requires \~7GB in-disk storage   \[default: ./mEdit\_database\]                           |
 | \-l | Request the latest human genome reference as part of mEdit database unpacking. This is especially recommended when running predictions on private genome assemblies. \[default: False\] |
-| \-c CUSTOM\_REFERENCE | Provide the path to a custom human reference genome  in FASTA format. \*\*\*Chromosome annotation must follow a "\>chrN" format (case sensitive) |
-| \-t THREADS  | Provide the number of cores for parallel decompression of mEdit databases. |
+| \-c CUSTOM\_REFERENCE | Provide the path to a custom human reference genome  in FASTA format. \*\*\*Chromosome annotation must follow a "\>chrN" format (case sensitive)                                        |
+| \-t THREADS  | Provide the number of cores for parallel decompression of mEdit databases.                                                                                                              |
 
 ### 2. **Editor List**
 
@@ -219,8 +215,19 @@ VCF: The same results as the FAST search as well as
 | \--ncores NCORES | Specify the number of cores through which each parallel process will be computed. \[default \= 2\] |
 | \--maxtime MAXTIME | Specify the maximum amount of time allowed for each parallel job.Format example: 2 hours \-\> "2:00:00" \[default \= 1 hour\] |
 
-## Roadmap
-## Contributing
-## FAQ
+### 4. **Off-target Analysis**
+
 ## License
+Copyright ©20xx [see Other Notes, below]. The Regents of the University of California (Regents). All Rights Reserved. Permission to use, copy, modify, and distribute this software and its documentation for educational, research, and not-for-profit purposes, without fee and without a signed licensing agreement, is hereby granted, provided that the above copyright notice, this paragraph and the following two paragraphs appear in all copies, modifications, and distributions. Contact The Office of Technology Licensing, UC Berkeley, 2150 Shattuck Avenue, Suite 408, Berkeley, CA 94704-1362,  otl@berkeley.edu, for commercial licensing opportunities.
+
+[Optional: Created by John Smith and Mary Doe, Department of Statistics, University of California, Berkeley.]
+
+IN NO EVENT SHALL REGENTS BE LIABLE TO ANY PARTY FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING LOST PROFITS, ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF REGENTS HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+REGENTS SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. THE SOFTWARE AND ACCOMPANYING DOCUMENTATION, IF ANY, PROVIDED HEREUNDER IS PROVIDED "AS IS". REGENTS HAS NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+
+## FAQ
+
+## Cite us
+
 ## Contact

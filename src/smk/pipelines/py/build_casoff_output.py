@@ -172,7 +172,15 @@ class OffTargets_Library:
 		data = np.genfromtxt(offtarget_csv, delimiter=',',usecols=(0,2,3,5,6,10,14),dtype=str,  skip_header=1)
 		cfd_scores = np.genfromtxt(offtarget_csv, delimiter=',', usecols=(7), skip_header=1)
 
-		site_thresholds =  np.char.add(np.char.add(data[:, 2], data[:, 3]), data[:, 4])
+		# Safety measure: Handle empty file case
+		if data.size == 0:
+			return
+
+		# Ensure data is at least 2D
+		if data.ndim == 1:
+			data = np.expand_dims(data, axis=0)
+
+		site_thresholds = np.char.add(np.char.add(data[:, 2], data[:, 3]), data[:, 4])
 		nrows = data.shape[0]
 
 		if nrows != 0:

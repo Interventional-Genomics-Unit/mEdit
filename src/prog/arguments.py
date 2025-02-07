@@ -48,13 +48,13 @@ def parse_arguments():
 	# 						  of mEdit database unpacking. This is especially
 	# 						  recommended when running predictions on private
 	# 						  genome assemblies. [default: False]\n'''))
-	# ref_db_parse.add_argument('-c',
-	# 						  dest='custom_reference',
-	# 						  help=textwrap.dedent('''
-	# 						  Provide the path to a custom human reference
-	# 						  genome  in FASTA format.
-	# 						  ***Chromosome annotation must follow a
-	# 						  ">chrN" format (case sensitive)\n'''))
+	ref_db_parse.add_argument('-c',
+							  dest='custom_reference',
+							  help=textwrap.dedent('''
+							  Provide the path to a custom human reference
+							  genome  in FASTA format.
+							  ***Chromosome annotation must follow a
+							  ">chrN" format (case sensitive)\n'''))
 	ref_db_parse.add_argument('-t',
 							  dest='threads',
 							  default='1',

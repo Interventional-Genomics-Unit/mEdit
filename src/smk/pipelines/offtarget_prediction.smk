@@ -52,6 +52,8 @@ rule set_gscan_indices:
             sequence_id=config["sequence_id"], offtarget_genomes=wildcards.offtarget_genomes))
     output:
         gs_index="{meditdb_path}/gscan_indices/{offtarget_genomes}.consensus.fa.index.gs"
+    params:
+        gscan_indices_dir="{meditdb_path}/gscan_indices"
     conda:
         "../envs/gscan.yaml"
     message:
@@ -64,7 +66,8 @@ Output generated:
         """
     shell:
         """
-guidescan index --index {wildcards.offtarget_genomes} {input.consensus_fasta}
+cd {params.gscan_indices_dir}        
+guidescan index --index {wildcards.offtarget_genomes}.consensus.fa.index {input.consensus_fasta}
         """
 
 # noinspection SmkAvoidTabWhitespace
@@ -80,9 +83,9 @@ rule casoff_input_formatting:
     message:
         """
 # === INPUT FORMATTING FOR Guidescan 2 [REFERENCE GENOME] === #	
+Editing tool processed in this job: {wildcards.editing_tool} 
 Inputs used:
 --> Take guides grouped by editing tool:\n {input.guides_per_editor_path}
-
 Outputs generated:
 --> Guidescan formatted input: {output.casoff_input}
 Wildcards in this rule:
