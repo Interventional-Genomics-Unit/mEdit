@@ -44,7 +44,7 @@ def reformat_ref_and_alt(lines,offtarget_genome,genome_type):
 	ref = True if genome_type != 'extended' else False
 	lines_reformatted.append(header)
 	for line in lines:
-		line_split = line.strip().replace("\t",",").split(",")[3:]
+		line_split = line.strip().replace("\t",",").replace("\n","").split(",")[3:]
 		line_split[6] = line_split[6].replace(".","-")
 		line_split[1] = line_split[1].replace(".", "-")
 		if ref:
@@ -54,9 +54,9 @@ def reformat_ref_and_alt(lines,offtarget_genome,genome_type):
 
 			variant = line_split[11:]
 			#drop lines where variants are not in sequence
-			dist_from_variant = (int(line_split[12])+2) - int(line_split[3])
+			dist_from_variant = (int(line_split[12])) - int(line_split[3])
 
-			if dist_from_variant < len(line_split[6].replace("-","")) and dist_from_variant > 0:
+			if dist_from_variant < len(line_split[6].replace("-",""))-1	 and dist_from_variant >= -1:
 				hgvs = f"{variant[0]}:{variant[1]}{variant[3]}>"
 				for alt_allele in variant[4:]: #incase multi-allelic
 					hgvs += f"{alt_allele}|"
@@ -117,20 +117,22 @@ def de_dup(dist_lines,max_bulge):
 			alt_alignment = '0'
 		else:
 			alt_alignment = '1'
-			dist, mm,score = 100,0,-100
+			dist, mm,placement_score = 100,0,0
 			bestline = ''
+
 			for line in lines:
-				if int(line[-1]) < dist:
+				if int(line[-1]) < dist: # if edit distance is lower than other alignments keep
 					bestline = line
-					dist, mm, score = int(line[-1]), int(line[5]), float(line[9])
-				elif int(line[-1]) == dist:
+					dist, mm, placement_score = int(line[-1]), int(line[5]), sum([i for i in range(len(line[6])) if line[6][i].islower() or line[6][i] == "-"])
+				elif int(line[-1]) == dist: # if edit distance is equal then keep if mismatch is higher(qalt alignment has more bulges)
 					if int(line[5]) > mm:
 						bestline = line
-						dist, mm, score = int(line[-1]), int(line[5]), float(line[9])
-					elif int(line[-1]) == mm:
-						if float(line[-1]) > score:
+						dist, mm, placement_score = int(line[-1]), int(line[5]), sum([i for i in range(len(line[6])) if line[6][i].islower() or line[6][i] == "-"])
+					elif int(line[-1]) == mm:  # if edit distance and mm equal then keep if mismatches are further from 3'pam
+
+						if sum([i for i in range(len(line[6])) if line[6][i].islower() or line[6][i] == "-"]) < placement_score:
 							bestline = line
-							dist, mm, score = int(line[-1]), int(line[5]), float(line[9])
+							dist, mm, placement_score = int(line[-1]), int(line[5]), sum([i for i in range(len(line[6])) if line[6][i].islower() or line[6][i] == "-"])
 					else:
 						pass
 				else:
