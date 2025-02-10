@@ -70,14 +70,13 @@ def preprocess_seq(data):
     return DATA_X
 
 
-def deepspcas9(cas9_sites, models_dir):
+def deepspcas9(cas9_sites, model, sess_path):
     '''
     Hui Kwon Kim et al. ,SpCas9 activity prediction by DeepSpCas9,
     a deep learning–based model with high generalization performance.Sci. Adv.5,eaax9249(2019).
     predicts the likelihood of getting a spCas9 indel at the desired target
     This script is copied and modified from https://github.com/MyungjaeSong/Paired-Library
     '''
-    model, sess_path = load_model_params('deepspcas9', models_dir)
     processed_seqs = preprocess_seq(cas9_sites)
 
     # TensorFlow config
@@ -141,7 +140,7 @@ def doench2014(cas9_sites, models_dir):
         return scores
 
 
-def azimuth(cas9_sites, models_dir):
+def azimuth(cas9_sites, model):
     '''
     Doench/Fusi 2016 Rule -2 on-target / efficiency score now packaged as 'Azimuth'
     This script is copied and modified from https://github.com/MicrosoftResearch/Azimuth
@@ -150,7 +149,6 @@ def azimuth(cas9_sites, models_dir):
     '''
     #Doench/Fusi 2016 Rule -2 'on-target score'
     # This script is copied and modified to suit from https://github.com/MicrosoftResearch/Azimuth
-    model = load_model_params('azimuth', models_dir)
     model, learn_options = model
 
     res = []
@@ -196,14 +194,14 @@ def azimuth(cas9_sites, models_dir):
     return scores
 
 
-def deepcpf1(cas12_sites, models_dir):
+def deepcpf1(cas12_sites, model1,model2):
     '''
     Cpf1(cas12) on-target score "kinda"
     predicts the likelihood of getting a cas12 indel at the desired target
     This script is copied and modified from https://github.com/MyungjaeSong/Paired-Library
     Kim, H., Song, M., Lee, J. et al. In vivo high-throughput profiling of CRISPR–Cpf1 activity. Nat Methods 14, 153–159 (2017)
     '''
-    model1,model2 = load_model_params('deepcpf1', models_dir)
+    #model1,model2 = load_model_params('deepcpf1', models_dir)
     data_n = len(cas12_sites)
     #if chromatin_flag != 'ignore':
      #   CA = np.zeros((data_n, 1), dtype=int)

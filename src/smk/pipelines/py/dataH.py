@@ -4,6 +4,7 @@ from Bio import SeqUtils
 from Bio.SeqUtils import seq3
 # Project Modules
 import scoring
+from scoring import load_model_params
 
 
 class DataHandler:
@@ -38,13 +39,8 @@ class DataHandler:
         self.chrom = coord.split(':')[0].replace('chr', '')
         self.gname = gname
         self.dist_from_cutsite = dist_from_cutsite
-
-        # search params
-        self.pam = str()  # Ex. 'NGG'
-        self.pamISfirst = False  # Boolean
-        self.win_size = list()  # Ex. list [4,8]
-        self.gscoring = None  # Ex. True/False
-        self.guidelen = 20
+        self.models_not_loaded = True
+        self.models = {}
 
         # outputs
         self.guides_found = {'QueryTerm': [], 'GeneName':[],'Editor': [], 'Guide_ID': [], 'Coordinates': [],
@@ -58,6 +54,21 @@ class DataHandler:
                                'Hg38 Reference (Codon>AA)': [], 'Alternate (Codon>AA)': [], 'BE Converted (Codon>AA)': [],
                                'Conversion Type': [], 'Bystander': [], 'Annotation': []}
 
+    def get_score(self,site,score_name,models_dir):
+        if self.models_not_loaded:
+            deepcas9_model, deepcas9_sess = load_model_params('deepspcas9', models_dir)
+            model1,model2 = load_model_params('deepcpf1', models_dir)
+            az_model = load_model_params('azimuth', models_dir)
+            self.models = {'azimuth':az_model,"deepspcas9":(deepcas9_model, deepcas9_sess),"deepcpf1":(model1,model2)}
+        if score_name=='azimuth':
+            site_score = scoring.azimuth(site,self.models[score_name])[0]
+        if score_name == 'deepspcas9':
+            model, sess_path = self.models[score_name]
+            site_score = round(scoring.deepspcas9(site,model, sess_path)[0][0],2)
+        if score_name == 'deepcpf1':
+            model1,model2 = self.models[score_name]
+            site_score = round(scoring.deepcpf1(site,model1,model2)[0][0],2)
+        return site_score
 
     def set_guide_search_params(self, pam, pamISfirst, win_size, gscoring, guidelen):
         self.pam = pam
@@ -119,7 +130,7 @@ class DataHandler:
             convert = str(conversion[1])
             bystander = target_bases.upper().count(conversion[0]) - 1
 
-            if self.annotation not in ['exon','start_codon','stop_codon']:
+            if self.annotation.split(" ")[0] not in ['exon','start_codon','stop_codon']:
                 ctype = 'NA'
                 self.add_BEguides(name,
                                   guide,
@@ -286,10 +297,10 @@ class DataHandler:
                                 snvpos += 1
                             if pam == 'NGG' and guidelen == 20:
                                 #Azmith only accurate for NGG pams
-                                scores['azimuth'] = scoring.azimuth([extended_guide.upper()],
-                                                           self.models_dir)[0]
-                                scores['deepcas9'] = round(scoring.deepspcas9([extended_guide.upper()],
-                                                           self.models_dir)[0][0],2)
+                                scores['azimuth'] = self.get_score([extended_guide.upper()],'azimuth',
+                                                           self.models_dir)
+                                scores['deepcas9'] = self.get_score([extended_guide.upper()],'deepspcas9',
+                                                           self.models_dir)
                             #oof_score use only for DSB
                             mh_score, scores['oof'] = scoring.oofscore(str(search_seq[target_start - 20:target_start + sitelen + 20]).upper())
                         else:
@@ -307,8 +318,9 @@ class DataHandler:
                         if snvpos >= 0:
                             snvpos += 1
                         if 'Cas12a' in name:
-                            scores['deepcpf1'] = round(scoring.deepcpf1([extended_guide.upper()],
-                                                              self.models_dir)[0][0], 2)
+                            scores['deepcpf1'] = self.get_score([extended_guide.upper()],'deepcpf1',
+                                                           self.models_dir)
+
                     start_diff = target_start -snv_rel_pos
 
                     if search_strand == '-':
@@ -369,35 +381,3 @@ class DataHandler:
                                     self.getBE(guides=neg_guides, conversion=conversion, win_size=win_size, name=name)
 
         return self.guides_found, self.BEguides_found
-
-
-'''
-#----------------------------Test----------------------
-datadir = "/groups/clinical/projects/editability/tables/"
-processed_tables = "/groups/clinical/projects/editability/tables/processed_tables/"
-fasta_path ="/groups/clinical/projects/clinical_shared_data/hg38/hg38.fa.gz"
-
-search_params= {'spCas9': ('NGG', False, 20, -3, 'Sp Cas9, SpCas9-HF1, eSpCas9 1.1'),
-                'saCas9': ('NNGRRT', False,21, -3, 'Cas9 S. Aureus 21 base guide'),
-                'CasX': ('TTCN', True, 20, 18, 'Cas12e'),
-                'Cas12a': ('TTTV', True, 23, 18, 'TTT(A/C/G)-23bp - Cas12a (Cpf1)')}
-BE_search_params = {'CBE': [('NGG', False, 20, [4, 8], ''), ('CT', 'CBE')], 'ABE': [('NGG', False, 20, [4, 8], ''), ('AG', 'ABE')]}
-
-snv_info = {'11': [['NM_000518.5:c.114G>A', 'NM_000518.5', 'ENST00000335295.4', 'HBB', '-', 'C', 'T', 'exon 3','ACAGCATCAGGAGTGGACAGATCCCCAAAGGACTCAAAGAACCTCTGGGTtCAAGGGTAGACCACCAGCAGCCTAAGGGTGGGAAAATAGACCAATAGGC', 2, 'chr11:5226778']], 
-            '3': [['NM_000532.5:c.1316A>G', 'NM_001178014.2', '-', 'PCCB', '+', 'A', 'G', 'exon 14', 'AGGCTCTAACACTCAGCATTTGGATCTGTTTTAGGCCTATGGAGGTGCCTgTGATGTCATGAGCTCTAAGCACCTTTGTGGTGATACCAACTATGCCTGG', 1, 'chr3:136327650']],
-            '16':[['NM_001605.3:c.902A>G', 'NM_001605.3', 'ENST00000261772.13', 'AARS1', '-', 'T', 'C', 'exon 7', 'TGTTGTCAGGCCGGCCACCATCAGCCAGTGCCACAGTGATGGTCCGAGCGcGGTCAGCCAGCACCCGGTAGGCCATGTCAATCCCATCGGCATCCTCAGC', 1, 'chr16:70269678'], 
-            ['NM_020686.6:c.*430C>T', 'NM_001386616.1', '-', 'ABAT', '+', 'C', 'T', '3utr', 'GTGCCAGTCCATCTCAAGTGCCATATTCTGTGATCACGGATGTTGGCTCCtCCTCGCCCTATGCAAGCAAACACACTCTCACCTCCTCTCCCAGCCTCCC', None, 'chr16:8781860']]}
-
-for ch, data in snv_info.items():
-    for d in data:
-       query, tid, eid, gname, strand, ref, alt, feature_annotation, extracted_seq, codons, coord = d
-        print(f'----------{query}--------------')
-        dh = DataHandler(query, strand, ref, alt, feature_annotation, models_dir, extracted_seq, codons, coord,gname,dist_from_cutsite = 7)
-    guides_found, BEguides_found = dh.get_Guides(search_params,BE_search_params)
-        print(len(guides_found['gRNA']))
-            #for k,v in guides_found:
-    #    print(k,v)
-    #for k,v in BEguides_found.items():
-    #    print(k,v)
-
-'''
