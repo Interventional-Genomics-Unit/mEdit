@@ -225,7 +225,7 @@ Wildcards in this rule:
         
         #### STEP 2: Only keep the sites that differ from ref genome        
         #convert guidescan csv to bed
-        awk -F',' 'NR>1 && $4!="NA" {{print $3 "\t" $4-1 "\t" $4+30 "\t" $0",removed"}}' {params.guidescan_tmp_full_csv}  | bedtools sort -i > {params.guidescan_tmp_full_bed}
+        awk -F',' 'NR>1 && $4!="NA" {{print $3 "\t" $4-1 "\t" $4+30 "\t" $0",added"}}' {params.guidescan_tmp_full_csv}  | bedtools sort -i > {params.guidescan_tmp_full_bed}
         
         #subset ref sites that are missing the alt guidescan
         bedtools subtract -a {input.ref_guidescan_full_bed} -b {params.guidescan_tmp_full_bed} -wa > {params.guidescan_tmp_missing_from_ref_bed}
