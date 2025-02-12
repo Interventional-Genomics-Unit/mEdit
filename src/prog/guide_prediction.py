@@ -46,6 +46,7 @@ def guide_prediction(args, jobtag):
 	editing_window = args.editing_window
 
 	# === Load SLURM-related values ===
+	cluster_request = args.cluster_request
 	ncores = args.ncores
 	maxtime = args.maxtime
 	parallel_processes = int(args.parallel_processes)
@@ -111,13 +112,13 @@ def guide_prediction(args, jobtag):
 		mode = 'vcf'
 		custom_vcfs = args.custom_vcf.split(",")
 	#   == Check the request to run on a cluster
-	if parallel_processes > 1:
+	if cluster_request:
 		# --> Upon SLURM run request, the guide_prediction.smk is split in two separate runs
 		# --> That's because samtool's conda package crashes on a libcrypto error when
 		#       it's deployed by snakemake on a SLURM node
 		cluster_smk_setup = ['', '--cluster "sbatch -t {cluster.time} -n {cluster.cores}" '
 								 f'--cluster-config {cluster_template_path}']
-		allowed_rules = ['--until "consensus_fasta"', '']
+		allowed_rules = ['--until "filter_vcf"', '']
 		smk_verbosity = [False, True]
 	#   == Check the dry run request
 	if dry_run:
@@ -177,7 +178,7 @@ def guide_prediction(args, jobtag):
 		#   => Add any amount of custom vcf genomes to the config file
 		config_template["vcf_id"] = tagged_genomes
 	elif mode == 'fast':
-		allowed_rules = ['--until "predict_guides" --omit-from consensus_fasta']
+		allowed_rules = ['--until "predict_guides" --omit-from filter_vcf']
 		# == 'fast' mode is a sub-mode of 'standard';
 		# downstram processes must acknowledge that this is a standard run
 		mode = 'standard'
@@ -219,6 +220,7 @@ def guide_prediction(args, jobtag):
 			# --> When cluster submission is switched on,
 			smk_command = (f"snakemake  "
 						   f"--snakefile {project_file_path('smk.pipelines', 'guide_prediction.smk')}  "
+						   f"--conda-frontend 'mamba' "
 						   f"-j {parallel_processes}  {smk_run_triggers} "
 						   f"{allowed_rules[smk_setup_idx]} {cluster_smk_setup[smk_setup_idx]} "
 						   f"--configfile {config_db_path} {dynamic_config_path} "

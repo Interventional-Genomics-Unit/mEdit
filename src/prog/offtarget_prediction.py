@@ -30,6 +30,7 @@ def offtarget_prediction(args, jobtag):
     db_path_full = f"{abspath(args.db_path)}/medit_database"
     editing_tool_request = args.select_editors
     # == Load SLURM-related values ==
+    cluster_request = args.cluster_request
     ncores = args.ncores
     maxtime = args.maxtime
     parallel_processes = int(args.parallel_processes)
@@ -78,9 +79,10 @@ def offtarget_prediction(args, jobtag):
     if user_jobtag:
         smk_run_triggers = '--rerun-triggers "mtime"'
     #   == Check the request to run on a cluster
-    if parallel_processes > 1:
+    if cluster_request:
         cluster_smk_setup = ('--cluster "sbatch -t {cluster.time} -n {cluster.cores}" '
                              f'--cluster-config  {cluster_template_path}')
+
     # == Define dynamic SMK call variable ==
     allowed_rules = ['']
 
@@ -194,6 +196,7 @@ def offtarget_prediction(args, jobtag):
                            f"{smk_run_triggers} "
                            f"{allowed_rules[smk_setup_idx]} "
                            f"-j {parallel_processes} "
+                           f"--conda-frontend 'mamba' "
                            f"{cluster_smk_setup} "
                            f"--configfile {config_db_path} "
                            f"{dynamic_config_guidepred_path} {dynamic_config_off_path} "

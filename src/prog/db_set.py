@@ -38,8 +38,8 @@ def dbset(args):
 	#   == Assign jobtag and Fasta root path ==
 	fasta_root_path = f"{db_path_full}/{config_db_template['fasta_root_path']}"
 	config_db_template['fasta_root_path'] = fasta_root_path
-	#   == Bed Files path
-	config_db_template["bed_path"] = f"{db_path_full}/{config_db_template['bed_path']}"
+	# #   == Bed Files path
+	# config_db_template["bed_path"] = f"{db_path_full}/{config_db_template['bed_path']}"
 	#   == GuideScan Indices path
 	config_db_template["gscan_indices_path"] = f"{db_path_full}/{config_db_template['gscan_indices_path']}"
 	#   == Assign Editor pickles path ==
@@ -77,7 +77,7 @@ def dbset(args):
 	download_s3_objects("medit.db", "hprc", vcf_dir_path)
 
 	#   == Bed and GuideScan indices Setup
-	download_s3_objects("medit.db", "bed_files.tar.gz", db_path_full)
+	# download_s3_objects("medit.db", "bed_files.tar.gz", db_path_full)
 	download_s3_objects("medit.db", "gscan_indices.tar.gz", db_path_full)
 
 	#   == Processed Tables
@@ -87,8 +87,8 @@ def dbset(args):
 
 	#  == Decompress tar.gz files in the database ==> Uses parallel pigz when available
 	print("# ---*--- Decompressing Background Data ---*---")
-	launch_shell_cmd(f"decompress -d {config_db_template['bed_path']}.tar.gz", verbose=False,
-					 check_exist=f"{config_db_template['bed_path']}.tar", message="Decompressing Bed files archive...")
+	# launch_shell_cmd(f"decompress -d {config_db_template['bed_path']}.tar.gz", verbose=False,
+	# 				 check_exist=f"{config_db_template['bed_path']}.tar", message="Decompressing Bed files archive...")
 	launch_shell_cmd(f"decompress -d {config_db_template['gscan_indices_path']}.tar.gz", verbose=False,
 					 check_exist=f"{config_db_template['gscan_indices_path']}.tar", message="Decompressing Gscan Indices archive...")
 	launch_shell_cmd(f"decompress -d {config_db_template['processed_tables']}.tar.gz", verbose=False,
@@ -96,9 +96,9 @@ def dbset(args):
 	launch_shell_cmd(f"decompress -d {db_path_full}/pkl.tar.gz", verbose=False,
 					 check_exist=f"{db_path_full}/pkl.tar", message="Decompressing Models archive...")
 
-	launch_shell_cmd(f"tar -xf {db_path_full}/bed_files.tar --directory={db_path_full}/ && "
-					 f"rm {db_path_full}/bed_files.tar",
-					 check_exist=f"{config_db_template['bed_path']}", message="Unpacking Bed files...")
+	# launch_shell_cmd(f"tar -xf {db_path_full}/bed_files.tar --directory={db_path_full}/ && "
+	# 				 f"rm {db_path_full}/bed_files.tar",
+	# 				 check_exist=f"{config_db_template['bed_path']}", message="Unpacking Bed files...")
 	launch_shell_cmd(f"tar -xf {config_db_template['gscan_indices_path']}.tar --directory={db_path_full}/ && "
 					 f"rm {db_path_full}/gscan_indices.tar",
 					 check_exist=f"{config_db_template['gscan_indices_path']}", message="Unpacking Guide Scan Index...")

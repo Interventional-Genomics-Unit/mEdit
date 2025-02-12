@@ -323,14 +323,22 @@ def parse_arguments():
 
 	cluster_opt = fguides_parser.add_argument_group("== SLURM Options ==")
 	cluster_opt.add_argument(
+		'--cluster',
+		dest='cluster_request',
+		action='store_true',
+		help=textwrap.dedent('''
+					Request job submission through SLURM  [default = None]\n''')
+	)
+	cluster_opt.add_argument(
 		'-p',
 		dest='parallel_processes',
 		default=1,
 		help=textwrap.dedent('''
 				Most processes in mEdit can be submitted to SLURM.
-				When submitting mEdit jobs to SLURM, the user can specify
-				the number of parallel processes that will be sent to the 
-				server [default = 1]\n''')
+					When submitting mEdit jobs to SLURM, the user can specify
+					the number of parallel processes that will be sent to the 
+					server. Otherwise, if applied to a local machine, this will 
+					still parallelize some processes. [default = 1]\n''')
 	)
 	cluster_opt.add_argument(
 		'--ncores',
@@ -407,6 +415,13 @@ def parse_arguments():
 
 	off_cluster_opt = casoff_parser.add_argument_group("== SLURM Options ==")
 	off_cluster_opt.add_argument(
+		'--cluster',
+		dest='cluster_request',
+		action='store_true',
+		help=textwrap.dedent('''
+						Request job submission through SLURM  [default = None]\n''')
+	)
+	off_cluster_opt.add_argument(
 		'-p',
 		dest='parallel_processes',
 		default=1,
@@ -414,7 +429,8 @@ def parse_arguments():
 					Most processes in mEdit can be submitted to SLURM.
 					When submitting mEdit jobs to SLURM, the user can specify
 					the number of parallel processes that will be sent to the 
-					server [default = 1]\n''')
+					server. Otherwise, if applied to a local machine, this will 
+					still parallelize some processes. [default = 1]\n''')
 	)
 	off_cluster_opt.add_argument(
 		'--ncores',

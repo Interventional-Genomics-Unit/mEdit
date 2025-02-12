@@ -6,11 +6,17 @@ import glob
 # noinspection SmkAvoidTabWhitespace
 rule all:
     input:
+        # === Create consensus FASTA sequences for Alternative Genomes
+        #   == rule
+        expand("{meditdb_path}/{mode}/consensus_refs/{reference_id}/{offtarget_extended}.fa",
+            meditdb_path=config["meditdb_path"],mode=config["processing_mode"],
+            reference_id=config["reference_id"],offtarget_extended=config["offtarget_extended"]),
         # === Setup Guide Scan Indices ===
         #   == rule set_gscan_indices ==
-        expand("{meditdb_path}/gscan_indices/{offtarget_genomes}.consensus.fa.index.gs",
-            meditdb_path=config["meditdb_path"],mode=config["processing_mode"],
-            reference_id=config["reference_id"],offtarget_genomes=config["offtarget_genomes"]),
+        expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/tmp/{offtarget_extended}.consensus.fa.index.gs",
+            root_dir=config["output_directory"],mode=config["processing_mode"],
+            run_name=config["run_name"],reference_id=config["reference_id"],
+            offtarget_extended=config["offtarget_extended"]),
         # === Prepare input files for casoffinder on a per-editor basis ===
         #   == rule casoff_input_formatting ==
         expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/input_files/{query_index}_{editing_tool}_guidescan_input.csv",
@@ -45,20 +51,63 @@ rule all:
             query_index=config['query_index'])
 
 # noinspection SmkAvoidTabWhitespace
+rule set_consensus_fasta:
+    input:
+        assembly_path=lambda wildcards: glob.glob("{fasta_root_path}/{reference_id}.filtered.fa.gz".format(
+            fasta_root_path=config["fasta_root_path"],reference_id=wildcards.reference_id)),
+        filtered_vcf="{meditdb_path}/{mode}/consensus_refs/{reference_id}/{offtarget_extended}.filtered.vcf.gz"
+    output:
+        consensus_fasta="{meditdb_path}/{mode}/consensus_refs/{reference_id}/{offtarget_extended}.fa",
+        bed_file="{meditdb_path}/{mode}/bed_files/{reference_id}/{offtarget_extended}.bed"
+    params:
+        tmp_vcf = "{meditdb_path}/{mode}/consensus_refs"
+    conda:
+        "../envs/samtools.yaml"
+    message:
+        """
+# === CREATING CONSENSUS FASTA FOR GENOME {wildcards.offtarget_extended} === #	
+Input used:
+--> Take filtered VCF input file from:\n {input.filtered_vcf}
+Output generated:
+--> Export Consensus sequence to:\n {output.consensus_fasta}
+        """
+    shell:
+        """
+bcftools query -f '%CHROM\t%POS0\t%POS\t%REF\t%ALT\n' {input.filtered_vcf} > {output.bed_file}
+
+#bcftools will skip Multiallelic positions when creatign a consensus fasta.
+#This removes one of the alt alleles which can be reffered back to in the bedfile later in the pipeline
+gunzip -c {input.filtered_vcf} | awk 'BEGIN {{OFS="\t"}} /^#/ {{print; next}} !seen[$1":"$2]++' | bgzip > {params.tmp_vcf}/tmp_{wildcards.offtarget_extended}.vcf
+bcftools index -f -t {params.tmp_vcf}/tmp_{wildcards.offtarget_extended}.vcf
+
+## Consensus Sequence
+# remove 0|0, .|0, 0| and then chose the alt allele to make fasta
+samtools dict {input.assembly_path}
+samtools faidx {input.assembly_path}	
+
+bcftools consensus -H A -M A --fasta-ref {input.assembly_path} {params.tmp_vcf}/tmp_{wildcards.offtarget_extended}.vcf > {output.consensus_fasta}
+samtools faidx {output.consensus_fasta}        	
+        """
+
+# noinspection SmkAvoidTabWhitespace
 rule set_gscan_indices:
     input:
-        consensus_fasta=lambda wildcards: glob.glob("{meditdb_path}/{mode}/consensus_refs/{sequence_id}/{offtarget_genomes}.fa".format(
-            meditdb_path=wildcards.meditdb_path, mode=config["processing_mode"],
-            sequence_id=config["sequence_id"], offtarget_genomes=wildcards.offtarget_genomes))
+        consensus_fasta=lambda wildcards: glob.glob("{meditdb_path}/{mode}/consensus_refs/{reference_id}/{offtarget_genomes}.fa".format(
+            meditdb_path=config["meditdb_path"], mode=wildcards.mode,
+            reference_id=wildcards.reference_id, offtarget_genomes=wildcards.offtarget_extended))
     output:
-        gs_index="{meditdb_path}/gscan_indices/{offtarget_genomes}.consensus.fa.index.gs"
+        gs_index="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/tmp/{offtarget_extended}.consensus.fa.index.gs",
     params:
-        gscan_indices_dir="{meditdb_path}/gscan_indices"
+        gscan_indices_dir=lambda wildcards: glob.glob("{meditdb_path}/gscan_indices".format(
+            meditdb_path=config["meditdb_path"])),
+        gs_index_prefix=lambda wildcards: glob.glob("{meditdb_path}/gscan_indices/{offtarget_genomes}.consensus.fa.index".format(
+            meditdb_path=config["meditdb_path"], offtarget_genomes=wildcards.offtarget_extended)),
+        gs_index_dummy_dir="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/tmp",
     conda:
         "../envs/gscan.yaml"
     message:
         """
-# === CREATING GuideScan 2 INDEX FOR GENOME {wildcards.offtarget_genomes} === #	
+# === CREATING GuideScan 2 INDEX FOR GENOME {wildcards.offtarget_extended} === #	
 Input used:
 --> Take Guidescan input file from:\n {input.consensus_fasta}
 Output generated:
@@ -67,15 +116,16 @@ Output generated:
     shell:
         """
 cd {params.gscan_indices_dir}        
-guidescan index --index {wildcards.offtarget_genomes}.consensus.fa.index {input.consensus_fasta}
+guidescan index --index {wildcards.offtarget_extended}.consensus.fa.index {input.consensus_fasta}
+ln --symbolic -t {params.gs_index_dummy_dir} {params.gs_index_prefix}*
         """
 
 # noinspection SmkAvoidTabWhitespace
 rule casoff_input_formatting:
     input:
-        guides_per_editor_path="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/dynamic_params/{query_index}_{editing_tool}.pkl",
+        guides_per_editor_path="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/dynamic_params/{query_index}_{editing_tool}.pkl"
     output:
-        casoff_input="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/input_files/{query_index}_{editing_tool}_guidescan_input.csv",
+        casoff_input="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/input_files/{query_index}_{editing_tool}_guidescan_input.csv"
     params:
         pam_per_editor_dict=lambda wildcards: config["pam_per_editor_dict"][wildcards.editing_tool]
     conda:
@@ -162,8 +212,9 @@ rule casoff_run_extended:
     input:
         casoff_input="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/input_files/{query_index}_{editing_tool}_guidescan_input.csv",
         ref_guidescan_full_bed="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{reference_id}/{query_index}_{editing_tool}_guidescan_filtered.bed",
-        gs_index=lambda wildcards: glob.glob("{meditdb_path}/gscan_indices/{offtarget_extended}.consensus.fa.index.gs".format(
-            meditdb_path=config["meditdb_path"], offtarget_extended=wildcards.offtarget_extended))
+        bed_file=lambda wildcards: glob.glob("{meditdb_path}/{mode}/bed_files/{reference_id}/{offtarget_extended}.bed".format(
+            meditdb_path=config["meditdb_path"], mode=wildcards.mode,reference_id=wildcards.reference_id, offtarget_extended=wildcards.offtarget_extended)),
+        gs_index="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/tmp/{offtarget_extended}.consensus.fa.index.gs",
     output:
         guidescan_filtered_bed="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_extended}/{query_index}_{editing_tool}_guidescan_filtered.bed"
     params:
@@ -172,8 +223,6 @@ rule casoff_run_extended:
         guidescan_tmp_full_bed="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_extended}/{query_index}_{editing_tool}_guidescan.bed",
         guidescan_tmp_missing_from_ref_bed="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_extended}/{query_index}_{editing_tool}_missing_from_ref.bed",
         guidescan_tmp_variants_combined_bed="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_extended}/{query_index}_{editing_tool}_combined.bed",
-        # == Bed Files Database
-        bed_path=config["bed_path"],
         # == GuideScan Indices Path
         gscan_indices_path=lambda wildcards: glob.glob("{meditdb_path}/gscan_indices".format(meditdb_path=config["meditdb_path"])),
         # == GuideScan Parameters
@@ -234,7 +283,7 @@ Wildcards in this rule:
         cat {params.guidescan_tmp_full_bed} {params.guidescan_tmp_missing_from_ref_bed} | bedtools sort -i > {params.guidescan_tmp_variants_combined_bed}
         
         #drop anything wihout an overlapping variant (keep only sites though effected by alt variants we don't want the same sites as the reference
-        bedtools intersect -a {params.guidescan_tmp_variants_combined_bed} -b {params.bed_path}/{wildcards.offtarget_extended}.bed -wa -wb > {output.guidescan_filtered_bed}
+        bedtools intersect -a {params.guidescan_tmp_variants_combined_bed} -b {input.bed_file} -wa -wb > {output.guidescan_filtered_bed}
         
         rm {params.guidescan_tmp_full_bed}
         rm {params.guidescan_tmp_missing_from_ref_bed}

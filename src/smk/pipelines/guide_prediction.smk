@@ -5,8 +5,8 @@ import glob
 rule all:
 	input:
 		# === Serialize Chromosomes for further processing
-		expand("{fasta_root_path}/{sequence_id}_chr_manifest.csv",
-			fasta_root_path=config["fasta_root_path"],sequence_id=config["sequence_id"]),
+		expand("{root_dir}/tmp/{sequence_id}_chr_manifest.csv",
+			root_dir=config["output_directory"],sequence_id=config["sequence_id"]),
 		# === Predicted guides using the most recent human genome assembly ===
 		expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/{query_index}_Guides_found.csv",
 			root_dir=config["output_directory"],mode=config["processing_mode"],
@@ -30,9 +30,10 @@ rule all:
 # noinspection SmkAvoidTabWhitespace
 rule serialize_chromosomes:
 	input:
-		assembly_path="{fasta_root_path}/{sequence_id}.fa.gz"
+		assembly_path=lambda wildcards: glob.glob("{fasta_root_path}/{sequence_id}.fa.gz".format(
+			fasta_root_path=config["fasta_root_path"],sequence_id=wildcards.sequence_id))
 	output:
-		serialized_chr_manifest="{fasta_root_path}/{sequence_id}_chr_manifest.csv"
+		serialized_chr_manifest = "{root_dir}/tmp/{sequence_id}_chr_manifest.csv"
 	params:
 		decompressed_assembly=lambda wildcards: f"{config['fasta_root_path']}/{wildcards.sequence_id}.fa",
 		output_dir=config["fasta_root_path"]
@@ -57,8 +58,7 @@ Outputs stored on:\n {params.output_dir}
 rule predict_guides:
 	input:
 		query_manifest = "{root_dir}/queries/{run_name}_{query_index}.csv",
-		serialized_chr_manifest = lambda wildcards: glob.glob("{fasta_root_path}/{sequence_id}_chr_manifest.csv".format(
-			fasta_root_path=config["fasta_root_path"],sequence_id=wildcards.sequence_id)),
+		serialized_chr_manifest = "{root_dir}/tmp/{sequence_id}_chr_manifest.csv",
 		assembly_dir_path = lambda wildcards: glob.glob("{fasta_root_path}".format(
 			fasta_root_path=config["fasta_root_path"]))
 	output:
@@ -119,7 +119,7 @@ Log file path:
 		"py/fetchGuides.py"
 
 # noinspection SmkAvoidTabWhitespace
-rule consensus_fasta:
+rule filter_vcf:
 	input:
 		assembly_path=lambda wildcards: glob.glob("{fasta_root_path}/{sequence_id}.filtered.fa.gz".format(
 			fasta_root_path=config["fasta_root_path"], sequence_id=wildcards.sequence_id)),
@@ -127,7 +127,6 @@ rule consensus_fasta:
 			meditdb_path=wildcards.meditdb_path, mode=wildcards.mode, vcf_filename=config["vcf_filename"]))
 		# source_vcf="{meditdb_path}/{mode}/source_vcfs/{vcf_id}.vcf.gz"
 	output:
-		consensus_fasta="{meditdb_path}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.fa",
 		filtered_vcf="{meditdb_path}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.filtered.vcf.gz"
 	params:
 		split_vcf='{meditdb_path}/{mode}/source_vcfs/{vcf_id}.vcf.gz',
@@ -148,7 +147,6 @@ Inputs used:
 --> Source VCF: {input.source_vcf}
 Outputs generated:
 --> Filtered VCF: {output.filtered_vcf}
---> Consensus genome sequence: {output.consensus_fasta}
 Wildcards in this rule:
 --> {wildcards}
 		"""
@@ -168,32 +166,23 @@ Wildcards in this rule:
 		if [ $num_samples -le 1 ]; then
 			# Check if read depth is given (for custom vcfs derived from wgs)
 			if bcftools view -h {input.source_vcf} | grep -q '##FORMAT=<ID=DP'; then
-				bcftools filter -O z -o {output.filtered_vcf} -e 'GT="." || ILEN <= -1 || ILEN >= 1 || QUAL<15 || FMT/DP<5' {input.source_vcf}
+				bcftools view --min-ac=1 -v snps -e 'GT="." || QUAL<15 || FMT/DP<5' {input.source_vcf} | bcftools sort -O z -o {output.filtered_vcf}
 			else
-				bcftools filter -O z -o {output.filtered_vcf} -e 'GT="." || ILEN <= -1 || ILEN >= 1 || QUAL<15' {input.source_vcf}
+				bcftools view --min-ac=1 -v snps -e 'GT="." || QUAL<15' {input.source_vcf} | bcftools sort -O z -o {output.filtered_vcf} 
 			fi
+			
 		# If multi genomes split with sample name first
 		else
-			bcftools view -s {wildcards.vcf_id} -e 'GT="."' -O z -o {output.filtered_vcf} {input.source_vcf}
+			bcftools view -s {wildcards.vcf_id} --min-ac=1 {input.source_vcf} | bcftools sort -O z -o {output.filtered_vcf}
 		fi
 
-		bcftools index -f -t {output.filtered_vcf}
-		        
-		# 3) Making a consensus
-		samtools dict {input.assembly_path}
-		samtools faidx {input.assembly_path}
-		
-		bcftools consensus -f {input.assembly_path} {output.filtered_vcf} -o {output.consensus_fasta} > bcftools.tmp.info || true
+		bcftools index -f -t {output.filtered_vcf}		        		
         """
 
 # noinspection SmkAvoidTabWhitespace
 rule process_altgenomes:
 	input:
 		filtered_vcf=lambda wildcards: f"{config['meditdb_path']}/{wildcards.mode}/consensus_refs/{wildcards.sequence_id}/{wildcards.vcf_id}.filtered.vcf.gz",
-		# filtered_vcf=lambda wildcards: glob.glob("{meditdb_path}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.filtered.vcf.gz".format(
-		# 	meditdb_path=config["meditdb_path"],mode=wildcards.mode,
-		# 	vcf_id=wildcards.vcf_id,sequence_id=wildcards.sequence_id
-		# )),
 		guides_report_out="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/{query_index}_Guides_found.csv",
 		be_report_out = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/{query_index}_BaseEditors_found.csv",
 		guide_search_params="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params/{query_index}_guide_search_params.pkl",
