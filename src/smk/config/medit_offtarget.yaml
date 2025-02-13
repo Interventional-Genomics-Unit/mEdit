@@ -17,7 +17,6 @@ editors_list: ""
 offtarget_genomes: ""
 offtarget_bed_files: ""
 offtarget_extended: ""
-reference_id: ""
 # genome_types stores a dictionary that labels each genome
 #  in the analysis as 'main_ref' or 'extended'
 genome_types: ""

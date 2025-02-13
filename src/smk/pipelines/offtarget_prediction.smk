@@ -10,30 +10,29 @@ rule all:
         #   == rule
         expand("{meditdb_path}/{mode}/consensus_refs/{reference_id}/{offtarget_extended}.fa",
             meditdb_path=config["meditdb_path"],mode=config["processing_mode"],
-            reference_id=config["reference_id"],offtarget_extended=config["offtarget_extended"]),
+            reference_id=config["sequence_id"],offtarget_extended=config["offtarget_extended"]),
         # === Setup Guide Scan Indices ===
         #   == rule set_gscan_indices ==
-        expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/tmp/{offtarget_extended}.consensus.fa.index.gs",
+        expand("{root_dir}/{mode}/tmp/{offtarget_extended}.consensus.fa.index.gs",
             root_dir=config["output_directory"],mode=config["processing_mode"],
-            run_name=config["run_name"],reference_id=config["reference_id"],
             offtarget_extended=config["offtarget_extended"]),
         # === Prepare input files for casoffinder on a per-editor basis ===
         #   == rule casoff_input_formatting ==
         expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/input_files/{query_index}_{editing_tool}_guidescan_input.csv",
             root_dir=config["output_directory"],mode=config["processing_mode"],
-            run_name=config["run_name"],reference_id=config["reference_id"],
+            run_name=config["run_name"],reference_id=config["sequence_id"],
             query_index=config['query_index'],editing_tool=config["pam_per_editor_dict"],
             ),
         # === Run GuideScan2 ===
         #   == rule casoff_run_ref ==
         expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{reference_id}/{query_index}_{editing_tool}_guidescan_filtered.bed",
             root_dir=config["output_directory"],mode=config["processing_mode"],
-            run_name=config["run_name"],reference_id=config["reference_id"],
+            run_name=config["run_name"],reference_id=config["sequence_id"],
             query_index=config['query_index'],editing_tool=config["pam_per_editor_dict"]),
         #   == rule casoff_run_extended ==
         expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_extended}/{query_index}_{editing_tool}_guidescan_filtered.bed",
             root_dir=config["output_directory"],mode=config["processing_mode"],
-            run_name=config["run_name"],reference_id=config["reference_id"],
+            run_name=config["run_name"],reference_id=config["sequence_id"],
             offtarget_extended=config["offtarget_extended"],editing_tool=config["pam_per_editor_dict"],
             query_index=config['query_index']),
 
@@ -41,13 +40,13 @@ rule all:
         #   == rule casoff_scoring ==
         expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{query_index}_{editing_tool}_Offtargets_found.csv",
             root_dir=config["output_directory"],mode=config["processing_mode"],
-            run_name=config["run_name"],reference_id=config["reference_id"],
+            run_name=config["run_name"],reference_id=config["sequence_id"],
             offtarget_genomes=config["offtarget_genomes"],query_index=config['query_index'],
             editing_tool=config["pam_per_editor_dict"]),
         #   == rule casoff_output_formatting ==
         expand("{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/summary_reports/{query_index}_offtarget_summary.csv",
             root_dir=config["output_directory"],mode=config["processing_mode"],
-            run_name=config["run_name"],reference_id=config["reference_id"],
+            run_name=config["run_name"],reference_id=config["sequence_id"],
             query_index=config['query_index'])
 
 # noinspection SmkAvoidTabWhitespace
@@ -92,17 +91,17 @@ samtools faidx {output.consensus_fasta}
 # noinspection SmkAvoidTabWhitespace
 rule set_gscan_indices:
     input:
-        consensus_fasta=lambda wildcards: glob.glob("{meditdb_path}/{mode}/consensus_refs/{reference_id}/{offtarget_genomes}.fa".format(
+        consensus_fasta=lambda wildcards: glob.glob("{meditdb_path}/{mode}/consensus_refs/{reference_id}/{offtarget_extended}.fa".format(
             meditdb_path=config["meditdb_path"], mode=wildcards.mode,
-            reference_id=wildcards.reference_id, offtarget_genomes=wildcards.offtarget_extended))
+            reference_id=config["sequence_id"], offtarget_extended=wildcards.offtarget_extended))
     output:
-        gs_index="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/tmp/{offtarget_extended}.consensus.fa.index.gs",
+        gs_index="{root_dir}/{mode}/tmp/{offtarget_extended}.consensus.fa.index.gs"
     params:
         gscan_indices_dir=lambda wildcards: glob.glob("{meditdb_path}/gscan_indices".format(
             meditdb_path=config["meditdb_path"])),
         gs_index_prefix=lambda wildcards: glob.glob("{meditdb_path}/gscan_indices/{offtarget_genomes}.consensus.fa.index".format(
             meditdb_path=config["meditdb_path"], offtarget_genomes=wildcards.offtarget_extended)),
-        gs_index_dummy_dir="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/tmp",
+        gs_index_dummy_dir="{root_dir}/{mode}/tmp"
     conda:
         "../envs/gscan.yaml"
     message:
@@ -117,7 +116,9 @@ Output generated:
         """
 cd {params.gscan_indices_dir}        
 guidescan index --index {wildcards.offtarget_extended}.consensus.fa.index {input.consensus_fasta}
-ln --symbolic -t {params.gs_index_dummy_dir} {params.gs_index_prefix}*
+ln --symbolic -f {params.gscan_indices_dir}/{wildcards.offtarget_extended}.consensus.fa.index.forward {params.gs_index_dummy_dir}/{wildcards.offtarget_extended}.consensus.fa.index.forward
+ln --symbolic -f {params.gscan_indices_dir}/{wildcards.offtarget_extended}.consensus.fa.index.reverse {params.gs_index_dummy_dir}/{wildcards.offtarget_extended}.consensus.fa.index.reverse
+ln --symbolic -f {params.gscan_indices_dir}/{wildcards.offtarget_extended}.consensus.fa.index.gs {params.gs_index_dummy_dir}/{wildcards.offtarget_extended}.consensus.fa.index.gs
         """
 
 # noinspection SmkAvoidTabWhitespace
@@ -214,7 +215,7 @@ rule casoff_run_extended:
         ref_guidescan_full_bed="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{reference_id}/{query_index}_{editing_tool}_guidescan_filtered.bed",
         bed_file=lambda wildcards: glob.glob("{meditdb_path}/{mode}/bed_files/{reference_id}/{offtarget_extended}.bed".format(
             meditdb_path=config["meditdb_path"], mode=wildcards.mode,reference_id=wildcards.reference_id, offtarget_extended=wildcards.offtarget_extended)),
-        gs_index="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/tmp/{offtarget_extended}.consensus.fa.index.gs",
+        gs_index="{root_dir}/{mode}/tmp/{offtarget_extended}.consensus.fa.index.gs",
     output:
         guidescan_filtered_bed="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_extended}/{query_index}_{editing_tool}_guidescan_filtered.bed"
     params:

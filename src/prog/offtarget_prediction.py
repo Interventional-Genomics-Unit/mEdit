@@ -177,7 +177,6 @@ def offtarget_prediction(args, jobtag):
     config_template['offtarget_genomes'] = {str(tup[0]): str(tup[1]) for tup in offtarget_genomes}
     config_template['offtarget_extended'] = {str(tup[0]): str(tup[1]) for tup in offtarget_genomes if
                                              tup[1] == 'extended'}
-    config_template['reference_id'] = reference_genome
     config_template['genome_types'] = genome_type_dict
     # == Assign cluster options ==
     cluster_template['__default__']['cores'] = ncores

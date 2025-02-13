@@ -6,7 +6,6 @@ import yaml
 from prog.medit_lib import (compress_file,
 							download_gdrive_folder,
 							download_s3_objects,
-							# pickle_chromosomes,
 							project_file_path,
 							launch_shell_cmd,
 							set_export,
