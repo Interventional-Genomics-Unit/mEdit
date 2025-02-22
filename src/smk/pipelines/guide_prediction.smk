@@ -47,12 +47,8 @@ rule serialize_chromosomes:
 Inputs used:\n {input.assembly_path}
 Outputs stored on:\n {params.output_dir}		
 		"""
-	shell:
-		"""
-		bgzip -df -@ {threads} {input.assembly_path} > {params.decompressed_assembly}
-		python src/smk/pipelines/py/serialize_chromosomes.py {params.decompressed_assembly} {output.serialized_chr_manifest} {params.output_dir}
-		bgzip -cf -@ {threads} {params.decompressed_assembly} > {input.assembly_path}
-		"""
+	script:
+		"py/serialize_chromosomes.py"
 
 # noinspection SmkAvoidTabWhitespace
 rule predict_guides:
