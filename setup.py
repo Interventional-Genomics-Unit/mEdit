@@ -10,7 +10,7 @@ long_description = (this_directory / "README.md").read_text()
 
 setup(
     name='meditability',
-    version='0.5.6',
+    version='0.5.8',
     description='',
     long_description=long_description,
     long_description_content_type='text/markdown',
@@ -32,7 +32,7 @@ setup(
         'snakemake>=7.32.4',
         'pulp<2.8.0',
         'pandas>=2.1.1',
-        'numpy>=1.23.5',
+        'numpy~=1.26.0',
         'wrapt>=1.15.0',
         'biopython>=1.81',
         'pyyaml>=6.0',
