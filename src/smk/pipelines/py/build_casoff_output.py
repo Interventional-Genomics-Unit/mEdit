@@ -190,19 +190,17 @@ class OffTargets_Library:
 
 				for guide_id in set(data[:,0]):
 					# SAFETY MEASURE -> Some Guide_ids from the "Offtargets_found.csv" were absent in guidescan Inputs
-					try:
-						aggregator = self.gid_stats[guide_id][offtarget_genome]
-						if aggregator.ref_counts_set:
-							pass
-						else:
-							ref_aggregator = self.gid_stats[guide_id][self.ref_genome]
-							ref_counts = ref_aggregator.site_counts
-							ref_cfd_sums = ref_aggregator.cfd_sums
-							ref_features = ref_aggregator.feature_counts
-							aggregator.set_ref_counts(ref_counts, ref_features,ref_cfd_sums)
-							self.gid_stats[guide_id][offtarget_genome] = aggregator
-					except KeyError:
-						continue
+
+					aggregator =self.gid_stats[guide_id][offtarget_genome]
+
+					if aggregator.ref_counts_set:
+						pass
+					else:
+						ref_aggregator = self.gid_stats[guide_id][self.ref_genome]
+						ref_counts = copy.deepcopy(ref_aggregator.site_counts)
+						ref_cfd_sums = copy.deepcopy(ref_aggregator.cfd_sums)
+						ref_features = copy.deepcopy(ref_aggregator.feature_counts)
+						aggregator.set_ref_counts(ref_counts, ref_features,ref_cfd_sums)
 
 			for i in range(nrows):
 				# SAFETY MEASURE -> Some Guide_ids from the "Offtargets_found.csv" were absent in guidescan Inputs
@@ -210,8 +208,7 @@ class OffTargets_Library:
 					aggregator = self.gid_stats[data[i,0]][offtarget_genome]
 					aggregator.add_site(site_thresholds[i],data[i,1],cfd_scores[i],data[i,5],data[i,6])
 					self.gid_stats[data[i, 0]][offtarget_genome] = aggregator
-					#if 'spCas9_0' in data[i, 0]:
-					#	print(f"Updated counts for {data[i, 0]} in {offtarget_genome}: {aggregator.site_counts.values()}, CFD Sum: {aggregator.cfd_sum}")
+
 				except KeyError:
 					continue
 
@@ -246,6 +243,7 @@ def extract_genome_name(filepath: str, pattern: str):
 
 def compile_genome_types(list_of_files, extented_genomes, reference_genome):
 	genome_type_dict = {}
+	genome_type_dict.setdefault(reference_genome, 'main_ref')
 	for extended_genome in extented_genomes:
 		for filepath in list_of_files:
 			try:
@@ -253,7 +251,6 @@ def compile_genome_types(list_of_files, extented_genomes, reference_genome):
 				genome_type_dict.setdefault(genome_name, 'extended')
 			except AttributeError:
 				continue
-	genome_type_dict.setdefault(reference_genome, 'main_ref')
 	return genome_type_dict
 
 
@@ -313,8 +310,9 @@ def aggregate_guidescan_results(guides_per_editor_list, formatted_casoff_list,
 	offtarget_lib = OffTargets_Library(thresholds, coords_per_guide, offtarget_genomes)
 
 	for formatted_casoff in formatted_casoff_list:
-		for offtarget_genome, genome_type in offtarget_genomes.items():
-			offtarget_lib.add_data_from_file(formatted_casoff, offtarget_genome, genome_type)
+		offtarget_genome = formatted_casoff.split("/")[-2]
+		genome_type = offtarget_genomes[offtarget_genome]
+		offtarget_lib.add_data_from_file(formatted_casoff, offtarget_genome, genome_type)
 
 	rows = offtarget_lib.generate_rows()
 	expanded_offtarget_report = pd.DataFrame(rows[1:],columns=rows[0])

@@ -172,7 +172,7 @@ def add_annotations(df,annote_path):
 	return df
 
 
-def reformat_guidescan(casoff_output_path,
+def reformat_guidescan(guidescan_filtered_bed,
 					   formatted_casoff_out,
 					   genome_type,
 					   offtarget_genome,
@@ -182,10 +182,10 @@ def reformat_guidescan(casoff_output_path,
 
 	final_df = pd.DataFrame()
 	find_alt_unique_sites = True if genome_type == 'extended' else False
-	lines = open(casoff_output_path,"r").readlines()
+	lines = open(guidescan_filtered_bed,"r").readlines()
 
 	if len(lines) ==1:
-		editing_tool = casoff_output_path.split('/')[-1].split("_").replace("_guidescan_filtered.bed","").split("_")[-1]
+		editing_tool = guidescan_filtered_bed.split('/')[-1].split("_").replace("_guidescan_filtered.bed","").split("_")[-1]
 		print(f"No offtargets found for {editing_tool} in {genome_type}")
 		print("skipping......")
 	else:
