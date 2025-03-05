@@ -18,8 +18,6 @@
   * [Installation](#installation)
   * [Running Tests](#running-tests)
 - [Usage](#usage)
-- [Roadmap](#roadmap)
-- [Contributing](#contributing)
 - [FAQ](#faq)
 - [License](#license)
 - [Contact](#contact)
@@ -93,13 +91,13 @@ For other sytems, follow the instructions on [this page](https://www.anaconda.co
   - Additional information on how to operate Mamba:
     - [Mamba official page](https://mamba.readthedocs.io/en/latest/installation/mamba-installation.html)
     - [Miniforge repository](https://github.com/conda-forge/miniforge)
-    
 
 ### Installation
  * mEdit is compatible with UNIX-based systems running on Intel processors and it's conveniently available via pyPI:
-```
-pip install meditability
-```
+
+    ```
+    pip install meditability
+    ```
 
 ### Running Tests
 
@@ -107,10 +105,9 @@ pip install meditability
  - A dry run evaluates the presence of supporting data, and I/O necessary for each process without actually processing the run. 
  - All mEdit programs can be used called with the `--dry` option
 
-
 ## Usage
 
- * To obtain information on how to run mEdit and view its programs, simply execute with the  `—-help` flag
+* To obtain information on how to run mEdit and view its programs, simply execute with the  `—-help` flag
     ```
     medit —-help
     ```
@@ -132,13 +129,14 @@ pip install meditability
 
 
 ### 1. **Database Setup**
-
-```
-$ mEdit db_set [-h] [-d DB_PATH] [-l] [-c CUSTOM_REFERENCE] [-t THREADS]
-```
-
  * Database Setup is used to retrieve the required information and datasets to run medit. The contents include the reference human genome, HPRC pangenome vcf files, Refseq, MANE, clinvar and more. See the database structure below.
+
+    ```
+    mEdit db_set [-h] [-d DB_PATH] [-l] [-c CUSTOM_REFERENCE] [-t THREADS]
+    ```
+
 #### **Parameters:**
+
 #### Reference Database Pre-Processing
 | Argument             | Description |
 |----------------------|-------------|
@@ -147,12 +145,11 @@ $ mEdit db_set [-h] [-d DB_PATH] [-l] [-c CUSTOM_REFERENCE] [-t THREADS]
 | `-t THREADS`        | Number of cores to use for parallel decompression of mEdit databases. |
 
 ### 2. **Editor List**
+- In the current version there are 24 endonuclease editors and 29 base editor stored within medit. list  prints out a list of both base editors and endonuclease editors with the parameters used for guide prediction.
+    ```
+    mEdit list [-h] [-d DB_PATH]
+    ```
 
-```
-mEdit list [-h] [-d DB_PATH]
-```
-
- - In the current version there are 24 endonuclease editors and 29 base editor stored within medit. list  prints out a list of both base editors and endonuclease editors with the parameters used for guide prediction.
 #### **Parameters:**
 
 #### Available Editors and Base Editors (BEs)
@@ -160,7 +157,6 @@ mEdit list [-h] [-d DB_PATH]
 | Argument  | Description |
 |-----------|-------------|
 | `-d DB_PATH` | Path to the `mEdit_database` directory created using the `db_set` program. **[default: `./mEdit_database`]** |
-
 
 **Output**;
 
@@ -178,7 +174,15 @@ notes: requirements work for SpCas9-HF1, eSpCas9 1.1,spyCas9
 
 ### 3. **Guide Prediction**
 
-- `guide_prediction` is the main program to search for guides given a list of variants. The pathogenic variants wished to be searched can be either from the clinvar database or a de novo variant. medit first generates variant incorporated gRNAs using the reference human genome. If the user chooses ”fast” the search will end with the human reference genome. However if the user chooses “standard” or “vcf” the medit program will also go on to predict the impact of alternative genomic variants on either the pangenome or user provided vcf file.
+- `guide_prediction` is the main program to search for guides given a list of variants. The pathogenic variants can be searched either from the ClinVar database or a _de novo_ variant (these must be provided as genomic coordinates. See `--qtype` option). 
+- mEdit first generates variant incorporated gRNAs using the reference human genome. If the user chooses "fast" the search will end with the human reference genome. However if the user chooses “standard” or “vcf” the medit program will also go on to predict the impact of alternative genomic variants on either the pangenome or user provided vcf file.
+
+```
+mEdit guide_prediction [-h] -i QUERY_INPUT [-o OUTPUT] [-d DB_PATH] [-j JOBTAG] [-m {fast,standard,vcf}] [-v CUSTOM_VCF] [--qtype {hgvs,coord}] [--editor EDITOR_REQUEST]
+                              [--be BE_REQUEST] [--cutdist CUTDIST] [--dry] [--pam PAM] [--guidelen GUIDE_LENGTH] [--pamisfirst] [--dsb_pos DSB_POSITION]
+                              [--edit_win EDITING_WINDOW] [--target_base {A,C,G,T}] [--result_base {A,C,G,T}] [--cluster] [-p PARALLEL_PROCESSES] [--ncores NCORES]
+                              [--maxtime MAXTIME]
+```
 
 #### **Parameters:**
 
@@ -189,8 +193,6 @@ notes: requirements work for SpCas9-HF1, eSpCas9 1.1,spyCas9
 | `-o OUTPUT`      | Path to root directory where mEdit outputs will be stored. **[default: `mEdit_analysis_<jobtag>/`]** |
 | `-d DB_PATH`     | Path to the `mEdit_database` directory created using the `db_set` program. **[default: `./mEdit_database`]** |
 | `-j JOBTAG`      | Tag associated with the current mEdit job. A random jobtag is generated by default. |
----
-
 ---
 #### **mEdit Core Parameters**
 | Argument             | Description |
@@ -203,8 +205,6 @@ notes: requirements work for SpCas9-HF1, eSpCas9 1.1,spyCas9
 | `--cutdist CUTDIST` | Maximum variant start position distance from the editor cut site. (Not available for base editors). **[default: `7`]** |
 | `--dry` | Perform a dry run of mEdit. |
 ---
-
----
 #### **Custom Editor Options**
 | Argument        | Description |
 |----------------|-------------|
@@ -216,8 +216,6 @@ notes: requirements work for SpCas9-HF1, eSpCas9 1.1,spyCas9
 | `--target_base {A,C,G,T}` | Specifies the target base for base editor modification (e.g., `"A"` for ABE). |
 | `--result_base {A,C,G,T}` | Specifies the base that the target base will be converted to (e.g., `"G"` for ABE). |
 ---
-
----
 #### **SLURM Options**
 | Argument               | Description |
 |-----------------------|-------------|
@@ -228,6 +226,13 @@ notes: requirements work for SpCas9-HF1, eSpCas9 1.1,spyCas9
 
 
 ### 4. **Off-target Prediction**
+
+- The `offtarget` program applies [Guidescan2](https://github.com/pritykinlab/guidescan-cli) on the guides found in [guide\_prediction](#3-guide-prediction) and reports a summarized data set including the CFD score among other metrics.
+
+    ```
+    mEdit offtarget [-h] [--dry] [-o OUTPUT] [-d DB_PATH] -j JOBTAG [--select_editors SELECT_EDITORS] [--dna_bulge DNA_BULGE] [--rna_bulge RNA_BULGE]
+                           [--max_mismatch MAX_MISMATCH] [--cluster] [-p PARALLEL_PROCESSES] [--ncores NCORES] [--maxtime MAXTIME]
+    ```
 
 #### **Parameters:**
 
@@ -241,8 +246,6 @@ notes: requirements work for SpCas9-HF1, eSpCas9 1.1,spyCas9
 | `--dna_bulge DNA_BULGE` | Sets the number of insertions in the off-target sequence. **[default: `0`]** |
 | `--rna_bulge RNA_BULGE` | Sets the number of deletions in the off-target sequence. **[default: `0`]** |
 | `--max_mismatch MAX_MISMATCH` | Maximum allowable number of mismatches in off-target analysis. **[default: `3`]** |
----
-
 ---
 #### **SLURM Options**
 | Argument              | Description |
