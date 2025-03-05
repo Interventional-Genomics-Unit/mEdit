@@ -26,6 +26,9 @@ from prog.medit_lib import (
 def offtarget_prediction(args, jobtag):
     # == Load Run Parameters values ==
     user_jobtag = args.user_jobtag
+    dna_bulge = args.dna_bulge
+    rna_bulge = args.rna_bulge
+    max_mismatch = args.max_mismatch
     root_dir = abspath(args.output)
     db_path_full = f"{abspath(args.db_path)}/medit_database"
     editing_tool_request = args.select_editors
@@ -178,6 +181,9 @@ def offtarget_prediction(args, jobtag):
     config_template['offtarget_extended'] = {str(tup[0]): str(tup[1]) for tup in offtarget_genomes if
                                              tup[1] == 'extended'}
     config_template['genome_types'] = genome_type_dict
+    config_template['DNAbb'] = dna_bulge
+    config_template['RNAbb'] = rna_bulge
+    config_template['max_mismatch'] = max_mismatch
     # == Assign cluster options ==
     cluster_template['__default__']['cores'] = ncores
     cluster_template['__default__']['time'] = maxtime

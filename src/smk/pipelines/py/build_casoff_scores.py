@@ -178,14 +178,15 @@ def reformat_guidescan(guidescan_filtered_bed,
 					   offtarget_genome,
 					   max_bulge,
 					   annote_path,
-					   models_dir):
+					   models_dir,
+					   editing_tool):
 
 	final_df = pd.DataFrame()
 	find_alt_unique_sites = True if genome_type == 'extended' else False
 	lines = open(guidescan_filtered_bed,"r").readlines()
 
 	if len(lines) ==1:
-		editing_tool = guidescan_filtered_bed.split('/')[-1].split("_").replace("_guidescan_filtered.bed","").split("_")[-1]
+		# editing_tool = guidescan_filtered_bed.split('/')[-1].split("_").replace("_guidescan_filtered.bed","").split("_")[-1]
 		print(f"No offtargets found for {editing_tool} in {genome_type}")
 		print("skipping......")
 	else:
@@ -212,6 +213,7 @@ def main():
 	dna_bulge = int(snakemake.params.dna_bulge)
 	# === Wildcards ===
 	offtarget_genome = str(snakemake.wildcards.offtarget_genomes)
+	editing_tool = str(snakemake.wildcards.editing_tool)
 
 	genome_type = 'main_ref'
 	if offtarget_genome in set(extended_genomes):
@@ -225,7 +227,8 @@ def main():
 					   offtarget_genome,
 					   max_bulge,
 					   annote_path,
-					   models_path)
+					   models_path,
+					   editing_tool)
 
 
 if __name__ == "__main__":

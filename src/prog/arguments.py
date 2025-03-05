@@ -412,6 +412,31 @@ def parse_arguments():
 								[default: all] 
 								\n''')
 							)
+	off_in_out.add_argument('--dna_bulge',
+							dest='dna_bulge',
+							default=0,
+							help=textwrap.dedent('''
+									Sets the number of insertions in the off-target.
+									[default: 0] 
+									\n''')
+							)
+	off_in_out.add_argument('--rna_bulge',
+							dest='rna_bulge',
+							default=0,
+							help=textwrap.dedent('''
+										Sets the number of deletions in the off-target.
+										[default: 0] 
+										\n''')
+							)
+	off_in_out.add_argument('--max_mismatch',
+							dest='max_mismatch',
+							default=3,
+							help=textwrap.dedent('''
+											Sets the maximum allowable number of mismatches.
+											[default: 3] 
+											\n''')
+							)
+
 
 	off_cluster_opt = casoff_parser.add_argument_group("== SLURM Options ==")
 	off_cluster_opt.add_argument(

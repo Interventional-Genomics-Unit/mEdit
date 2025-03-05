@@ -30,8 +30,8 @@ alt_pam_per_editor_dict: ""
 # needed to indicate pam position
 pam_is_first_per_editor_dict: ""
 # RNA bulge, a deletion in the off-target
-RNAbb: "0"
+RNAbb: ""
 # DNA bulge, an insertion in the off-target
-DNAbb: "0"
+DNAbb: ""
 # Maximum allowable mismatch
-max_mismatch: "3"
+max_mismatch: ""
