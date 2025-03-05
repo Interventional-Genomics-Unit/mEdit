@@ -1,11 +1,9 @@
 # mEdit
 
 <!-- Badges -->
-![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/Interventional-Genomics-Unit/mEdit/total?logo=github)
 ![GitHub last commit (branch)](https://img.shields.io/github/last-commit/Interventional-Genomics-Unit/mEdit/main?logo=github)
 ![GitHub top language](https://img.shields.io/github/languages/top/Interventional-Genomics-Unit/mEdit?logo=github)
 ![PyPI - Version](https://img.shields.io/pypi/v/meditability)
-![GitHub License](https://img.shields.io/github/license/Interventional-Genomics-Unit/mEdit)
 
 <!-- Table of Contents -->
 # Table of Contents
