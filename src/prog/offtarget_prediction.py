@@ -115,6 +115,9 @@ def offtarget_prediction(args, jobtag):
         mode_checkpoint, mode = handle_offtarget_request(mode, db_path_full, offtarget_genomes)
         if mode == 'fast':
             offtarget_genomes = offtarget_mode_formatting(mode, reference_genome, dynamic_config_guidepred)
+            allowed_rules = ['--omit-from "set_consensus_fasta" '
+                             '--omit-from "set_gscan_indices" '
+                             '--omit-from "casoff_run_extended" ']
         if not mode_checkpoint:
             # == The user was consulted and decided NOT to proceed
             exit(0)

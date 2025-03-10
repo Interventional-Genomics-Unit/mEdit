@@ -10,7 +10,7 @@ long_description = (this_directory / "README.md").read_text()
 
 setup(
     name='meditability',
-    version='0.5.11',
+    version='0.5.12',
     description='',
     long_description=long_description,
     long_description_content_type='text/markdown',
@@ -29,7 +29,7 @@ setup(
                   "smk.pipelines": ["*.smk"]},
     include_package_data=True,
     install_requires=[
-        'snakemake>=7.32.4',
+        'snakemake~=7.32.4',
         'pulp<2.8.0',
         'pandas>=2.1.1',
         'numpy~=1.26.0',
