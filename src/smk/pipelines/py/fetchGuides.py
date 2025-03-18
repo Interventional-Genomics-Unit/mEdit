@@ -575,7 +575,7 @@ def main():
 	logging.info('=== INITIALIZING GUIDE PREDICTION ROUTINE ===')
 
 	# == Create dummy files for optional outputs
-	optional_outputs = [be_report, variant_report, gene_report, nguides_report]
+	optional_outputs = [be_report, variant_report, gene_report, nguides_report, guides_report]
 	for report in optional_outputs:
 		# Create an empty DataFrame
 		df = pd.DataFrame()
