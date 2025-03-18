@@ -31,7 +31,10 @@ def main():
 
 	threads = str(snakemake.threads)
 
-	subprocess.run(["bgzip", "-df", "-@", str(threads), assembly_path], check=True, stdout=open(decompressed_assembly, "wb"))
+	# Cleanup possible whitespaces in the assembly path
+	clean_assembly_path = re.sub(r'\s+', '', assembly_path)
+
+	subprocess.run(["bgzip", "-df", "-@", str(threads), clean_assembly_path], check=True, stdout=open(decompressed_assembly, "wb"))
 
 	chr_manifest = pickle_chromosomes(decompressed_assembly, output_dir)
 
@@ -40,7 +43,7 @@ def main():
 			file_handle.write(chromosome)
 
 	subprocess.run(["bgzip", "-cf", "-@", str(threads), decompressed_assembly], check=True,
-				   stdout=open(assembly_path, "wb"))
+				   stdout=open(clean_assembly_path, "wb"))
 
 
 if __name__ == "__main__":

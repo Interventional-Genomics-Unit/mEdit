@@ -30,8 +30,7 @@ rule all:
 # noinspection SmkAvoidTabWhitespace
 rule serialize_chromosomes:
 	input:
-		assembly_path=lambda wildcards: glob.glob("{fasta_root_path}/{sequence_id}.fa.gz".format(
-			fasta_root_path=config["fasta_root_path"],sequence_id=wildcards.sequence_id))
+		assembly_path=lambda wildcards: glob.glob(f"{config['fasta_root_path']}/{wildcards.sequence_id}.fa.gz")
 	output:
 		serialized_chr_manifest = "{root_dir}/tmp/{sequence_id}_chr_manifest.csv"
 	params:
