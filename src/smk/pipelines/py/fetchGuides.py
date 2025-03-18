@@ -512,6 +512,8 @@ class Fetch_Guides:
 			self.write_guide_csv(self.all_guides, outfile_guides)
 		else:
 			logging.info('No Endonuclease Guides found for any queries')
+			print('No Endonuclease Guides found for any queries')
+			exit(0)
 
 		if len(self.all_BE.keys()) != 0:
 			self.write_guide_csv(self.all_BE, outfile_be_guides)

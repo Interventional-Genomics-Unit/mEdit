@@ -10,7 +10,7 @@ long_description = (this_directory / "README.md").read_text()
 
 setup(
     name='meditability',
-    version='0.5.13',
+    version='0.5.14',
     description='',
     long_description=long_description,
     long_description_content_type='text/markdown',
