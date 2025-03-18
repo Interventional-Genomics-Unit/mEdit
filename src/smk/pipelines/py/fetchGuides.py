@@ -254,8 +254,10 @@ class Fetch_Guides:
 		self.all_variant = pd.concat([self.all_variant, gadf])
 
 	def write_reports(self, gene_out, variant_out, nguides_out):
-		guides_found = True if len(self.all_guides['QueryTerm']) > 0 else False
-
+		try:
+			guides_found = True if len(self.all_guides['QueryTerm']) > 0 else False
+		except KeyError:
+			guides_found = False
 		# writes
 		all_tids = []
 		searched_queries = []
