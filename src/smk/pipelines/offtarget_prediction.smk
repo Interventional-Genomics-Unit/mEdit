@@ -2,6 +2,7 @@
 configfile: ""
 
 import glob
+import os
 
 # noinspection SmkAvoidTabWhitespace
 rule all:
@@ -52,8 +53,9 @@ rule all:
 # noinspection SmkAvoidTabWhitespace
 rule set_consensus_fasta:
     input:
-        assembly_path=lambda wildcards: glob.glob("{fasta_root_path}/{reference_id}.filtered.fa.gz".format(
-            fasta_root_path=config["fasta_root_path"],reference_id=wildcards.reference_id)),
+        # assembly_path=lambda wildcards: os.path.join("{fasta_root_path}/{reference_id}.filtered.fa.gz".format(
+        #     fasta_root_path=config["fasta_root_path"],reference_id=wildcards.reference_id)),
+        assembly_path=lambda wildcards: os.path.join(config["fasta_root_path"], wildcards.reference_id + ".filtered.fa.gz"),
         filtered_vcf="{meditdb_path}/{mode}/consensus_refs/{reference_id}/{offtarget_extended}.filtered.vcf.gz"
     output:
         consensus_fasta="{meditdb_path}/{mode}/consensus_refs/{reference_id}/{offtarget_extended}.fa",
@@ -91,16 +93,15 @@ samtools faidx {output.consensus_fasta}
 # noinspection SmkAvoidTabWhitespace
 rule set_gscan_indices:
     input:
-        consensus_fasta=lambda wildcards: glob.glob("{meditdb_path}/{mode}/consensus_refs/{reference_id}/{offtarget_extended}.fa".format(
-            meditdb_path=config["meditdb_path"], mode=wildcards.mode,
-            reference_id=config["sequence_id"], offtarget_extended=wildcards.offtarget_extended))
+        # consensus_fasta=lambda wildcards: os.path.join("{meditdb_path}/{mode}/consensus_refs/{reference_id}/{offtarget_extended}.fa".format(
+        #     meditdb_path=config["meditdb_path"], mode=wildcards.mode,
+        #     reference_id=config["sequence_id"], offtarget_extended=wildcards.offtarget_extended))
+        consensus_fasta= lambda wildcards: os.path.join(config["meditdb_path"], wildcards.mode, "consensus_refs", config["sequence_id"], wildcards.offtarget_extended + ".fa")
     output:
         gs_index="{root_dir}/{mode}/tmp/{offtarget_extended}.consensus.fa.index.gs"
     params:
-        gscan_indices_dir=lambda wildcards: glob.glob("{meditdb_path}/gscan_indices".format(
-            meditdb_path=config["meditdb_path"])),
-        gs_index_prefix=lambda wildcards: glob.glob("{meditdb_path}/gscan_indices/{offtarget_genomes}.consensus.fa.index".format(
-            meditdb_path=config["meditdb_path"], offtarget_genomes=wildcards.offtarget_extended)),
+        gscan_indices_dir=lambda wildcards: os.path.join(config["meditdb_path"], "gscan_indices"),
+        gs_index_prefix=lambda wildcards: os.path.join(config["meditdb_path"], "gscan_indices", wildcards.offtarget_extended + ".consensus.fa.index"),
         gs_index_dummy_dir="{root_dir}/{mode}/tmp"
     conda:
         "../envs/gscan.yaml"
@@ -149,14 +150,14 @@ Wildcards in this rule:
 rule casoff_run_ref:
     input:
         casoff_input="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/input_files/{query_index}_{editing_tool}_guidescan_input.csv",
-        gs_index=lambda wildcards: glob.glob(f"{config['meditdb_path']}/gscan_indices/{wildcards.reference_id}.consensus.fa.index.gs")
+        gs_index=lambda wildcards: os.path.join(config['meditdb_path'], "gscan_indices", wildcards.reference_id + ".consensus.fa.index.gs")
     output:
         ref_guidescan_full_bed="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{reference_id}/{query_index}_{editing_tool}_guidescan_filtered.bed"
     params:
         # == Temp Files
         ref_guidescan_full_csv="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{reference_id}/{query_index}_{editing_tool}_guidescan_filtered.csv",
         # == GuideScan Indices Path
-        gscan_indices_path=lambda wildcards: glob.glob(f"{config['meditdb_path']}/gscan_indices"),
+        gscan_indices_path=lambda wildcards: os.path.join(config['meditdb_path'], "gscan_indices"),
         # == GuideScan Parameters
         pam_is_first=lambda wildcards: config["pam_is_first_per_editor_dict"][wildcards.reference_id][
             wildcards.editing_tool],
@@ -213,8 +214,9 @@ rule casoff_run_extended:
     input:
         casoff_input="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/input_files/{query_index}_{editing_tool}_guidescan_input.csv",
         ref_guidescan_full_bed="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{reference_id}/{query_index}_{editing_tool}_guidescan_filtered.bed",
-        bed_file=lambda wildcards: glob.glob("{meditdb_path}/{mode}/bed_files/{reference_id}/{offtarget_extended}.bed".format(
-            meditdb_path=config["meditdb_path"], mode=wildcards.mode,reference_id=wildcards.reference_id, offtarget_extended=wildcards.offtarget_extended)),
+        # bed_file=lambda wildcards: os.path.join("{meditdb_path}/{mode}/bed_files/{reference_id}/{offtarget_extended}.bed".format(
+        #     meditdb_path=config["meditdb_path"], mode=wildcards.mode,reference_id=wildcards.reference_id, offtarget_extended=wildcards.offtarget_extended)),
+        bed_file=lambda wildcards: os.path.join(config["meditdb_path"], wildcards.mode, "bed_files", wildcards.reference_id, wildcards.offtarget_extended + ".bed"),
         gs_index="{root_dir}/{mode}/tmp/{offtarget_extended}.consensus.fa.index.gs",
     output:
         guidescan_filtered_bed="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_extended}/{query_index}_{editing_tool}_guidescan_filtered.bed"
@@ -225,7 +227,7 @@ rule casoff_run_extended:
         guidescan_tmp_missing_from_ref_bed="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_extended}/{query_index}_{editing_tool}_missing_from_ref.bed",
         guidescan_tmp_variants_combined_bed="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_extended}/{query_index}_{editing_tool}_combined.bed",
         # == GuideScan Indices Path
-        gscan_indices_path=lambda wildcards: glob.glob("{meditdb_path}/gscan_indices".format(meditdb_path=config["meditdb_path"])),
+        gscan_indices_path=lambda wildcards: os.path.join(config["meditdb_path"], "gscan_indices"),
         # == GuideScan Parameters
         pam_is_first=lambda wildcards: config["pam_is_first_per_editor_dict"][wildcards.offtarget_extended][wildcards.editing_tool],
         alt_pams=lambda wildcards: config["alt_pam_per_editor_dict"][wildcards.offtarget_extended][wildcards.editing_tool],

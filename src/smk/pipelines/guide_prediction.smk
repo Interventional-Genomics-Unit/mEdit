@@ -1,5 +1,6 @@
 # **** Import Packages ****
 import glob
+import os
 
 # noinspection SmkAvoidTabWhitespace
 rule all:
@@ -30,11 +31,11 @@ rule all:
 # noinspection SmkAvoidTabWhitespace
 rule serialize_chromosomes:
 	input:
-		assembly_path=lambda wildcards: glob.glob(f"{config['fasta_root_path']}/{wildcards.sequence_id}.fa.gz")
+		assembly_path=lambda wildcards: os.path.join(config['fasta_root_path'], wildcards.sequence_id + ".fa.gz")
 	output:
 		serialized_chr_manifest = "{root_dir}/tmp/{sequence_id}_chr_manifest.csv"
 	params:
-		decompressed_assembly=lambda wildcards: f"{config['fasta_root_path']}/{wildcards.sequence_id}.fa",
+		decompressed_assembly=lambda wildcards: os.path.join(config['fasta_root_path'], wildcards.sequence_id + ".fa"),
 		output_dir=config["fasta_root_path"]
 	conda:
 		"../envs/tabix.yaml"
@@ -54,8 +55,7 @@ rule predict_guides:
 	input:
 		query_manifest = "{root_dir}/queries/{run_name}_{query_index}.csv",
 		serialized_chr_manifest = "{root_dir}/tmp/{sequence_id}_chr_manifest.csv",
-		assembly_dir_path = lambda wildcards: glob.glob("{fasta_root_path}".format(
-			fasta_root_path=config["fasta_root_path"]))
+		assembly_dir_path = lambda wildcards: os.path.join(config["fasta_root_path"])
 	output:
 		guides_report_out = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/{query_index}_Guides_found.csv",
 		nguides_report = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/{query_index}_Guides_count.csv",
@@ -116,10 +116,8 @@ Log file path:
 # noinspection SmkAvoidTabWhitespace
 rule filter_vcf:
 	input:
-		assembly_path=lambda wildcards: glob.glob("{fasta_root_path}/{sequence_id}.filtered.fa.gz".format(
-			fasta_root_path=config["fasta_root_path"], sequence_id=wildcards.sequence_id)),
-		source_vcf=lambda wildcards: glob.glob("{meditdb_path}/{mode}/source_vcfs/{vcf_filename}.vcf.gz".format(
-			meditdb_path=wildcards.meditdb_path, mode=wildcards.mode, vcf_filename=config["vcf_filename"]))
+		assembly_path=lambda wildcards: os.path.join(config["fasta_root_path"], wildcards.sequence_id + ".filtered.fa.gz"),
+		source_vcf=lambda wildcards: os.path.join(wildcards.meditdb_path, wildcards.mode, "source_vcfs", config['vcf_filename'] + ".vcf.gz")
 		# source_vcf="{meditdb_path}/{mode}/source_vcfs/{vcf_id}.vcf.gz"
 	output:
 		filtered_vcf="{meditdb_path}/{mode}/consensus_refs/{sequence_id}/{vcf_id}.filtered.vcf.gz"
@@ -177,7 +175,7 @@ Wildcards in this rule:
 # noinspection SmkAvoidTabWhitespace
 rule process_altgenomes:
 	input:
-		filtered_vcf=lambda wildcards: f"{config['meditdb_path']}/{wildcards.mode}/consensus_refs/{wildcards.sequence_id}/{wildcards.vcf_id}.filtered.vcf.gz",
+		filtered_vcf=lambda wildcards: os.path.join(config['meditdb_path'], wildcards.mode, "consensus_refs", wildcards.sequence_id, wildcards.vcf_id + ".filtered.vcf.gz"),
 		guides_report_out="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/{query_index}_Guides_found.csv",
 		be_report_out = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/guides_report_ref/{query_index}_BaseEditors_found.csv",
 		guide_search_params="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{sequence_id}/dynamic_params/{query_index}_guide_search_params.pkl",

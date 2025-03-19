@@ -58,6 +58,7 @@ def guide_prediction(args, jobtag):
 	smk_verbosity = [True]
 	smk_run_triggers = ''
 	dryrun_setup = ''
+	fast_mode = str(False)
 
 	# ->=== OUTPUT SETUP ===<-
 	# == Set import paths tied to the SMK pipeline
@@ -182,12 +183,14 @@ def guide_prediction(args, jobtag):
 		# == 'fast' mode is a sub-mode of 'standard';
 		# downstram processes must acknowledge that this is a standard run
 		mode = 'standard'
+		fast_mode = str(True)
 
 	# === Assign Key Variables to Configuration File ===
 	config_template['run_name'] = f"{mode}_{jobtag}"
 	config_template['logfile_path'] = f"{jobtag}.log"
 	config_template['support_tables'] = db_path_full
 	config_template['processing_mode'] = mode
+	config_template['fast_mode'] = fast_mode
 	config_template['output_directory'] = root_dir
 	config_template['variant_query'] = list(formatted_query_input_list)
 	config_template['query_index'] = list(range(len(formatted_query_input_list)))

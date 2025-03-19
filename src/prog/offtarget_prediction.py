@@ -102,6 +102,7 @@ def offtarget_prediction(args, jobtag):
     # === Import Variables from Configuration File ===
     run_name = str(dynamic_config_guidepred['run_name'])
     mode = str(dynamic_config_guidepred['processing_mode'])
+    fast_mode = bool(dynamic_config_guidepred['fast_mode'])
     query_index = (dynamic_config_guidepred['query_index'])
     root_dir = str(dynamic_config_guidepred['output_directory'])
 
@@ -110,17 +111,20 @@ def offtarget_prediction(args, jobtag):
     reference_genome = str(config_db['sequence_id'])
     offtarget_genomes = offtarget_mode_formatting(mode, reference_genome, dynamic_config_guidepred)
 
+    # Adjust genomes pool for fast mode
+    if fast_mode:
+        offtarget_genomes = offtarget_mode_formatting('fast', reference_genome, dynamic_config_guidepred)
+        allowed_rules = ['--omit-from "set_consensus_fasta" '
+                         '--omit-from "set_gscan_indices" '
+                         '--omit-from "casoff_run_extended" ']
+
     # === Assess the run 'mode' in light of available resources
     if not dryrun_setup:
-        mode_checkpoint, mode = handle_offtarget_request(mode, db_path_full, offtarget_genomes)
-        if mode == 'fast':
-            offtarget_genomes = offtarget_mode_formatting(mode, reference_genome, dynamic_config_guidepred)
-            allowed_rules = ['--omit-from "set_consensus_fasta" '
-                             '--omit-from "set_gscan_indices" '
-                             '--omit-from "casoff_run_extended" ']
-        if not mode_checkpoint:
-            # == The user was consulted and decided NOT to proceed
-            exit(0)
+        if not fast_mode:
+            mode_checkpoint, mode = handle_offtarget_request(mode, db_path_full, offtarget_genomes)
+            if not mode_checkpoint:
+                # == The user was consulted and decided NOT to proceed
+                exit(0)
 
     # == Get available options of already run editors or base editors
     guide_search_params_path = f"{root_dir}/{mode_alias[mode]}/jobs/{run_name}/guide_prediction-{reference_genome}/dynamic_params/{query_index[0]}_guide_search_params.pkl"
