@@ -322,8 +322,31 @@ class Fetch_Guides:
 		# needs to happen in order to select right fasta file
 		hgvs_tab = pd.read_csv(self.HGVSlookup_path)
 		q_prefixes = [x.split(':')[0].split('.')[0] for x in queries]
-		chroms = set(hgvs_tab.loc[hgvs_tab['HGVS_ID'].isin(q_prefixes), 'Chromosome'])
+		qdf = pd.DataFrame(list(zip(queries, q_prefixes)), columns=['QueryName', 'HGVS_ID'])
+		chrdf = hgvs_tab.loc[hgvs_tab['HGVS_ID'].isin(q_prefixes), :].set_index('HGVS_ID')
+		chroms = chrdf.join(qdf.set_index('HGVS_ID')).groupby('Chromosome')['QueryName'].apply(list).to_dict()
+
 		return chroms
+
+
+	def alt_version_search(self,notfound, ch,df):
+		# If hgvs id is not found in clinvar search for alternative version
+		for nf in notfound:
+			tid = nf.split(".")[0] + "."
+			suffix = nf.split(":")[1]
+			gadf = df.loc[df['HGVS_Simple'].str.contains(tid) & df['HGVS_Simple'].str.contains(suffix),:]
+			if len(gadf.HGVS_Simple) > 0:
+				data = gadf[['HGVS_Simple', 'PositionVCF', 'RefAlleleVCF', 'AltAlleleVCF']].to_dict('tight')['data'][0]
+
+				logging.info(f'A more recent verision of the HGVS ID, {nf}, has been found. ')
+				logging.info(f'updating {nf} to {data[0]}')
+
+				self.add_clinvar(gadf)
+				self.snv_info[ch].append(data)
+				self.queries[self.queries.index(nf)] = data[0]
+
+			else:
+				self.add_not_found([nf], 'hgvs not found in medit variant database')
 
 	def fetch_query_info(self):
 		# Gets Transcript info
@@ -332,21 +355,19 @@ class Fetch_Guides:
 			logging.info("Looking up HGVS in Clinvar")
 			chroms = self.get_chroms(self.queries)
 
-			for ch in chroms:
+			for ch, queries in chroms.items():
 				df = pd.read_csv(f"{self.processed_tables}/variant_tables/{ch}_variant.txt",
 								 low_memory=False)
-				gadf = df.loc[df['HGVS_Simple'].isin(self.queries)]
+				gadf = df.loc[df['HGVS_Simple'].isin(queries)]
 				self.add_clinvar(gadf)
 				self.snv_info[ch] = \
 				gadf[['HGVS_Simple', 'PositionVCF', 'RefAlleleVCF', 'AltAlleleVCF']].to_dict('tight')['data']
 
-			# record not found
-			found = []
-			for k in self.snv_info.keys():
-				for v in self.snv_info[k]:
-					found.append(v[0])
-			notfound = list(set(self.queries).difference(set(found)))
-			self.add_not_found(notfound, 'hgvs not found in medit variant database')
+				# record not found
+				found = [v[0] for v in self.snv_info[ch]]
+				notfound = list(set(queries).difference(set(found)))
+				if len(notfound)>0:
+					self.alt_version_search(notfound, ch, df)
 
 		# Else All information is given to find transcript info
 		else:
@@ -518,7 +539,7 @@ class Fetch_Guides:
 		else:
 			logging.info('No Endonuclease Guides found for any queries')
 			print('No Endonuclease Guides found for any queries')
-			#exit(0) #do not exit this. The blank tables need to be shown regardless for the website to work
+			#exit(0) #do not exit this. The blank tables need to be shown regardless
 
 		if len(self.all_BE.keys()) != 0:
 			self.write_guide_csv(self.all_BE, outfile_be_guides)
