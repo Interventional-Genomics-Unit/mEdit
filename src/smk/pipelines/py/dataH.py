@@ -302,7 +302,10 @@ class DataHandler:
                                 scores['deepcas9'] = self.get_score([extended_guide.upper()],'deepspcas9',
                                                            self.models_dir)
                             #oof_score use only for DSB
-                            mh_score, scores['oof'] = scoring.oofscore(str(search_seq[target_start - 20:target_start + sitelen + 20]).upper())
+                            try:
+                                mh_score, scores['oof'] = scoring.oofscore(str(search_seq[target_start - 20:target_start + sitelen + 20]).upper())
+                            except AssertionError:
+                                pass
                         else:
                             snvpos = int([guide.index(x) + 1 for x in guide if x.islower()][0])
 

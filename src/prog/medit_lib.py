@@ -84,9 +84,21 @@ def check_format(variable, data_type, paramater_name, default_value):
 			try:
 				data_type(variable)
 				return data_type(variable)
+
 			except ValueError:
-				print(f"Invalid data type for {paramater_name}: '{variable}'. Please double-check the documentation.")
-				exit(0)
+				try:
+					variable_list = variable.split(',')
+					if len(variable_list) == 2:
+						variable_list = [int(x) for x in variable_list]
+						return list(variable_list)
+					else:
+						print(
+							f"Invalid data type for {paramater_name}: '{variable}'. Please double-check the documentation.")
+						exit(0)
+				except ValueError:
+					print(
+						f"Invalid data type for {paramater_name}: '{variable}'. Please double-check the documentation.")
+					exit(0)
 
 
 def check_iupac(sequence):
@@ -677,13 +689,15 @@ def validate_editor_list(editor_request: str, built_in_editors: list, parameter_
 	for editor in editor_list:
 		green_light = False
 		for built_in_editor in built_in_editors:
-			clean_editor= editor.strip()
-			if re.search(clean_editor, built_in_editor, re.IGNORECASE):
+			clean_editor = editor.strip()
+			clean_editor = re.sub(r'．', '.', clean_editor)
+			if re.search(re.escape(clean_editor), built_in_editor, re.IGNORECASE):
 				green_light = True
 				validated_editors.append(built_in_editor)
 		if not green_light:
 			print(
-				f"Full Set of Refs: {built_in_editors}"
+				f"Full Set of Refs: {built_in_editors}\n"
+				f"Editor not found for {editor}\n"
 				f"Please call 'medit list --help' to see directions on how to obtain the current list of editors.\n"
 				f"Alternatively, use the '{parameter_string} custom' parameter to customize your own editor for this run.\n")
 			exit(0)
