@@ -150,6 +150,7 @@ Wildcards in this rule:
 		# 2) filter GAT1 or GAT2 samples (samples where one haplotype has a sequence depth = 0)
 		# 3) filter reference & variant alleles > 1nt (SNVS only for now)
 		# 4) Filter quality score > 15
+		# 5) break multiallelics to one per line
 		# Create index file
 		
 		# Inspect the number of genomes in the VCF file
@@ -159,17 +160,19 @@ Wildcards in this rule:
 		if [ $num_samples -le 1 ]; then
 			# Check if read depth is given (for custom vcfs derived from wgs)
 			if bcftools view -h {input.source_vcf} | grep -q '##FORMAT=<ID=DP'; then
-				bcftools view --min-ac=1 -v snps -e 'GT="." || QUAL<15 || FMT/DP<5' {input.source_vcf} | bcftools sort -O z -o {output.filtered_vcf}
+				bcftools view --min-ac=1 -v snps -e 'GT="." || QUAL<15 || FMT/DP<5' {input.source_vcf} | bcftools norm --check-ref s --multiallelics -any -f {input.assembly_path} | bcftools sort -W -O z -o {output.filtered_vcf}
 			else
-				bcftools view --min-ac=1 -v snps -e 'GT="." || QUAL<15' {input.source_vcf} | bcftools sort -O z -o {output.filtered_vcf} 
+				bcftools view --min-ac=1 -v snps -e 'GT="." || QUAL<15' {input.source_vcf} | bcftools norm --check-ref s --multiallelics -any -f {input.assembly_path} | bcftools sort -W -O z -o {output.filtered_vcf}
+
 			fi
 			
 		# If multi genomes split with sample name first
 		else
-			bcftools view -s {wildcards.vcf_id} --min-ac=1 {input.source_vcf} | bcftools sort -O z -o {output.filtered_vcf}
+			bcftools view -s {wildcards.vcf_id} --min-ac=1 {input.source_vcf} | bcftools sort -W -O z -o {output.filtered_vcf}
 		fi
-
-		bcftools index -f -t {output.filtered_vcf}		        		
+	
+		bcftools index -f -t {output.filtered_vcf}
+  		
         """
 
 # noinspection SmkAvoidTabWhitespace

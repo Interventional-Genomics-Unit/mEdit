@@ -50,7 +50,7 @@ def process_refseq(raw_tables,processed_tables):
     mane = pd.read_csv(f'{raw_tables}clinvar/MANE.GRch38.v1.1.summary.txt.gz', sep="\t")
 
     #out
-    ref_out = gzip.open(f'{processed_tables}ncbiRefSeq.bed.gz', 'wt')
+    ref_out = open(f'{processed_tables}ncbiRefSeq.bed', 'wt')
 
     labels = ['bin', 'id', 'chrom', 'strand', 'txStart', 'txEnd',
               'cdsStart', 'cdsEnd', 'exonCount', 'exonStarts', 'exonEnds',
@@ -143,7 +143,7 @@ def process_clinvarVCF(processed_tables):
             x = ','.join([y for y in x.split('|') if 'SO' not in y])
         con.append(x)
     mc['MC'] = con
-    mc = mc.drop(columns=['x1', 'x', 'attributes'])
+    mc = mc.drop(columns=['attributes'])
     mc.to_csv(f'{processed_tables}clinvarvcf2txt.txt', index=False)
 
 
@@ -251,7 +251,7 @@ def clean_clinvar(clinvar_summary,chroms):
                "ChrAccession", "Chr", "Start","Stop","RefAllele", "AltAllele",
                "Cytogenetic", "ReviewStatus", "NumberSubmitters", "Guidelines", "TestedInGTR", "OtherIDs",
                "SubmitterCategories", "VariationID", "PositionVCF", "RefAlleleVCF", "AltAlleleVCF"]
-
+    #most_recent = {}
     cols = [allcols.index(c) for c in allcols if c not in to_drop]
     for ch in chroms:
         print(ch)
@@ -262,12 +262,14 @@ def clean_clinvar(clinvar_summary,chroms):
             if line[18] == str(ch):
                 if line[16] != "GRCh37": # Remove hg19 data
                     line[-1] = line[-1].replace("\n", "")
-                    if 'single nucleotide variant' in line or 'Deletion' in line:
-                        line = [line[i] for i in cols]
-                        lines.append(line)
-                    elif 'Indel' in line or 'Insertion' in line or 'Duplication ':
-                        line = [line[i] for i in cols]
-                        lines.append(line)
+                    line = [line[i] for i in cols]
+                    lines.append(line)
+                    #if 'single nucleotide variant' in line or 'Deletion' in line:
+                    #    line = [line[i] for i in cols]
+                    #    lines.append(line)
+                    #elif 'Indel' in line or 'Insertion' in line or 'Duplication ':
+                    #    line = [line[i] for i in cols]
+                    #    lines.append(line)
 
         vdf = pd.DataFrame(lines, columns = [allcols[i] for i in cols])
         vdf = vdf[vdf.RefAlleleVCF != 'na']
@@ -333,7 +335,7 @@ def make_HGVStable(processed_tables,chroms):
     names, chrs = [], []
     for ch in chroms:
         clin = pd.read_csv(f"{processed_tables}variant_tables/{ch}_variant.txt")
-        names += list(set(clin['TranscriptID']))
+        names += list(set(clin['TranscriptID'].str.split(".",expand=True)[0]))
         chrs += [ch for i in range(len(set(clin['TranscriptID'])))]
 
     df = pd.DataFrame({"TranscriptID": names, "Chr": chrs}).drop_duplicates()
@@ -355,7 +357,7 @@ def updateTables(clinvar_ftp,clinvar_summary,refseq):
                        capture_output=True)
     print(p)
 
-    cmd = f"wget https://ftp.ncbi.nlm.nih.gov/refseq/MANE/MANE_human/current/MANE.GRCh38.v1.1.summary.txt.gz -O " \
+    cmd = f"wget https://ftp.ncbi.nlm.nih.gov/refseq/MANE/MANE_human/current/MANE.GRCh38.v1.4.summary.txt.gz -O " \
           f"{raw_tables}clinvar/MANE.GRch38.v1.1.summary.txt.gz"
     p = subprocess.run(cmd, shell=True,
                        capture_output=True)
@@ -383,7 +385,9 @@ def updateTables(clinvar_ftp,clinvar_summary,refseq):
     print("Adding Ensembl Identifiers....")
     process_MANE(raw_tables, processed_tables)
     add_MANE(processed_tables, chroms)
+    process_refseq(raw_tables, processed_tables)
     print("Adding Molecular Consequences....")
+    process_clinvarVCF(processed_tables)
     add_molecular_consequences(chroms, processed_tables)
     print("Appending HPA data.....")
     make_gene_tables(processed_tables, HPApath)

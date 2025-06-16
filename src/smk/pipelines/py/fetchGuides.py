@@ -122,16 +122,16 @@ class Fetch_Guides:
 		try:
 			self.pam_is_first = kwargs['pam_is_first']
 			if not isinstance(kwargs['pam_is_first'], bool):
-				raise TypeError(f"'pam_is_first' must be of type 'bool', got {type(kwargs['pam_is_first'])} instead.")
+				raise TypeError(f"'pamisfirst' must be of type 'bool', got {type(kwargs['pam_is_first'])} instead.")
 		except KeyError:
-			logging.error("custom editor selection MUST also have  pam_is_first in kwargs")
+			logging.error("custom editor selection MUST also have  pamisfirst in kwargs")
 
 		try:
 			self.guide_length = kwargs['guide_length']
 			if not isinstance(kwargs['guide_length'], int):
-				raise TypeError(f"'guide_length' must be of type 'int', got {kwargs['guide_length'].__name__} instead.")
+				raise TypeError(f"'guidelen' must be of type 'int', got {kwargs['guide_length'].__name__} instead.")
 		except KeyError:
-			logging.error("Custom editor selection MUST also have guide_length in kwargs")
+			logging.error("Custom editor selection MUST also have guidelen in kwargs")
 			logging.error(f"Custom editor guide length being set to {self.guide_length}")
 			pass
 		try:
@@ -141,11 +141,11 @@ class Fetch_Guides:
 			logging.error("Custom editor selection MUST also have dsb_loc in kwargs")
 
 		params = {'custom_endonuclease': (self.pam, self.pam_is_first, self.dsb_position, self.guide_length, '')}
-
+		five,three =  "5'","3'"
 		logging.info(
-			f"Your custom editor has a {'5 prime PAM' if self.pam_is_first else '3 prime PAM'} set to {self.pam} "
+			f"Your custom editor has a {five if self.pam_is_first else three} PAM set to {self.pam} "
 			f"with a spacer length of {self.guide_length} "
-			f"5 prime -{self.pam if self.pam_is_first else ''}{'x' * self.guide_length}{'' if self.pam_is_first else self.pam}- 3 prime")
+			f"{five}-{self.pam if self.pam_is_first else ''}{'x' * self.guide_length}{'' if self.pam_is_first else self.pam}-{three}")
 		return params
 
 	def configure_BE_params(self, kwargs):
@@ -178,15 +178,15 @@ class Fetch_Guides:
 			if not isinstance(kwargs['pam_is_first'], bool):
 				raise TypeError(f"'pam_is_first' must be of type 'bool', got {type(kwargs['pam_is_first'])} instead.")
 		except KeyError:
-			logging.error("Custom editor selection MUST also have  pam_is_first in kwargs")
-			logging.error(f"Custom editor pam_is_first is being set to {self.pam_is_first}")
+			logging.error("Custom base editor selection MUST also have  pam_is_first in kwargs")
+			logging.error(f"Custom base editor pam_is_first is being set to {self.pam_is_first}")
 			pass
 
 		try:
 			self.guide_length = int(kwargs['guide_length'])
 		except KeyError:
-			logging.error("Custom editor selection MUST also have guide_length in kwargs")
-			logging.error(f"Custom editor pam_is_first is being set to {self.guide_length}")
+			logging.error("Custom base editor selection MUST also have guidelen in kwargs")
+			logging.error(f"Custom editor pamisfirst is being set to {self.guide_length}")
 			pass
 		try:
 			target_base = kwargs['target_base'].upper()
@@ -199,13 +199,13 @@ class Fetch_Guides:
 
 		params = {'custom_be': [(self.pam, self.pam_is_first, self.guide_length, self.editing_window, ''),
 								(self.conversion, 'custom_be')]}
-
+		five, three = "5'", "3'"
 		logging.info(
-			f"Your custom base editor has a {'5 prime PAM' if self.pam_is_first else '3 prime PAM'} set to {self.pam} "
+			f"Your custom base editor has a {five if self.pam_is_first else three} PAM set to {self.pam} "
 			f"with a spacer length of {self.guide_length} "
 			f"The base editor window is between position {self.editing_window[0]} and {self.editing_window[1]} "
-			f"and will convert {self.conversion[0]}---->{self.conversion[1]} "
-			f"5 prime -{self.pam if self.pam_is_first else ''}{'x' * self.guide_length}{'' if self.pam_is_first else self.pam}- 3prime")
+			f"and will convert {self.conversion[0]}--->{self.conversion[1]} "
+			f"{five}-{self.pam if self.pam_is_first else ''}{'x' * self.guide_length}{'' if self.pam_is_first else self.pam}-{three}")
 		return params
 
 	def validate_dist_from_cutsite(self, dist_from_cutsite):
@@ -322,8 +322,31 @@ class Fetch_Guides:
 		# needs to happen in order to select right fasta file
 		hgvs_tab = pd.read_csv(self.HGVSlookup_path)
 		q_prefixes = [x.split(':')[0].split('.')[0] for x in queries]
-		chroms = set(hgvs_tab.loc[hgvs_tab['HGVS_ID'].isin(q_prefixes), 'Chromosome'])
+		qdf = pd.DataFrame(list(zip(queries, q_prefixes)), columns=['QueryName', 'HGVS_ID'])
+		chrdf = hgvs_tab.loc[hgvs_tab['HGVS_ID'].isin(q_prefixes), :].set_index('HGVS_ID')
+		chroms = chrdf.join(qdf.set_index('HGVS_ID')).groupby('Chromosome')['QueryName'].apply(list).to_dict()
+
 		return chroms
+
+
+	def alt_version_search(self,notfound, ch,df):
+		# If hgvs id is not found in clinvar search for alternative version
+		for nf in notfound:
+			tid = nf.split(".")[0] + "."
+			suffix = nf.split(":")[1]
+			gadf = df.loc[df['HGVS_Simple'].str.contains(tid) & df['HGVS_Simple'].str.contains(suffix),:]
+			if len(gadf.HGVS_Simple) > 0:
+				data = gadf[['HGVS_Simple', 'PositionVCF', 'RefAlleleVCF', 'AltAlleleVCF']].to_dict('tight')['data'][0]
+
+				logging.info(f'A more recent verision of the HGVS ID, {nf}, has been found. ')
+				logging.info(f'updating {nf} to {data[0]}')
+
+				self.add_clinvar(gadf)
+				self.snv_info[ch].append(data)
+				self.queries[self.queries.index(nf)] = data[0]
+
+			else:
+				self.add_not_found([nf], 'hgvs not found in medit variant database')
 
 	def fetch_query_info(self):
 		# Gets Transcript info
@@ -332,21 +355,19 @@ class Fetch_Guides:
 			logging.info("Looking up HGVS in Clinvar")
 			chroms = self.get_chroms(self.queries)
 
-			for ch in chroms:
+			for ch, queries in chroms.items():
 				df = pd.read_csv(f"{self.processed_tables}/variant_tables/{ch}_variant.txt",
 								 low_memory=False)
-				gadf = df.loc[df['HGVS_Simple'].isin(self.queries)]
+				gadf = df.loc[df['HGVS_Simple'].isin(queries)]
 				self.add_clinvar(gadf)
 				self.snv_info[ch] = \
 				gadf[['HGVS_Simple', 'PositionVCF', 'RefAlleleVCF', 'AltAlleleVCF']].to_dict('tight')['data']
 
-			# record not found
-			found = []
-			for k in self.snv_info.keys():
-				for v in self.snv_info[k]:
-					found.append(v[0])
-			notfound = list(set(self.queries).difference(set(found)))
-			self.add_not_found(notfound, 'hgvs not found in medit variant database')
+				# record not found
+				found = [v[0] for v in self.snv_info[ch]]
+				notfound = list(set(queries).difference(set(found)))
+				if len(notfound)>0:
+					self.alt_version_search(notfound, ch, df)
 
 		# Else All information is given to find transcript info
 		else:
@@ -440,6 +461,8 @@ class Fetch_Guides:
 		'''
 		rprefix = r"((N(M|G|C|R)_[\d.]*)|(m))"
 		rsuffix = r"(:(c|m|g|n)\S*)"
+		if len(queries) == 0:
+			logging.warning('No queries in input table. Be sure to include a header')
 		validated_queries = []
 		for q in set(queries):
 			if re.search(rsuffix, q) and re.search(rprefix, q):
@@ -459,6 +482,9 @@ class Fetch_Guides:
 		# coord_fmt = r'(chr[0-9XYM]*:\d*(A|T|C|G)>(A|T|C|G))'
 		coord_fmt = r'(chr[0-9XYM]*:\d*([ATCG]{1,10})>([ATCG]{1,10}))'
 		validated_queries = []
+		if len(queries) == 0:
+			logging.warning('No queries in input table. Be sure to include a header')
+
 		for q in set(queries):
 			if re.search(coord_fmt, q):
 				validated_queries.append(re.search(coord_fmt, q).groups()[0])
@@ -467,7 +493,7 @@ class Fetch_Guides:
 		n = len(validated_queries)
 		logging.info(f'{n} out of {len(queries)} Coordinate IDs validated')
 		if n == 0:
-			logging.warning('Queries are not in the correct format: Coordinate + allele')
+			logging.warning('Queries are not in the correct format: chr11:5226778C>T')
 		return validated_queries
 
 	def run_FetchGuides(self, outfile_guides, outfile_be_guides, models_dir):
@@ -513,7 +539,7 @@ class Fetch_Guides:
 		else:
 			logging.info('No Endonuclease Guides found for any queries')
 			print('No Endonuclease Guides found for any queries')
-			exit(0)
+			#exit(0) #do not exit this. The blank tables need to be shown regardless
 
 		if len(self.all_BE.keys()) != 0:
 			self.write_guide_csv(self.all_BE, outfile_be_guides)
