@@ -135,8 +135,11 @@ class Fetch_Guides:
 			logging.error(f"Custom editor guide length being set to {self.guide_length}")
 			pass
 		try:
-			dsb_position = str(kwargs['dsb_position']).split(",")
-			self.dsb_position = int(dsb_position[0])
+			self.dsb_position = kwargs['dsb_position']
+			if type(self.dsb_position) == str:
+				self.dsb_position = kwargs['dsb_position'].split(",")
+			if type(self.dsb_position) == list:
+				self.dsb_position = int(self.dsb_position[0])
 		except KeyError:
 			logging.error("Custom editor selection MUST also have dsb_loc in kwargs")
 

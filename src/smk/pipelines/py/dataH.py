@@ -12,7 +12,8 @@ class DataHandler:
     search for guides given a genomic sequence and SNV info
     """
 
-    def __init__(self, query, strand, ref, alt, feature_annotation, models_dir, extracted_seq, rf, coord,gname,dist_from_cutsite = 7):
+    def __init__(self, query, strand, ref, alt, feature_annotation, models_dir, extracted_seq, rf, coord, gname,
+                 dist_from_cutsite=7):
         """
         :param query: ex: 'NM_000532.5(PCCB):c.1316A>G (p.Tyr439Cys)' or 'chr19:136327650A>G'
         :param strand: ex. '-' or '+
@@ -247,8 +248,9 @@ class DataHandler:
             # Example Base editing window = 4-8
             #     4   8
             #  XXXXXXXXXXXXXXXXXXXXNGGxxxxxx
-            win_size = [win_size[0] - guidelen,win_size[1] -guidelen]
-            pam_min, pam_max = int((var_relative_pos + abs(win_size[1]))), int((var_relative_pos + abs(win_size[0]))) + 1
+            win_size = [win_size[0] - guidelen, win_size[1] - guidelen]
+            pam_min, pam_max = int((var_relative_pos + abs(win_size[1]))), int(
+                (var_relative_pos + abs(win_size[0]))) + 1
 
         else:
             # Adjust window to 3' PAM
@@ -267,7 +269,8 @@ class DataHandler:
 
         # Narrow based on guide params
         for search_strand in ["+", "-"]:
-            search_seq = Seq(self.extracted_seq) if search_strand == "+" else Seq(self.extracted_seq).reverse_complement()
+            search_seq = Seq(self.extracted_seq) if search_strand == "+" else Seq(
+                self.extracted_seq).reverse_complement()
             snv_rel_pos = var_relative_pos
             if search_strand == "-":
                 pam_start, pam_end = pam_min, pam_max - 1
@@ -282,7 +285,7 @@ class DataHandler:
                 exit(0)
 
             for i in pam_index:
-                if i in range(pam_start, pam_end+1):
+                if i in range(pam_start, pam_end + 1):
                     scores = {'azimuth': '-',
                               'deepcas9': '-',
                               'deepcpf1': '-',
@@ -296,14 +299,15 @@ class DataHandler:
                             if snvpos >= 0:
                                 snvpos += 1
                             if pam == 'NGG' and guidelen == 20:
-                                #Azmith only accurate for NGG pams
-                                scores['azimuth'] = self.get_score([extended_guide.upper()],'azimuth',
+                                # Azmith only accurate for NGG pams
+                                scores['azimuth'] = self.get_score([extended_guide.upper()], 'azimuth',
                                                            self.models_dir)
-                                scores['deepcas9'] = self.get_score([extended_guide.upper()],'deepspcas9',
+                                scores['deepcas9'] = self.get_score([extended_guide.upper()], 'deepspcas9',
                                                            self.models_dir)
-                            #oof_score use only for DSB
+                            # oof_score use only for DSB
                             try:
-                                mh_score, scores['oof'] = scoring.oofscore(str(search_seq[target_start - 20:target_start + sitelen + 20]).upper())
+                                mh_score, scores['oof'] = scoring.oofscore(
+                                    str(search_seq[target_start - 20:target_start + sitelen + 20]).upper())
                             except AssertionError:
                                 pass
                         else:
@@ -321,23 +325,25 @@ class DataHandler:
                         if snvpos >= 0:
                             snvpos += 1
                         if 'Cas12a' in name:
-                            scores['deepcpf1'] = self.get_score([extended_guide.upper()],'deepcpf1',
-                                                           self.models_dir)
+                            scores['deepcpf1'] = self.get_score([extended_guide.upper()], 'deepcpf1',
+                                                                self.models_dir)
 
-                    start_diff = target_start -snv_rel_pos
+                    start_diff = target_start - snv_rel_pos
 
                     if search_strand == '-':
                         start_diff = snv_rel_pos - (target_start + sitelen)
                     start = self.SNV_chr_pos + start_diff
                     end = start + sitelen
-                    
-                    #print(pam_min,pam_max,name,i,snvpos, extended_guide)
-                    guides.append([name, guide, pam_found, search_strand, int(snvpos), scores,extended_guide, start, end])
+
+                    # print(pam_min,pam_max,name,i,snvpos, extended_guide)
+                    guides.append(
+                        [name, guide, pam_found, search_strand, int(snvpos), scores, extended_guide, start, end])
                     if not BEmode:
-                        self.add_guides(name, guide, pam_found, search_strand, int(snvpos), scores ,extended_guide, start, end)
+                        self.add_guides(name, guide, pam_found, search_strand, int(snvpos), scores, extended_guide,
+                                        start, end)
         return guides
 
-    def get_Guides(self, search_params, BEsearch_params = None):
+    def get_Guides(self, search_params, BEsearch_params=None):
         for name, params, in search_params.items():
             try:
                 pam, pamISfirst, guidelen, dsb_loc = params[0:4]
@@ -351,14 +357,15 @@ class DataHandler:
                       f"Please double-check the current search parameters and try again: {params[0:4]}.")
                 exit(0)
 
-            guides = self.get_guide_set(name, pam, pamISfirst, win_size, guidelen,dsb_loc, BEmode=False)
+            guides = self.get_guide_set(name, pam, pamISfirst, win_size, guidelen, dsb_loc, BEmode=False)
 
         # if BE mode is on
         if BEsearch_params is not None:
-            if len(BEsearch_params.keys()) and len(self.NC_ref_allele + self.NC_alt_allele) ==2:
+            if len(BEsearch_params.keys()) and len(self.NC_ref_allele + self.NC_alt_allele) == 2:
                 for k, params, in BEsearch_params.items():
                     pam, pamISfirst, guidelen, win_size = params[0][0], params[0][1], params[0][2], params[0][3]
-                    bguides = self.get_guide_set(k, pam, pamISfirst, win_size, guidelen,cut_site_position=100, BEmode=True)
+                    bguides = self.get_guide_set(k, pam, pamISfirst, win_size, guidelen, cut_site_position=100,
+                                                 BEmode=True)
 
                     # if guides are found sep neg and pos strand guides
                     if len(bguides) > 0:
