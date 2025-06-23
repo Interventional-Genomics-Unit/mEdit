@@ -29,6 +29,8 @@ alt_pam_per_editor_dict: ""
 
 # needed to indicate pam position
 pam_is_first_per_editor_dict: ""
+# all guide and be parameters
+params_per_editors_dict: ""
 # RNA bulge, a deletion in the off-target
 RNAbb: ""
 # DNA bulge, an insertion in the off-target

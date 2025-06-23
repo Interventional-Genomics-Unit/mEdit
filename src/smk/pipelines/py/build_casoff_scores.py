@@ -1,5 +1,8 @@
 # == Native Modules
 # == Installed Modules
+from Bio.Seq import Seq
+from Bio.SeqUtils import seq3
+import pickle
 import pandas as pd
 # == Project Modules
 from scoring import cfd_score,load_model_params
@@ -141,6 +144,150 @@ def de_dup(dist_lines,max_bulge):
 		new_lines.append(bestline+[alt_alignment])
 	return new_lines
 
+def revcom(s):
+	basecomp = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A','U':'A'}
+	letters = list(s[::-1])
+	letters = [basecomp[base] for base in letters]
+	return ''.join(letters)
+
+def find_codon(pos,tx_seq,strand,rf):
+	if strand == '+':
+		codon = tx_seq[int(pos - rf): int((pos - rf) + 3)]
+	else:
+		adj_rf = 2 - rf
+		codon = tx_seq[int(pos - adj_rf): int(pos - adj_rf) + 3]
+		codon = revcom(codon)
+	return codon
+
+
+
+def get_AAconversion_type(codon1, codon2 ,aa1, aa2):
+	"""
+    codon1: codon of Alt allele to be changed by BE
+    codon2: codon after changed by BE
+    """
+	aa_groups = [["G", "A", "V", "L", "I", "M", "F", "Y", "W"],
+				 ["S", "Q", "T", "N"],
+				 ["C", "G", "P"],
+				 ["D", "E"],
+				 ["K", "H", "R", "Q"]]
+	if aa1 == aa2:
+		mtype = 'Synonymous'
+		if codon1 == codon2:
+			mtype = 'Silent'
+	else:
+		if codon2 in ['TAA', 'TAG', 'TGA']:
+			mtype = 'Nonsense'
+		elif ([aa_groups.index(x) for x in aa_groups if str(aa1) in x] ==
+			  [aa_groups.index(x) for x in aa_groups if str(aa2) in x]):
+			mtype = 'Conservative'
+		else:
+			mtype = 'Non-conservative'
+	return mtype
+
+def get_codon_change(ref_codon,conversion,rf):
+
+	# ref codon
+	aa_ref = Seq(ref_codon).translate()
+	# new codon
+	new_codon = Seq("".join(ref_codon[x] if x != abs(rf) else conversion[1] for x in [0, 1, 2]))
+	aa_new = new_codon.translate()
+
+	ctype = get_AAconversion_type(ref_codon, new_codon ,aa_ref, aa_new)
+
+	aa_new = seq3(aa_new, custom_map={"*": "***"})
+	aa_ref = seq3(aa_ref, custom_map={"*": "***"})
+	aa_change = f"{ctype}({aa_ref}>{aa_new})"
+	return aa_change
+
+def add_be_outcomes(tx,fasta,coord,feature, match_sequence, conversion, be_win):
+
+	target_bases = match_sequence.upper().replace("-", "")[be_win[0] - 1:be_win[1] + 1]
+	n_bases = target_bases.count(conversion[0])
+	convert = 'na'
+
+	if "exon" in feature or "codon" in feature:
+		reading_frames = '012' * 20
+		if n_bases > 0:
+			convert = []
+			eid, tid, gname, strand, txstart = tx.tx_info()
+			tx_seq = tx.get_tx_seq(fasta).upper()
+			for i,base in enumerate(target_bases):
+				if base == conversion[0]:
+					j = i + (be_win[0] - 1)
+					base_pos = int(coord.split("-")[-1]) + j
+					t_pos = int(base_pos) - (int(txstart) +1)
+					rf = int(reading_frames[reading_frames.index(str(tx.rf)):][j])
+					ref_codon = find_codon(t_pos, tx_seq, strand, rf)
+					convert.append(get_codon_change(ref_codon,conversion,rf))
+		convert = ",".join(convert)
+
+	return n_bases, convert
+
+def add_be_annotations(df,annote_path,guide_params,fasta_path):
+	'''
+	counting the number of editable bases (be target base) in the be window and
+	 determining base change aa consquence
+
+	'''
+	pam, pam_is_first,guidelen,be_win = guide_params[0:4]
+	conversion = guide_params[-1]
+
+	gene,features,n_editable, codon_change  = [],[],[],[]
+	sites_by_chroms ={}
+	chroms, starts = [], []
+
+	coords = df['match_chrm'] + ":" + df['match_position'].astype('str') + "-" + df['match_position'].astype('str')
+	for k,coord,seq,strand in zip(df['match_chrm'],coords,df.match_sequence,df.match_strand):
+		if k not in sites_by_chroms.keys():
+			sites_by_chroms[k] ={'coords':[],"match_sequences":[],"strands":[]}
+		sites_by_chroms[k]['coords'].append(coord)
+		sites_by_chroms[k]['match_sequences'].append(seq)
+		sites_by_chroms[k]['strands'].append(strand)
+		chroms.append(k)
+		starts.append(coord.split(":")[1].split("-")[0])
+
+	for chrom, vals in sites_by_chroms.items():
+		fasta_not_loaded = True
+
+		Transcript.load_transcripts(annote_path, vals['coords'])
+
+		for coord,match_sequence,strand in zip(vals['coords'],vals['match_sequences'],vals['strands']):
+			tx = Transcript.transcript(coord)
+			if tx == 'intergenic':
+				gene.append('.')
+				feature = tx
+			else:
+				gene.append(tx.tx_info()[2])
+				feature = tx.feature
+				if fasta_not_loaded:
+					chr_fasta_path = f"{fasta_path}/chr{str(chrom).replace('chr', '')}.pkl"
+					with open(chr_fasta_path, 'rb') as pfile:
+						fasta = pickle.load(pfile)
+					fasta_not_loaded = False
+
+			nbases,convert = add_be_outcomes(tx, fasta,coord, feature, match_sequence, conversion, be_win)
+			features.append(feature)
+			n_editable.append(nbases)
+			codon_change.append(convert)
+
+
+	annotations_df = pd.DataFrame({'match_chrm':chroms,'match_position':starts,'Gene':gene,'Feature':features, 'N_Bases_Editable':n_editable,'Base_Change_Consequence':codon_change})
+	df = df.merge(annotations_df, on=['match_chrm', 'match_position'])
+
+	df['match_chrm'] = df['match_chrm'] + ":" + df['match_position'].astype('str') + df['match_strand'].astype('str')
+
+	df = df.iloc[:, [0, 1, 2, 5, 6, 7, 8, 9,12, 13, 10, 11, 14,15, 16,17,18]]
+
+	header = ['Guide_ID', 'On_Target_Sequence', "Match_Coords",'Mismatch',
+			  'Match_Sequence', 'RNA_Bulges', 'DNA_Bulges',
+			  'CFD_Score', "Distance", 'Multi Alignment [0=No/1=Yes]', "Alt Site Impact",
+			  "Alt Genome","Alt Variants",
+			 "Feature","Gene",'N_Base_Editable','Base_Change_Consequence']
+
+	df.columns = header
+	df = df.sort_values(["Mismatch","Distance"],ascending = True)
+	return df
 
 def add_annotations(df,annote_path):
 
@@ -158,17 +305,19 @@ def add_annotations(df,annote_path):
 
 	df['Gene'] = Gene
 	df['Feature'] = Feature
+	df.loc[:, ['N_Base_Editable', 'Base_Change_Consequence']] = 'na'
 	df['match_chrm'] = df['match_chrm'] + ":" + df['match_position'].astype('str') + df['match_strand'].astype('str')
 
-	df = df.iloc[:, [0, 1, 2, 5, 6, 7, 8, 9, 12, 13, 10, 11, 14,15, 16]]
-	header = ['Guide_ID', 'On_Target_Sequence', "Match_Coords",'Mismatch',
+	df = df.iloc[:, [0, 1, 2, 5, 6, 7, 8, 9,12, 13, 10, 11, 14, 15, 16, 17, 18]]
+
+	header = ['Guide_ID', 'On_Target_Sequence', "Match_Coords", 'Mismatch',
 			  'Match_Sequence', 'RNA_Bulges', 'DNA_Bulges',
 			  'CFD_Score', "Distance", 'Multi Alignment [0=No/1=Yes]', "Alt Site Impact",
-			  "Alt Genome","Alt Variants",
-			 "Feature","Gene"]
+			  "Alt Genome", "Alt Variants",
+			  "Feature", "Gene", 'N_Base_Editable', 'Base_Change_Consequence']
 
 	df.columns = header
-	df = df.sort_values("Mismatch",ascending = False).sort_values("Distance",ascending = True)
+	df = df.sort_values(["Mismatch", "Distance"], ascending=True)
 	return df
 
 
@@ -179,10 +328,13 @@ def reformat_guidescan(guidescan_filtered_bed,
 					   max_bulge,
 					   annote_path,
 					   models_dir,
-					   editing_tool):
+					   editing_tool,
+					   guide_params,
+					   fasta_path):
 
 	final_df = pd.DataFrame()
 	find_alt_unique_sites = True if genome_type == 'extended' else False
+	be_flag = True if len(str(guide_params[3])) > 2 else False
 	lines = open(guidescan_filtered_bed,"r").readlines()
 
 	if len(lines) ==1:
@@ -195,7 +347,11 @@ def reformat_guidescan(guidescan_filtered_bed,
 		condensed_lines = de_dup(scored_lines,max_bulge)
 		df = pd.DataFrame(condensed_lines[1:], columns=condensed_lines[0])
 		adjusted_for_variants_df = config_alt_variants(df,find_alt_unique_sites)
-		final_df = add_annotations(adjusted_for_variants_df,annote_path)
+		if be_flag:
+			final_df = add_be_annotations(adjusted_for_variants_df,annote_path,guide_params,fasta_path)
+		else:
+			final_df = add_annotations(adjusted_for_variants_df,annote_path)
+
 	final_df.to_csv(formatted_casoff_out,index = False)
 
 
@@ -211,9 +367,12 @@ def main():
 	extended_genomes = list(snakemake.params.extended_genomes)
 	rna_bulge = int(snakemake.params.rna_bulge)
 	dna_bulge = int(snakemake.params.dna_bulge)
+	guide_params = list(snakemake.params.guide_params)
 	# === Wildcards ===
 	offtarget_genome = str(snakemake.wildcards.offtarget_genomes)
 	editing_tool = str(snakemake.wildcards.editing_tool)
+	fasta_path = str(snakemake.input.assembly_dir_path) #pickled fasta reference file (even if its extended/alt genome)
+
 
 	genome_type = 'main_ref'
 	if offtarget_genome in set(extended_genomes):
@@ -228,7 +387,9 @@ def main():
 					   max_bulge,
 					   annote_path,
 					   models_path,
-					   editing_tool)
+					   editing_tool,
+					   guide_params,
+					   fasta_path)
 
 
 if __name__ == "__main__":

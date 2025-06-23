@@ -20,9 +20,10 @@ def ls_editors(args):
 		print("The database path directory could not be found.")
 		exit(0)
 
-	# === Load configuration file ===
 	with open(config_db_path, 'r') as config_handle:
 		config_db_obj = yaml.safe_load(config_handle)
+	# === Load configuration file ===
+
 
 	# === Load Editors Lists From Path Specified on config_db.yaml ===
 	# if print_editors:

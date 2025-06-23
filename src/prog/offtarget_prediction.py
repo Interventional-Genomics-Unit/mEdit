@@ -136,10 +136,11 @@ def offtarget_prediction(args, jobtag):
         be_search_params = pickle.load(file)
 
     for editor, stats in be_search_params.items():
-        guide_search_params[editor] = stats[0]
+        guide_search_params[editor] = list(stats[0]) + [stats[1][0]]
 
     # == Setup core off-target variables
     pam_per_editor_dict = {}
+    params_per_editors_dict = {}
     alt_pam_per_editor_dict = {}
     pam_is_first_per_editor_dict = {}
     guides_per_editor_path = ""
@@ -178,10 +179,12 @@ def offtarget_prediction(args, jobtag):
                 pam_per_editor_dict.setdefault(editor, expand_pam(guide_search_params[editor][0])[0])
                 alt_pam_per_editor_dict.setdefault(offtarget_genome, {}).setdefault(editor, expand_pam(guide_search_params[editor][0])[1])
                 pam_is_first_per_editor_dict.setdefault(offtarget_genome, {}).setdefault(editor, "--start" if guide_search_params[editor][1] is True else " ")
+                params_per_editors_dict.setdefault(editor, guide_search_params[editor])
 
     # === Export Variables to Configuration File ===
     config_template['guides_per_editor_path'] = guides_per_editor_path
     config_template['pam_per_editor_dict'] = pam_per_editor_dict
+    config_template['params_per_editors_dict'] = params_per_editors_dict
     config_template['alt_pam_per_editor_dict'] = alt_pam_per_editor_dict
     config_template['pam_is_first_per_editor_dict'] = pam_is_first_per_editor_dict
     config_template['offtarget_genomes'] = {str(tup[0]): str(tup[1]) for tup in offtarget_genomes}

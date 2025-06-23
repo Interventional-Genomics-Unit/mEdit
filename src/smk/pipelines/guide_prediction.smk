@@ -109,7 +109,7 @@ Outputs generated:
 --> Generate reports on:\n {output.guides_report_out}\n {output.be_report_out}
 Log file path:
 --> {output.logfile_path}
-        """
+		"""
 	script:
 		"py/fetchGuides.py"
 
@@ -150,30 +150,32 @@ Wildcards in this rule:
 		# 2) filter GAT1 or GAT2 samples (samples where one haplotype has a sequence depth = 0)
 		# 3) filter reference & variant alleles > 1nt (SNVS only for now)
 		# 4) Filter quality score > 15
-		# 5) break multiallelics to one per line
+		# 5) break multiallelics to one per line and checks ref with fasta
 		# Create index file
 		
 		# Inspect the number of genomes in the VCF file
 		num_samples=$(bcftools query -l {input.source_vcf} | wc -l)
+		CONTIGS=$(cut -f1 {input.assembly_path}.fai | paste -sd, -)
 
 		# Check VCF only had one genome
 		if [ $num_samples -le 1 ]; then
 			# Check if read depth is given (for custom vcfs derived from wgs)
 			if bcftools view -h {input.source_vcf} | grep -q '##FORMAT=<ID=DP'; then
-				bcftools view --min-ac=1 -v snps -e 'GT="." || QUAL<15 || FMT/DP<5' {input.source_vcf} | bcftools norm --check-ref s --multiallelics -any -f {input.assembly_path} | bcftools sort -W -O z -o {output.filtered_vcf}
+				bcftools view -e 'QUAL<15 || FMT/DP<5' -r $CONTIGS {input.source_vcf} | \
+				bcftools norm --multiallelics -any -f {input.assembly_path} | \
+    			bcftools view --min-ac=1 -v snps -e 'GT="."' | \
+    			bcftools sort -W=tbi -O z -o {output.filtered_vcf}
 			else
-				bcftools view --min-ac=1 -v snps -e 'GT="." || QUAL<15' {input.source_vcf} | bcftools norm --check-ref s --multiallelics -any -f {input.assembly_path} | bcftools sort -W -O z -o {output.filtered_vcf}
-
+				bcftools view -r $CONTIGS {input.source_vcf} | \
+				bcftools norm --multiallelics -any -f {input.assembly_path} | \
+				bcftools view --min-ac=1 -v snps -e 'GT="."' | \
+    			bcftools sort -W=tbi -O z -o {output.filtered_vcf}
 			fi
-			
-		# If multi genomes split with sample name first
+		# If multi genomes split with sample name first, this was already normalized
 		else
-			bcftools view -s {wildcards.vcf_id} --min-ac=1 {input.source_vcf} | bcftools sort -W -O z -o {output.filtered_vcf}
+		    bcftools view -s {wildcards.vcf_id} --min-ac=1 {input.source_vcf} | bcftools sort -W=tbi -O z -o {output.filtered_vcf}
 		fi
-	
-		bcftools index -f -t {output.filtered_vcf}
-  		
-        """
+    """
 
 # noinspection SmkAvoidTabWhitespace
 rule process_altgenomes:

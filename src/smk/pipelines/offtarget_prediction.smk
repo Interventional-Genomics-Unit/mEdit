@@ -83,8 +83,8 @@ bcftools index -f -t {params.tmp_vcf}/tmp_{wildcards.offtarget_extended}.vcf
 
 ## Consensus Sequence
 # remove 0|0, .|0, 0| and then chose the alt allele to make fasta
-samtools dict {input.assembly_path}
-samtools faidx {input.assembly_path}	
+#samtools dict {input.assembly_path}
+#samtools faidx {input.assembly_path}	
 
 bcftools consensus -H A -M A --fasta-ref {input.assembly_path} {params.tmp_vcf}/tmp_{wildcards.offtarget_extended}.vcf > {output.consensus_fasta}
 samtools faidx {output.consensus_fasta}        	
@@ -298,10 +298,12 @@ Wildcards in this rule:
 rule casoff_scoring:
     input:
         #Temp file
-        guidescan_filtered_bed="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{query_index}_{editing_tool}_guidescan_filtered.bed"
+        guidescan_filtered_bed="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{query_index}_{editing_tool}_guidescan_filtered.bed",
+        assembly_dir_path= lambda wildcards: os.path.join(config["fasta_root_path"])
     output:
         formatted_casoff="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{query_index}_{editing_tool}_Offtargets_found.csv"
     params:
+        guide_params = lambda wildcards: config["params_per_editors_dict"][wildcards.editing_tool],
         extended_genomes=config["offtarget_extended"],
         rna_bulge=config["RNAbb"],
         dna_bulge=config["DNAbb"],

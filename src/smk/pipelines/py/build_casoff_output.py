@@ -304,22 +304,24 @@ def compile_per_editor_input(guides_per_editor_list):
 def aggregate_guidescan_results(guides_per_editor_list, formatted_casoff_list,
 								offtarget_genomes, thresholds,
 								offtarget_summary_file, offtarget_expanded_summary_file):
+	summary_report = pd.DataFrame()
+	expanded_offtarget_report = pd.DataFrame()
 
-	coords_per_guide, guides_report = compile_per_editor_input(guides_per_editor_list)
+	if len(guides_per_editor_list) >0:
+		coords_per_guide, guides_report = compile_per_editor_input(guides_per_editor_list)
 
-	offtarget_lib = OffTargets_Library(thresholds, coords_per_guide, offtarget_genomes)
+		offtarget_lib = OffTargets_Library(thresholds, coords_per_guide, offtarget_genomes)
 
-	for formatted_casoff in formatted_casoff_list:
-		offtarget_genome = formatted_casoff.split("/")[-2]
-		genome_type = offtarget_genomes[offtarget_genome]
-		offtarget_lib.add_data_from_file(formatted_casoff, offtarget_genome, genome_type)
+		for formatted_casoff in formatted_casoff_list:
+			offtarget_genome = formatted_casoff.split("/")[-2]
+			genome_type = offtarget_genomes[offtarget_genome]
+			offtarget_lib.add_data_from_file(formatted_casoff, offtarget_genome, genome_type)
 
-	rows = offtarget_lib.generate_rows()
-	expanded_offtarget_report = pd.DataFrame(rows[1:],columns=rows[0])
+		rows = offtarget_lib.generate_rows()
+		expanded_offtarget_report = pd.DataFrame(rows[1:],columns=rows[0])
 
-	expanded_offtarget_report.to_csv(offtarget_expanded_summary_file,index=False)
-
-	summary_report = create_summary_report(expanded_offtarget_report,guides_report)
+		summary_report = create_summary_report(expanded_offtarget_report,guides_report)
+	expanded_offtarget_report.to_csv(offtarget_expanded_summary_file, index=False)
 	summary_report.to_csv(offtarget_summary_file,index = False)
 
 
