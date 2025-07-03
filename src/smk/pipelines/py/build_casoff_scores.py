@@ -281,8 +281,8 @@ def add_be_annotations(df,annote_path,guide_params,fasta_path):
 
 	header = ['Guide_ID', 'On_Target_Sequence', "Match_Coords",'Mismatch',
 			  'Match_Sequence', 'RNA_Bulges', 'DNA_Bulges',
-			  'CFD_Score', "Distance", 'Multi Alignment [0=No/1=Yes]', "Alt Site Impact",
-			  "Alt Genome","Alt Variants",
+			  'CFD_Score', "Distance", "Alt Variants",'Multi Alignment [0=No/1=Yes]', "Alt Site Impact",
+			  "Alt Genome",
 			 "Feature","Gene",'N_Base_Editable','Base_Change_Consequence']
 
 	df.columns = header
@@ -312,8 +312,8 @@ def add_annotations(df,annote_path):
 
 	header = ['Guide_ID', 'On_Target_Sequence', "Match_Coords", 'Mismatch',
 			  'Match_Sequence', 'RNA_Bulges', 'DNA_Bulges',
-			  'CFD_Score', "Distance", 'Multi Alignment [0=No/1=Yes]', "Alt Site Impact",
-			  "Alt Genome", "Alt Variants",
+			  'CFD_Score', "Distance","Alt Variants", 'Multi Alignment [0=No/1=Yes]', "Alt Site Impact",
+			  "Alt Genome",
 			  "Feature", "Gene", 'N_Base_Editable', 'Base_Change_Consequence']
 
 	df.columns = header
