@@ -1,13 +1,14 @@
 # == Native Modules
 from os.path import abspath
+from pathlib import Path
 import pickle
 import subprocess
-from pathlib import Path
-import pandas as pd
 # == Installed Modules
+import pandas as pd
 import yaml
 # == Project Modules
 from prog.medit_lib import (
+    combine_guide_tables,
     expand_pam,
     export_guides_by_editor,
     file_exists,
@@ -19,7 +20,6 @@ from prog.medit_lib import (
     project_file_path,
     set_export,
     write_yaml_to_file,
-    combine_guide_tables
 )
 
 
@@ -102,7 +102,7 @@ def offtarget_prediction(args, jobtag):
     # === Import Variables from Configuration File ===
     run_name = str(dynamic_config_guidepred['run_name'])
     mode = str(dynamic_config_guidepred['processing_mode'])
-    fast_mode = bool(dynamic_config_guidepred['fast_mode'])
+    fast_mode = dynamic_config_guidepred['fast_mode']
     query_index = (dynamic_config_guidepred['query_index'])
     root_dir = str(dynamic_config_guidepred['output_directory'])
 

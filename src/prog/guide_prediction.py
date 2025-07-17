@@ -58,7 +58,7 @@ def guide_prediction(args, jobtag):
 	smk_verbosity = [True]
 	smk_run_triggers = ''
 	dryrun_setup = ''
-	fast_mode = str(False)
+	fast_mode = bool(False)
 
 	# ->=== OUTPUT SETUP ===<-
 	# == Set import paths tied to the SMK pipeline
@@ -119,7 +119,7 @@ def guide_prediction(args, jobtag):
 		#       it's deployed by snakemake on a SLURM node
 		cluster_smk_setup = ['', '--cluster "sbatch -t {cluster.time} -n {cluster.cores}" '
 								 f'--cluster-config {cluster_template_path}']
-		allowed_rules = ['--until "filter_vcf"', '']
+		allowed_rules = ['--until "filter_vcf" --omit-from "filter_user_vcf"', '']
 		smk_verbosity = [False, True]
 	#   == Check the dry run request
 	if dry_run:
@@ -152,6 +152,8 @@ def guide_prediction(args, jobtag):
 
 	# ->=== CHECK RUN MODE ===<-
 	if mode == 'vcf':
+		# == On VCF mode, skip the filter_vcf rule associated with the standard mode
+		allowed_rules = ['--omit-from filter_vcf']
 		# == Enforce presence of custom vcf genome in this mode ==
 		if not custom_vcfs:
 			print("Please provide a VCF input file to run mEdit's vcf mode")
@@ -179,11 +181,11 @@ def guide_prediction(args, jobtag):
 		#   => Add any amount of custom vcf genomes to the config file
 		config_template["vcf_id"] = tagged_genomes
 	elif mode == 'fast':
-		allowed_rules = ['--until "predict_guides" --omit-from filter_vcf']
+		allowed_rules = ['--until "predict_guides" --omit-from filter_vcf --omit-from filter_user_vcf']
 		# == 'fast' mode is a sub-mode of 'standard';
 		# downstram processes must acknowledge that this is a standard run
 		mode = 'standard'
-		fast_mode = str(True)
+		fast_mode = bool(True)
 
 	# === Assign Key Variables to Configuration File ===
 	config_template['run_name'] = f"{mode}_{jobtag}"
