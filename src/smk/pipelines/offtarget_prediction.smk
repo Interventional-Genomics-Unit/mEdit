@@ -8,7 +8,7 @@ import os
 rule all:
     input:
         # === Create consensus FASTA sequences for Alternative Genomes
-        #   == rule
+        #   == rule set_consensus_fasta
         expand("{meditdb_path}/{mode}/consensus_refs/{reference_id}/{offtarget_extended}.fa",
             meditdb_path=config["meditdb_path"],mode=config["processing_mode"],
             reference_id=config["sequence_id"],offtarget_extended=config["offtarget_extended"]),
@@ -299,11 +299,12 @@ rule casoff_scoring:
     input:
         #Temp file
         guidescan_filtered_bed="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{query_index}_{editing_tool}_guidescan_filtered.bed",
-        assembly_dir_path= lambda wildcards: os.path.join(config["fasta_root_path"])
     output:
-        formatted_casoff="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{query_index}_{editing_tool}_Offtargets_found.csv"
+        formatted_casoff="{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{query_index}_{editing_tool}_Offtargets_found.csv",
+        logfile_path = "{root_dir}/{mode}/jobs/{run_name}/guide_prediction-{reference_id}/offtarget_prediction/{offtarget_genomes}/{query_index}_{editing_tool}_guide_prediction.log",
     params:
         guide_params = lambda wildcards: config["params_per_editors_dict"][wildcards.editing_tool],
+        fasta_root_path=config["fasta_root_path"],
         extended_genomes=config["offtarget_extended"],
         rna_bulge=config["RNAbb"],
         dna_bulge=config["DNAbb"],

@@ -1,8 +1,9 @@
 # == Native Modules
+import logging
+import pickle
 # == Installed Modules
 from Bio.Seq import Seq
 from Bio.SeqUtils import seq3
-import pickle
 import pandas as pd
 # == Project Modules
 from scoring import cfd_score,load_model_params
@@ -254,9 +255,13 @@ def add_be_annotations(df,annote_path,guide_params,fasta_path):
 
 		for coord,match_sequence,strand in zip(vals['coords'],vals['match_sequences'],vals['strands']):
 			tx = Transcript.transcript(coord)
+			chr_fasta_path = 'placeholder_filepath'
 			if tx == 'intergenic':
 				gene.append('.')
-				feature = tx
+				n_editable.append('na')
+				codon_change.append('na')
+				features.append('intergenic')
+				continue
 			else:
 				gene.append(tx.tx_info()[2])
 				feature = tx.feature
@@ -265,12 +270,14 @@ def add_be_annotations(df,annote_path,guide_params,fasta_path):
 					with open(chr_fasta_path, 'rb') as pfile:
 						fasta = pickle.load(pfile)
 					fasta_not_loaded = False
-
-			nbases,convert = add_be_outcomes(tx, fasta,coord, feature, match_sequence, conversion, be_win)
-			features.append(feature)
-			n_editable.append(nbases)
-			codon_change.append(convert)
-
+			try:
+				nbases,convert = add_be_outcomes(tx, fasta,coord, feature, match_sequence, conversion, be_win)
+				features.append(feature)
+				n_editable.append(nbases)
+				codon_change.append(convert)
+			except UnboundLocalError:
+				logging.warning(f"*** UnboundLocalError on add_be_outcomes ***\nFASTA PICKLE NOT FOUND for CHR {chrom}")
+				logging.warning(f"*** Possible malformed filename {fasta_path}/chr{str(chrom).replace('chr', '')}.pkl")
 
 	annotations_df = pd.DataFrame({'match_chrm':chroms,'match_position':starts,'Gene':gene,'Feature':features, 'N_Bases_Editable':n_editable,'Base_Change_Consequence':codon_change})
 	df = df.merge(annotations_df, on=['match_chrm', 'match_position'])
@@ -339,18 +346,28 @@ def reformat_guidescan(guidescan_filtered_bed,
 
 	if len(lines) ==1:
 		# editing_tool = guidescan_filtered_bed.split('/')[-1].split("_").replace("_guidescan_filtered.bed","").split("_")[-1]
-		print(f"No offtargets found for {editing_tool} in {genome_type}")
-		print("skipping......")
+		logging.info(f"No offtargets found for {editing_tool} in {genome_type}")
+		logging.info("Skipping.")
 	else:
 		lines_reformatted = reformat_ref_and_alt(lines,offtarget_genome,genome_type)
+		logging.info(f"Reformatted genome {offtarget_genome}")
+
 		scored_lines = fix_cfd(lines_reformatted, models_dir)
+		logging.info(f"Scored predictions. Total lines: {len(scored_lines)}")
+
 		condensed_lines = de_dup(scored_lines,max_bulge)
+		logging.info(f"Condensed predictions. Total lines: {len(condensed_lines)}")
+
 		df = pd.DataFrame(condensed_lines[1:], columns=condensed_lines[0])
 		adjusted_for_variants_df = config_alt_variants(df,find_alt_unique_sites)
+		logging.info(f"Adjusted for variants. Total lines: {len(adjusted_for_variants_df)}")
+
 		if be_flag:
 			final_df = add_be_annotations(adjusted_for_variants_df,annote_path,guide_params,fasta_path)
+			logging.info(f"BE annotations added. Total lines: {len(final_df)}")
 		else:
 			final_df = add_annotations(adjusted_for_variants_df,annote_path)
+			logging.info(f"Annotations added. Total lines: {len(final_df)}")
 
 	final_df.to_csv(formatted_casoff_out,index = False)
 
@@ -362,6 +379,7 @@ def main():
 	# === Outputs ===
 	formatted_casoff_out = str(snakemake.output.formatted_casoff)
 	# === Params ===
+	fasta_path = str(snakemake.params.fasta_root_path)  # pickled fasta reference file (even if its extended/alt genome)
 	models_path = str(snakemake.params.models_path)
 	annote_path = str(snakemake.params.annote_path)
 	extended_genomes = list(snakemake.params.extended_genomes)
@@ -371,8 +389,20 @@ def main():
 	# === Wildcards ===
 	offtarget_genome = str(snakemake.wildcards.offtarget_genomes)
 	editing_tool = str(snakemake.wildcards.editing_tool)
-	fasta_path = str(snakemake.input.assembly_dir_path) #pickled fasta reference file (even if its extended/alt genome)
+	#   == Log File ==
+	logfile_path = str(snakemake.output.logfile_path)
 
+	# === Log Process Initialization
+	# Configure the logging system
+	logging.basicConfig(
+		level=logging.DEBUG,  # Set the minimum log level (DEBUG logs everything)
+		format='%(asctime)s [%(levelname)s] %(message)s',  # Define log format
+		handlers=[
+			logging.FileHandler(logfile_path),  # Log to file
+		]
+	)
+
+	logging.info('=== INITIALIZING OFF-TARGET SCORING ROUTINE ===')
 
 	genome_type = 'main_ref'
 	if offtarget_genome in set(extended_genomes):
@@ -390,6 +420,8 @@ def main():
 					   editing_tool,
 					   guide_params,
 					   fasta_path)
+
+	logging.info('=== OFF-TARGET SCORING ROUTINE FINISHED ===')
 
 
 if __name__ == "__main__":
