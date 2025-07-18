@@ -612,7 +612,7 @@ def main():
 		df.to_csv(str(report))
 
 	# == Input Setup ==
-	df = pd.read_csv(input_file)
+	df = pd.read_csv(input_file, header=None)
 	queries = list(df.iloc[:, 0])
 
 	# == Editors / BEs Setup ==
