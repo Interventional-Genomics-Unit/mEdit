@@ -146,7 +146,7 @@ def guide_prediction(args, jobtag):
 		pam = check_format(pam, str, 'pam', 'XXX')
 		pam_is_first = check_format(pam_is_first, bool, 'pamisfirst', None)
 		guide_length = check_format(guide_length, int, 'guidelen', -1)
-		editing_window = check_format(editing_window, tuple, 'edit_win', (0, 0))
+		editing_window = check_format(editing_window, tuple, 'edit_win', (0, 0), 2)
 		target_base = check_format(target_base, str, 'target_base', 'X')
 		result_base = check_format(result_base, str, 'result_base', 'X')
 

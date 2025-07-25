@@ -71,7 +71,7 @@ class Fetch_Guides:
 		self.pam = str()
 		self.pam_is_first = False
 		self.dsb_position = int()
-		self.editing_window = [4, 8]
+		self.editing_window = list()
 		self.conversion = str()
 		self.search_params = self.configure_search_params(kwargs)
 		self.BE_search_params = self.configure_BE_params(kwargs)
@@ -199,7 +199,11 @@ class Fetch_Guides:
 			self.conversion = target_base + result_base
 		except KeyError:
 			logging.error("Custom editor selection MUST also have 'target_base' and 'result_base' in kwargs")
-
+		try:
+			self.editing_window = [int(value) for value in kwargs['editing_window']]
+		except KeyError:
+			logging.error("Custom editor selection MUST have a comma-separated value for editing_window")
+			exit(1)
 		params = {'custom_be': [(self.pam, self.pam_is_first, self.guide_length, self.editing_window, ''),
 								(self.conversion, 'custom_be')]}
 		five, three = "5'", "3'"
@@ -587,7 +591,7 @@ def main():
 	guide_length = int(snakemake.params.guide_length)
 	pam_is_first = bool(snakemake.params.pam_is_first)
 	dsb_position = int(snakemake.params.dsb_position)
-	editing_window = tuple(snakemake.params.editing_window)
+	editing_window = list(snakemake.params.editing_window)
 	target_base = str(snakemake.params.target_base)
 	result_base = str(snakemake.params.result_base)
 
@@ -620,6 +624,8 @@ def main():
 		editors = pickle.load(edfile)
 	with open(base_editors_path, 'rb') as befile:
 		base_editors = pickle.load(befile)
+
+	logging.info(f'=== EDITING WINDOW:\n {editing_window}')
 
 	# == Report processed input variables ==
 	# print(f"""

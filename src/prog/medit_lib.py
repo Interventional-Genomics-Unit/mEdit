@@ -69,7 +69,7 @@ def consolidate_s3_download(content, parent_folder):
 	return consolidated_downloadable
 
 
-def check_format(variable, data_type, paramater_name, default_value):
+def check_format(variable, data_type, paramater_name, default_value, parts=0):
 	if isinstance(variable, data_type):
 		if variable == default_value:
 			print(f"Please specify a value for the option --{paramater_name}.")
@@ -80,7 +80,17 @@ def check_format(variable, data_type, paramater_name, default_value):
 				exit(0)
 		return data_type(variable)
 	else:
-		if data_type != str:
+		if data_type == tuple:
+			if parts > 0:
+				variable_parts = variable.split(',')
+				if len(variable_parts) != parts:
+					print(f"The comma-separated value in --{paramater_name} is expected to contain {parts} values."
+						  f"But {len(variable_parts)} were given: {variable}")
+					exit(0)
+				elif len(variable_parts) == parts:
+					tuple_result = tuple(variable_parts[part] for part in range(parts))
+					return tuple_result
+		elif data_type != str and data_type != tuple:
 			try:
 				data_type(variable)
 				return data_type(variable)
