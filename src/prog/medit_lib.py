@@ -444,6 +444,10 @@ def handle_shell_exception(result: SubprocessResult, shell_command: str, verbose
 		match = re.search(r"(mamba env create[^\n]+)", result.stdout + result.stderr)
 		if match:
 			mamba_cmd = match.group(1)
+			# Ensure auto-confirm
+			if "-y" not in mamba_cmd and "--yes" not in mamba_cmd:
+				mamba_cmd += " -y"
+
 			prCyan(f"--> Retrying env creation")
 			retry_env = launch_shell_cmd(mamba_cmd, verbose)
 
