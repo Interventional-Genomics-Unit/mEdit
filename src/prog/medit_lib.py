@@ -437,6 +437,28 @@ def handle_shell_exception(result: SubprocessResult, shell_command: str, verbose
 		prRed("--> Missing outputs. Check input/output associations.")
 		exit(1)
 
+	# === Handle CreateCondaEnvironmentException
+	if "CreateCondaEnvironmentException" in result.stdout + result.stderr:
+		prCyan("--> Detected conda environment creation failure.")
+		# Extract the failing mamba command from stderr
+		match = re.search(r"(mamba env create[^\n]+)", result.stdout + result.stderr)
+		if match:
+			mamba_cmd = match.group(1)
+			prCyan(f"--> Retrying env creation")
+			retry_env = launch_shell_cmd(mamba_cmd, verbose)
+
+			if retry_env.exit_code == 0:
+				prCyan("--> Env creation succeeded. Retrying Snakemake...")
+				retry_result = launch_shell_cmd(shell_command, verbose)
+				handle_shell_exception(retry_result, shell_command, verbose)
+				return
+			else:
+				prRed("--> Env creation retry failed. Aborting.")
+				exit(1)
+		else:
+			prRed("--> Could not parse mamba command from error log.")
+			exit(1)
+
 	# === General errors
 	if result.exit_code != 0:
 		prRed(f"Command failed with exit code {result.exit_code}: {shell_command}")
