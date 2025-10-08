@@ -89,18 +89,16 @@ def parse_arguments():
 	                          using the "db_set" program.
 	                          [default: ./mEdit_database]\n''')
 							  )
-	# editors_list.add_argument(('--editors'),
-	# 						  dest='editors',
-	# 						  action='store_true',
-	# 						  help=textwrap.dedent('''
-	#                           Provides the current list of available editors on mEdit
-	#                            \n'''))
-	# editors_list.add_argument('-b',
-	# 						  dest='base_editors',
-	# 						  action='store_true',
-	# 						  help=textwrap.dedent('''
-	#                           Provides the current list of available base editors on mEdit
-	#                           \n'''))
+
+	# === JSON Templates ===
+	list_parser = programs.add_parser(
+		'json_format',
+		help=textwrap.dedent('''
+				Provides detailed instructions and templates on how to 
+				prepare a JSON file to be ingested by the "--custom_batch" option\n
+			'''),
+		formatter_class=RawTextHelpFormatter
+	)
 
 	# === Guide Prediction Program ===
 
@@ -202,9 +200,12 @@ def parse_arguments():
 			[2-]<user defined list>: The user provides a comma-separated 
 			list of editors. Use the 'medit list' command to access the current 
 			set of available editors.
-			[3-] "custom": Apply custom guide search parameters. 
+			[3.1-] "custom": Apply custom guide search parameters. 
 			This requires a separate input of parameters: 
 			‘--pam’, ‘--pamisfirst’,’--guidelen’, and 'dsb_pos'
+			[3.2-] "custom" + --custom_batch <json file>: The user calls 
+			" --editor 'custom' " in addition to a json file containing 
+			information of n>=1 editors.
 			\n''')
 	)
 	run_params.add_argument(
@@ -212,18 +213,32 @@ def parse_arguments():
 		dest='be_request',
 		default='default',
 		help=textwrap.dedent('''
-		Add this flag to allow mEdit process base-editors. [default = off]
-		[1-] “off”: disable base editor guides searching.
-		[2-] “default”: use generic ABE and CBE with ‘NGG’ PAM 
-		and 4-8 base editing window
-		[3-] “custom”: : select base editor search parameters. 
-		This requires a separate input of parameters :
-		‘--pam’, ‘--pamisfirst’,’--guidelen’,’--edit_win’,
-		’--target_base’, and ’--result_base’
-		[4-]<user defined list>: The user provides a comma-separated 
-		list of base editors. Use 'medit list' to access the current set of
-		available editors.
-		\n''')
+				Add this flag to allow mEdit process base-editors. [default = off]
+				[1-] “off”: disable base editor guides searching.
+				[2-] “default”: use generic ABE and CBE with ‘NGG’ PAM 
+				and 4-8 base editing window
+				[3-] “custom”: : select base editor search parameters. 
+				This requires a separate input of parameters :
+				‘--pam’, ‘--pamisfirst’,’--guidelen’,’--edit_win’,
+				’--target_base’, and ’--result_base’
+				[4.1-] <user defined list>: The user provides a comma-separated 
+				list of base editors. Use 'medit list' to access the current set of
+				available editors.
+				[4.2-] "custom" + --custom_batch <json file>: The user calls 
+					" --be 'custom' " in addition to a json file containing 
+					information of n>=1 base-editors.
+				\n''')
+			)
+	run_params.add_argument(
+		'--custom_batch',
+		dest='custom_batch',
+		default=None,
+		help=textwrap.dedent('''
+				Provide a JSON file containing information of n>=1 editors
+				or base-editors. Requires " --be 'custom' " or  
+				" --editor 'custom' ". Execute "medit json_format" to print 
+				a message with templates for both modes
+				\n''')
 	)
 	run_params.add_argument(
 		'--cutdist',
@@ -248,20 +263,20 @@ def parse_arguments():
 		dest='pam',
 		default='XXX',
 		help=textwrap.dedent('''
-	        Specifies the PAM sequence to be used for custom guide or 
-	        base editor searches. Required if "--editor custom" or
-	        "--be custom" is used.
-	    \n''')
+				Specifies the PAM sequence to be used for custom guide or 
+				base editor searches. Required if "--editor custom" or
+				"--be custom" is used.
+				\n''')
 	)
 	custom_options.add_argument(
 		'--guidelen',
 		dest='guide_length',
 		default=-1,
 		help=textwrap.dedent('''
-	        Specifies the length of the guide sequence for both 
-	        custom endonuclease and base editor searches.
-	        Required if "--editor custom" or "--be custom" is used.
-	    \n''')
+				Specifies the length of the guide sequence for both 
+				custom endonuclease and base editor searches.
+				Required if "--editor custom" or "--be custom" is used.
+			\n''')
 	)
 	custom_options.add_argument(
 		'--pamisfirst',

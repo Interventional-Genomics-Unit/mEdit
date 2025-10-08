@@ -26,12 +26,6 @@ hgvs_lookup: "HGVSlookup.csv"
 #clinvar_update: "clinvar_lastUpdate.txt"
 refseq_table: "ncbiRefSeq.bed"
 
-# === Local Configuration Sources ===
-# BEs / Editors
-editors: "pkl/editors.pkl"
-base_editors: "pkl/base_editors.pkl"
-models_path: "pkl/models"
-
 # === FILE PREFIXES ===
 # Reference genome prefix
 sequence_id: "GRCh38.p14"

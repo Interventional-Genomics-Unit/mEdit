@@ -5,6 +5,7 @@ from prog.guide_prediction import guide_prediction as guide_prediction
 from prog.offtarget_prediction import offtarget_prediction as offtarget
 from prog.db_set import dbset as db_set
 from prog.list_editors import ls_editors as list
+from prog.json_format import json_format as json_format
 from prog.arguments import parse_arguments as parse_arguments
 from prog.medit_lib import date_tag
 
@@ -27,13 +28,16 @@ def main():
 	# == Database Parameters
 	if program == "db_set":
 		db_set(args)
-	# == Editors List
+	# == Print Editors List
 	if program == "list":
 		list(args)
-	# Run mEdit Programs
+	# == Print Editors List
+	if program == "json_format":
+		json_format()
+	# Run mEdit Guide Prediction
 	if program == "guide_prediction":
 		guide_prediction(args, jobtag)
-
+	# Run Off-target Analysis
 	if program == "offtarget":
 		offtarget(args, jobtag)
 

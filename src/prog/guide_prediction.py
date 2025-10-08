@@ -10,8 +10,10 @@ import yaml
 # == Project Modules ==
 from prog.medit_lib import (compress_file,
 							check_format,
+							export_serialized_dict,
 							file_exists,
 							handle_shell_exception,
+							import_custom_batch,
 							launch_shell_cmd,
 							project_file_path,
 							prRed,
@@ -37,6 +39,7 @@ def guide_prediction(args, jobtag):
 	be_request = args.be_request
 	cutdist = args.cutdist
 	# == Custom editor required values
+	custom_batch = args.custom_batch
 	pam = args.pam
 	guide_length = args.guide_length
 	pam_is_first = args.pam_is_first
@@ -59,6 +62,8 @@ def guide_prediction(args, jobtag):
 	smk_run_triggers = ''
 	dryrun_setup = ''
 	fast_mode = bool(False)
+	custom_batch_path_editor = None
+	custom_batch_path_be = None
 
 	# ->=== OUTPUT SETUP ===<-
 	# == Set import paths tied to the SMK pipeline
@@ -67,6 +72,8 @@ def guide_prediction(args, jobtag):
 	config_dir_path = f"{root_dir}/config"
 	# == Set export paths for Input Query Files
 	query_input_path = f"{root_dir}/queries"
+	# == Set export path for Custom Editor Batch
+	editors_pkl_dir = f"{db_path_full}/pkl"
 	# == Set export paths for dynamic YAML files ==
 	dynamic_config_path = f"{config_dir_path}/config_{jobtag}.yaml"
 	dynamic_cluster_path = f"{config_dir_path}/cluster_{jobtag}.yaml"
@@ -108,11 +115,20 @@ def guide_prediction(args, jobtag):
 		set_export(query_input_path)
 		#   => Create a copy of the VCF in the internal mEdit directory
 		launch_shell_cmd(f"cp {query_filename} {formatted_query_filename}", True)
-	#   == Check the presence of custom vcf genome among the inputs ==
+	# == Check the presence of custom vcf genome among the inputs ==
 	if custom_vcfs:
 		mode = 'vcf'
 		custom_vcfs = args.custom_vcf.split(",")
-	#   == Check the request to run on a cluster
+	# == Check the presence of custom_batch file
+	if custom_batch:
+		if not file_exists(custom_batch):
+			handle_shell_exception(str('FileNotFound'), str(custom_batch), True)
+			exit(0)
+		elif file_exists(custom_batch):
+			clean_custom_batch = custom_batch.strip()
+			custom_batch_dict = import_custom_batch(clean_custom_batch)
+
+	# == Check the request to run on a cluster
 	if cluster_request:
 		# --> Upon SLURM run request, the guide_prediction.smk is split in two separate runs
 		# --> That's because samtool's conda package crashes on a libcrypto error when
@@ -121,34 +137,53 @@ def guide_prediction(args, jobtag):
 								 f'--cluster-config {cluster_template_path}']
 		allowed_rules = ['--until "filter_vcf" --omit-from "filter_user_vcf"', '']
 		smk_verbosity = [False, True]
-	#   == Check the dry run request
+	# == Check the dry run request
 	if dry_run:
 		dryrun_setup = '-n'
 	if user_jobtag:
 		smk_run_triggers = '--rerun-triggers "mtime"'
 	# == Check lists of editors and validate entries
 	if editor_request not in ['clinical', 'custom']:
-		with open(str(config_db["editors"]), 'rb') as editors_pkl_handle:
+		with open(str(config_template["editors"]), 'rb') as editors_pkl_handle:
 			editors_dict = pickle.load(editors_pkl_handle)
 		editor_request = validate_editor_list(editor_request, list(editors_dict['all'].keys()), '--editor')
+
 	if be_request not in ['default', 'custom']:
-		with open(str(config_db["base_editors"]), 'rb') as be_pkl_handle:
+		with open(str(config_template["base_editors"]), 'rb') as be_pkl_handle:
 			base_editors_dict = pickle.load(be_pkl_handle)
 		be_request = validate_editor_list(be_request, list(base_editors_dict['all'].keys()), '--be')
 
 	# == Check custom editors parameters
 	if editor_request == 'custom':
-		pam = check_format(pam, str, 'pam', 'XXX')
-		pam_is_first = check_format(pam_is_first, bool, 'pamisfirst', None)
-		guide_length = check_format(guide_length, int, 'guidelen', -1)
-		dsb_position = check_format(dsb_position, int, 'dsb_pos', -10000)
+		if custom_batch:
+			custom_batch_path_editor = Path(f"{editors_pkl_dir}/custom_editors_{mode}_{jobtag}.pkl")
+			#   => Create a serialized dictionary of the custom editors batch in the
+			#   	internal medit_database directory "pkl"
+			titled_custom_batch_editor = {'clinical': custom_batch_dict}
+			# Adjust the request label so mEdit can read the PKL and retreive custom editors' names
+			editor_request = 'clinical'
+			export_serialized_dict(titled_custom_batch_editor, custom_batch_path_editor)
+		else:
+			pam = check_format(pam, str, 'pam', 'XXX')
+			pam_is_first = check_format(pam_is_first, bool, 'pamisfirst', None)
+			guide_length = check_format(guide_length, int, 'guidelen', -1)
+			dsb_position = check_format(dsb_position, int, 'dsb_pos', -10000)
 	elif be_request == 'custom':
-		pam = check_format(pam, str, 'pam', 'XXX')
-		pam_is_first = check_format(pam_is_first, bool, 'pamisfirst', None)
-		guide_length = check_format(guide_length, int, 'guidelen', -1)
-		editing_window = check_format(editing_window, tuple, 'edit_win', (0, 0), 2)
-		target_base = check_format(target_base, str, 'target_base', 'X')
-		result_base = check_format(result_base, str, 'result_base', 'X')
+		if custom_batch:
+			custom_batch_path_be = Path(f"{editors_pkl_dir}/custom_be_{mode}_{jobtag}.pkl")
+			#   => Create a serialized dictionary of the custom BE batch in the
+			#   	internal medit_database directory "pkl"
+			titled_custom_batch_be = {'default': custom_batch_dict}
+			# Adjust the request label so mEdit can read the PKL and retreive custom be's names
+			be_request = 'default'
+			export_serialized_dict(titled_custom_batch_be, custom_batch_path_be)
+		else:
+			pam = check_format(pam, str, 'pam', 'XXX')
+			pam_is_first = check_format(pam_is_first, bool, 'pamisfirst', None)
+			guide_length = check_format(guide_length, int, 'guidelen', -1)
+			editing_window = check_format(editing_window, tuple, 'edit_win', (0, 0), 2)
+			target_base = check_format(target_base, str, 'target_base', 'X')
+			result_base = check_format(result_base, str, 'result_base', 'X')
 
 	# ->=== CHECK RUN MODE ===<-
 	if mode == 'vcf':
@@ -187,6 +222,15 @@ def guide_prediction(args, jobtag):
 		mode = 'standard'
 		fast_mode = bool(True)
 
+	# === Assign Path to Models directory ===
+	config_template['models_path'] = f"{editors_pkl_dir}/{config_template['models_path']}"
+	# === Assign Path to based-editors/editors IF applicable ===
+	config_template["base_editors"] = f"{editors_pkl_dir}/{config_template['base_editors']}"
+	config_template["editors"] = f"{editors_pkl_dir}/{config_template['editors']}"
+	if custom_batch_path_editor:
+		config_template["editors"] = str(custom_batch_path_editor)
+	elif custom_batch_path_be:
+		config_template["base_editors"] = str(custom_batch_path_be)
 	# === Assign Key Variables to Configuration File ===
 	config_template['run_name'] = f"{mode}_{jobtag}"
 	config_template['logfile_path'] = f"{jobtag}.log"

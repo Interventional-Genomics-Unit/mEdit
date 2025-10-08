@@ -50,6 +50,13 @@ float_cols: ['Alt CBE Score', 'Alt ABE score',
              'Alt Azimuth Score', 'Alt DeepCas9 Score',
              'Alt DeepCpf1 Score', 'Alt OOF Score']
 
+# Path to BEs / Editor libraries
+# * Set values are the standard options. However, the --custom_batch option may change these
+editors: "editors.pkl"
+base_editors: "base_editors.pkl"
+# === Local Configuration Sources ===
+models_path: "models"
+
 # === DOWNLOAD PARAMETERS ===
 aws_url: "https://s3-us-west-2.amazonaws.com/human-pangenomics/working/HPRC"
 aws_path: "assemblies/year1_freeze_assembly_v2/assembly_qc/dipcall_v0.2"

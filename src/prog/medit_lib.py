@@ -1,6 +1,8 @@
 # == Native Modules ==
+import ast
 from datetime import datetime
 import gzip
+import json
 import itertools
 import logging
 import os
@@ -329,6 +331,12 @@ def export_guides_by_editor(guide_df_by_editor_dict: dict, output_dir: (str, Pat
 	return editors_list
 
 
+def export_serialized_dict(dictionary: dict, output_pkl: (str, Path)):
+	with open(output_pkl, "wb") as output_file:
+		# noinspection PyTypeChecker
+		pickle.dump(dictionary, output_file)
+
+
 def file_exists(file_path):
 	return os.path.exists(file_path)
 
@@ -406,33 +414,65 @@ def handle_offtarget_request(mode, meditdb_path, requested_genomes):
 	print("Resuming off-target analysis...")
 	return True, mode
 
+# def handle_shell_exception(result: SubprocessResult, shell_command: str, verbose: bool) -> None:
+# 	"""Handle errors in subprocess output, including Snakemake locks."""
+# 	# === Silverplate Errors
+# 	#   == File not found
+# 	if re.search("FileNotFound", result.stderr):
+# 		prRed(f"QUERY FILEPATH NOT FOUND: Invalid filepath in command: {shell_command}")
+# 		exit(1)
+#
+# 	# === Snakemake-Specific Errors
+# 	#   == Unlock directory if locked
+# 	if "Directory cannot be locked." in result.stdout + result.stderr:
+# 		prCyan("--> Target directory locked. Unlocking...")
+# 		unlock_command = f"{shell_command} --unlock"  # Replace with actual unlock command
+# 		unlock_result = launch_shell_cmd(unlock_command, verbose)
+#
+# 		if unlock_result.exit_code != 0:
+# 			prRed("--> Failed to unlock directory!")
+# 			exit(1)
+#
+# 		# Retry original command after unlocking
+# 		prCyan("--> Retrying original command...")
+# 		retry_result = launch_shell_cmd(shell_command, verbose)
+# 		handle_shell_exception(retry_result, shell_command, verbose)
+# 		return
+#
+# 	#   == Other Snakemake errors
+# 	if "MissingOutputException" in result.stdout:
+# 		prRed("--> Missing outputs. Check input/output associations.")
+# 		exit(1)
+#
+# 	# === General errors
+# 	if result.exit_code != 0:
+# 		prRed(f"Command failed with exit code {result.exit_code}: {shell_command}")
+# 		exit(1)
+
 
 def handle_shell_exception(result: SubprocessResult, shell_command: str, verbose: bool) -> None:
-	"""Handle errors in subprocess output, including Snakemake locks."""
+	"""Handle errors in subprocess output, including Snakemake locks and conda failures."""
+
 	# === Silverplate Errors
-	#   == File not found
 	if re.search("FileNotFound", result.stderr):
 		prRed(f"QUERY FILEPATH NOT FOUND: Invalid filepath in command: {shell_command}")
 		exit(1)
 
 	# === Snakemake-Specific Errors
-	#   == Unlock directory if locked
 	if "Directory cannot be locked." in result.stdout + result.stderr:
 		prCyan("--> Target directory locked. Unlocking...")
-		unlock_command = f"{shell_command} --unlock"  # Replace with actual unlock command
+		unlock_command = f"{shell_command} --unlock"
 		unlock_result = launch_shell_cmd(unlock_command, verbose)
 
 		if unlock_result.exit_code != 0:
 			prRed("--> Failed to unlock directory!")
 			exit(1)
 
-		# Retry original command after unlocking
 		prCyan("--> Retrying original command...")
 		retry_result = launch_shell_cmd(shell_command, verbose)
 		handle_shell_exception(retry_result, shell_command, verbose)
 		return
 
-	#   == Other Snakemake errors
 	if "MissingOutputException" in result.stdout:
 		prRed("--> Missing outputs. Check input/output associations.")
 		exit(1)
@@ -467,6 +507,36 @@ def handle_shell_exception(result: SubprocessResult, shell_command: str, verbose
 	if result.exit_code != 0:
 		prRed(f"Command failed with exit code {result.exit_code}: {shell_command}")
 		exit(1)
+
+
+def import_custom_batch(json_path):
+    """
+    Ingest a text file in JSON format and convert into an editor dictionary.
+    Handles both nested and flat formats of editor definitions.
+    """
+
+    with open(json_path) as f:
+        editor_dict_loaded = json.load(f)
+
+    def auto_cast(value):
+        """Safely cast floats to int if possible."""
+        if isinstance(value, float) and value.is_integer():
+            return int(value)
+        return value
+
+    def lists_to_tuples(obj):
+        if isinstance(obj, list):
+            # Case 1: flat single entry like ["NGG", false, 20, -3, ""]
+            if len(obj) == 5 and not any(isinstance(x, (list, dict)) for x in obj):
+                return tuple(auto_cast(x) for x in obj)
+            # Case 2: nested (multiple entries)
+            return tuple(lists_to_tuples(x) for x in obj)
+        elif isinstance(obj, dict):
+            return {k: lists_to_tuples(v) for k, v in obj.items()}
+        else:
+            return auto_cast(obj)
+
+    return lists_to_tuples(editor_dict_loaded)
 
 
 def init_logging(logfile_path):
@@ -706,6 +776,34 @@ def project_file_path(path_from_toplevel: str, filename: str):
 
 def quoted_string_representer(dumper, data):
 	return dumper.represent_scalar('tag:yaml.org,2002:str', data, style="'")
+
+
+def safe_json_load(json_path):
+	"""Gracefully load JSON, even if it's malformed with Python-style literals."""
+	try:
+		# Standard JSON parsing
+		with open(json_path) as f:
+			return json.load(f)
+	except json.JSONDecodeError:
+		# Fall back to Python literal parsing
+		with open(json_path) as f:
+			text = f.read()
+
+		try:
+			# Replace common offenders before parsing
+			fixed = (
+				text.replace("'", '"')  # single -> double quotes
+					.replace("False", "false")
+					.replace("True", "true")
+					.replace("None", "null")
+			)
+			return json.loads(fixed)
+		except json.JSONDecodeError:
+			# Last resort: use ast.literal_eval (more permissive)
+			try:
+				return ast.literal_eval(text)
+			except Exception as e:
+				raise ValueError(f"Failed to parse {json_path}: {e}")
 
 
 def set_export(outdir: str):
