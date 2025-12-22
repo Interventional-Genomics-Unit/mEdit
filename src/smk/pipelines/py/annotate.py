@@ -276,15 +276,23 @@ class Transcript:
             else:
                 feature = '3utr' if self.entry['strand'] == '+' else '5utr'
 
+
         elif t_snvpos in range(self.exons[0][0], self.exons[0][0] + 4) or t_snvpos in range(self.exons[-1][-1] - 3,
                                                                                             self.exons[-1][-1] + 1):
+            len_cds = sum([e[1] - e[0] for e in self.exons])
 
             if t_snvpos in range(self.exons[0][0], self.exons[0][0] + 4):
+                dist = sum([e[1] - e[0] for e in self.exons[0:0]])
+                dist_from_cds_start = dist + (t_snvpos - self.exons[0][0])
                 feature = "start_codon" if self.entry['strand'] == '+' else 'stop_codon'
             else:
-
+                dist = sum([e[1] - e[0] for e in self.exons[0:len(self.exons)]])
+                dist_from_cds_start = dist + (t_snvpos - self.exons[-1][0])
                 feature = 'stop_codon' if self.entry['strand'] == '+' else 'start_codon'
+            if self.entry['strand'] == '-':
+                dist_from_cds_start = (len_cds - dist_from_cds_start) + 1
 
+            rf = self.find_reading_frame(dist_from_cds_start)
 
         else:# find if exon or intron
             feature = 'intron'
@@ -297,9 +305,9 @@ class Transcript:
                     feature = 'exon'
                     dist = sum([e[1] - e[0] for e in self.exons[0:exon_n]])
                     dist_from_cds_start = dist + (t_snvpos - x[0])
-                    len_cds = sum([e[1] - e[0] for e in self.exons])
 
                     if self.entry['strand'] == '-':
+                        len_cds = sum([e[1] - e[0] for e in self.exons])
                         dist_from_cds_start = (len_cds - dist_from_cds_start) + 1
 
                     rf = self.find_reading_frame(dist_from_cds_start)
