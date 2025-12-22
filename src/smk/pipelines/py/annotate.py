@@ -245,7 +245,10 @@ class Transcript:
 
     def find_feature(self, pos):
         feature, rf = None, None
-        t_snvpos = int(pos) - self.entry['txStart']
+        t_snvpos = (int(pos) - self.entry['txStart']) if self.entry['tid'] != 'intergenic' else 0
+
+        if self.entry['tid'] == 'intergenic':
+            feature = 'intergenic'
 
         if self.entry['tid'].startswith('NR'):
             feature = 'non-coding RNA'
@@ -258,6 +261,7 @@ class Transcript:
             feature = 'non-coding'
 
         elif t_snvpos in range(self.flanking[0][0],self.flanking[0][1]+1) or t_snvpos in range(self.flanking[1][0],self.flanking[1][1]+1):
+            feature = 'flanking'
 
             if t_snvpos in range(self.flanking[0][0],self.flanking[0][1]+1):
                 feature = 'flanking-upstream' if self.entry['strand'] == '+' else 'flanking-downstream'
@@ -272,15 +276,25 @@ class Transcript:
             else:
                 feature = '3utr' if self.entry['strand'] == '+' else '5utr'
 
+        elif t_snvpos in range(self.exons[0][0], self.exons[0][0] + 4) or t_snvpos in range(self.exons[-1][-1] - 3,
+                                                                                            self.exons[-1][-1] + 1):
+
+            if t_snvpos in range(self.exons[0][0], self.exons[0][0] + 4):
+                feature = "start_codon" if self.entry['strand'] == '+' else 'stop_codon'
+            else:
+
+                feature = 'stop_codon' if self.entry['strand'] == '+' else 'start_codon'
+
 
         else:# find if exon or intron
             feature = 'intron'
             exon_n = 0
             for x in self.exons:
-                # if in exon find reading frame
-                if t_snvpos in range(x[0], x[1] + 1):
-                    exon_trans_num = exon_n + 1 if self.entry['strand'] == '+' else (len(self.exons) - exon_n)
-                    feature = f'exon {str(exon_trans_num)}'
+                if abs(t_snvpos - x[0]) <= 3 or abs(t_snvpos - x[1]) <= 3:
+                    feature = 'splice-site'
+                    break
+                elif t_snvpos in range(x[0], x[1] + 1):
+                    feature = 'exon'
                     dist = sum([e[1] - e[0] for e in self.exons[0:exon_n]])
                     dist_from_cds_start = dist + (t_snvpos - x[0])
                     len_cds = sum([e[1] - e[0] for e in self.exons])
@@ -288,15 +302,10 @@ class Transcript:
                     if self.entry['strand'] == '-':
                         dist_from_cds_start = (len_cds - dist_from_cds_start) + 1
 
-                    if dist_from_cds_start < 3:
-                        feature = 'start_codon'
-
-                    if dist_from_cds_start > len_cds - 3:
-                        feature = 'stop_codon'
-
                     rf = self.find_reading_frame(dist_from_cds_start)
-
                     break
+                else:
+                    pass
                 exon_n += 1
 
         self.feature, self.rf = feature, rf
