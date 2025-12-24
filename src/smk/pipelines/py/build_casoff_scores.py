@@ -31,7 +31,7 @@ def fix_cfd(lines,models_dir,score_guides=True):
 		seq1 = line[1][:-3]
 		seq2 = line[6][:-3]
 		pam = line[6][-3:]
-		if score_guides and (int(line[7]) + int(line[8]))== 0:
+		if score_guides: # and (int(line[7]) + int(line[8]))== 0:
 			score = cfd_score(seq1, seq2, pam,mm_scores, pam_scores)
 		else:
 			score = -1
@@ -77,7 +77,7 @@ def compile_mutliple_alignments(dist_lines,max_bulge):
 		pos = int(line[3])
 		prefix = line[0]+"_"+line[11]+"_"+line[2] + "_"
 		not_found = True
-		for i in range(0, max_bulge):
+		for i in range(0, max_bulge+1):
 
 			if f"{prefix}{str(pos+i)}" in ot_dict.keys():
 				ot_dict[f"{prefix}{str(pos+i)}"].append(line)
@@ -279,21 +279,8 @@ def add_be_annotations(df,annote_path,guide_params,fasta_path):
 				logging.warning(f"*** UnboundLocalError on add_be_outcomes ***\nFASTA PICKLE NOT FOUND for CHR {chrom}")
 				logging.warning(f"*** Possible malformed filename {fasta_path}/chr{str(chrom).replace('chr', '')}.pkl")
 
-	annotations_df = pd.DataFrame({'match_chrm':chroms,'match_position':starts,'Gene':gene,'Feature':features, 'N_Bases_Editable':n_editable,'Base_Change_Consequence':codon_change})
+	annotations_df = pd.DataFrame({'match_chrm':chroms,'match_position':starts,'Gene':gene,'Feature':features, 'N_Base_Editable':n_editable,'Base_Change_Consequence':codon_change})
 	df = df.merge(annotations_df, on=['match_chrm', 'match_position'])
-
-	df['match_chrm'] = df['match_chrm'] + ":" + df['match_position'].astype('str') + df['match_strand'].astype('str')
-
-	df = df.iloc[:, [0, 1, 2, 5, 6, 7, 8, 9,12, 13, 10, 11, 14,15, 16,17,18]]
-
-	header = ['Guide_ID', 'On_Target_Sequence', "Match_Coords",'Mismatch',
-			  'Match_Sequence', 'RNA_Bulges', 'DNA_Bulges',
-			  'CFD_Score', "Distance", "Alt Variants",'Multi Alignment [0=No/1=Yes]', "Alt Site Impact",
-			  "Alt Genome",
-			 "Feature","Gene",'N_Base_Editable','Base_Change_Consequence']
-
-	df.columns = header
-	df = df.sort_values(["Mismatch","Distance"],ascending = True)
 	return df
 
 def add_annotations(df,annote_path):
@@ -313,15 +300,24 @@ def add_annotations(df,annote_path):
 	df['Gene'] = Gene
 	df['Feature'] = Feature
 	df.loc[:, ['N_Base_Editable', 'Base_Change_Consequence']] = 'na'
+	return df
+
+def reformat_table(df):
 	df['match_chrm'] = df['match_chrm'] + ":" + df['match_position'].astype('str') + df['match_strand'].astype('str')
 
-	df = df.iloc[:, [0, 1, 2, 5, 6, 7, 8, 9,12, 13, 10, 11, 14, 15, 16, 17, 18]]
+	current_header_reorder = ['id', 'sequence', 'match_chrm', 'match_distance',
+							  'match_sequence', 'rna_bulges', 'dna_bulges',
+							  'specificity', 'Distance', 'N_Base_Editable', 'Base_Change_Consequence',
+							  "Feature", "Gene", 'Alt Alignment [0=No/1=Yes]',
+							  'alt_genome', 'alt_site_impact', 'alt_var']
+
+	df = df.loc[:, current_header_reorder].copy()
 
 	header = ['Guide_ID', 'On_Target_Sequence', "Match_Coords", 'Mismatch',
 			  'Match_Sequence', 'RNA_Bulges', 'DNA_Bulges',
-			  'CFD_Score', "Distance","Alt Variants", 'Multi Alignment [0=No/1=Yes]', "Alt Site Impact",
-			  "Alt Genome",
-			  "Feature", "Gene", 'N_Base_Editable', 'Base_Change_Consequence']
+			  'CFD_Score', "Distance", 'N_Base_Editable', 'Base_Change_Consequence',
+			  "Feature", "Gene", 'Multi Alignment [0=No/1=Yes]',
+			  "Alt Genome", "Alt Site Impact", "Alt Variants"]
 
 	df.columns = header
 	df = df.sort_values(["Mismatch", "Distance"], ascending=True)
@@ -363,11 +359,12 @@ def reformat_guidescan(guidescan_filtered_bed,
 		logging.info(f"Adjusted for variants. Total lines: {len(adjusted_for_variants_df)}")
 
 		if be_flag:
-			final_df = add_be_annotations(adjusted_for_variants_df,annote_path,guide_params,fasta_path)
-			logging.info(f"BE annotations added. Total lines: {len(final_df)}")
+			df_annotated = add_be_annotations(adjusted_for_variants_df,annote_path,guide_params,fasta_path)
 		else:
-			final_df = add_annotations(adjusted_for_variants_df,annote_path)
-			logging.info(f"Annotations added. Total lines: {len(final_df)}")
+			df_annotated = add_annotations(adjusted_for_variants_df,annote_path)
+
+		final_df = reformat_table(df_annotated)
+		logging.info(f"Annotations added. Total lines: {len(final_df)}")
 
 	final_df.to_csv(formatted_casoff_out,index = False)
 
