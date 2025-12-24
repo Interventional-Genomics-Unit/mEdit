@@ -14,6 +14,7 @@ from Bio.Seq import Seq
 class Transcript:
     tx_lib = {}
     coord2tid = {}
+    secondary_coord2tid = {}
     labels = ['chrom', 'txStart', 'txEnd', 'strand', 'tid', 'eid', 'name',
               'cdsStart', 'cdsEnd', 'exonStarts', 'exonEnds', 'exonFrames']
 
@@ -117,28 +118,45 @@ class Transcript:
                             cls.coord2tid[coord] = entry['tid']
                             cls.tx_lib[entry['tid']] = cls(entry)
                         # adjusting for overlaps to retrieve the most up to date transcript
-                        else:
+                        else: # corrd exsist meaning theres more than one transcript
                             new_tid = entry['tid']
                             oldtid = cls.coord2tid[coord]
 
                             if new_tid.startswith('NR') and oldtid.startswith('NM'):
                                 pass
 
-
-
-                            elif new_tid[0:2] == oldtid[0:2]:
-                                if entry['eid'] != '-' or (float(oldtid.split('_')[-1]) < float(new_tid.split('_')[-1])):
-                                    cls.coord2tid[coord] = new_tid
-                                    obj = cls(entry)
-                                    obj.overlapping_transcripts.append(oldtid)
-                                    cls.tx_lib[entry['tid']] = obj
-                            else:
+                            elif new_tid.startswith('NM') and oldtid.startswith('NR'):
                                 cls.coord2tid[coord] = new_tid
                                 obj = cls(entry)
-                                obj.overlapping_transcripts.append(oldtid)
                                 cls.tx_lib[entry['tid']] = obj
 
+                            elif new_tid.startswith('NM') and oldtid.startswith('NM'): ## keep both
+                                if entry['name'] != cls.tx_lib[oldtid].entry['name']: # not the same name
+                                    cls.secondary_coord2tid[coord] = new_tid
+                                    obj = cls(entry)
+                                    cls.tx_lib[entry['tid']] = obj
+                                elif entry['eid'] != '-':
+                                    cls.coord2tid[coord] = new_tid
+                                    obj = cls(entry)
+                                    cls.tx_lib[entry['tid']] = obj
+                                else:
+                                    pass
+                            else:
+                                pass
 
+
+    @classmethod
+    def secondary_transcript(cls, coord):
+        # check is multiple transcripts
+        if coord in cls.secondary_coord2tid.keys():
+            start, end = coord.split(':')[1].split('-')
+            pos = int((int(start) + int(end)) / 2)
+            tid = cls.secondary_coord2tid[coord]
+            obj = cls.tx_lib[tid]
+            obj.find_feature(pos)
+        else:
+            obj = 'None'
+        return obj
 
     @classmethod
     def transcript(cls, coord):
