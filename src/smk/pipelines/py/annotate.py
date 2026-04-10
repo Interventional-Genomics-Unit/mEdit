@@ -38,19 +38,32 @@ class Transcript:
         self.tx_len = self.entry['txEnd'] - self.entry['txStart']
         self.flanking = [(-50, 0), (self.tx_len, self.tx_len + 50)]
 
-        self.feature = None
-        self.rf = None
-        self.cdsseq = None
-        self.txseq = None
+        if self.entry == "intergenic":
+            self.feature = "intergenic"
+
+        else:
+            for k in ['txStart', 'txEnd', 'cdsStart', 'cdsEnd']:
+                if k in self.entry.keys():
+                    self.entry[k] = int(self.entry[k])
+            ##output
+            # mapping transcript features (relative to transcript start)
+            if 'exonStarts' in self.entry.keys():
+                self.exons = self.get_exons()
+                self.utrs = self.get_utrs()
+            self.tx_len = self.entry['txEnd'] - self.entry['txStart']
+            self.flanking = [(-50, 0), (self.tx_len, self.tx_len + 50)]
 
     @classmethod
     def load_transcripts(cls, annote_path, snvcoords):
         '''
         Must be initiated before annotating!
         Loads coordinates into Transcript Class
+        uses bedtools to annotate a list of coords into filename
+        :param annote_path: bed file created from NCBI Ref Seq database
+        :param annote_path: list of coordinates needing to be annotated
+
         '''
         bed_data = ""
-        bedtools_out =""
 
         # reset dict
         cls.coord2tid = {}
@@ -59,9 +72,12 @@ class Transcript:
         # with open(temp_bedfname, 'w') as tempbed:
         for coord in snvcoords:
             coord_field = coord.split(':')
-            chrom = coord_field[0]
+            chrom = coord_field[0] if 'chr' in coord_field[0] else 'chr' + coord_field[0]
             start = coord_field[1].split('-')[0]
-            end = coord_field[1].split('-')[1]
+            try:
+                end = coord_field[1].split('-')[1]
+            except IndexError:
+                end = str(int(start) + 1)
             line = "\t".join([chrom, start, end])
             bed_data += line + "\n"
 
@@ -101,8 +117,6 @@ class Transcript:
                 pass
             else:
                 print("Error:", stderr)
-
-        if bedtools_out != '':
 
             bed_entries = bedtools_out.split('\n')[:-1]
 
@@ -144,6 +158,20 @@ class Transcript:
                             else:
                                 pass
 
+    @classmethod
+    def transcript(cls, coord):
+        # Call upon specific coords that were loaded with bedtools
+        if coord in cls.coord2tid.keys():
+            tid = cls.coord2tid[coord]
+            start, end = coord.split(':')[1].split('-')
+            pos = int((int(start) + int(end)) / 2)
+            obj = cls.tx_lib[tid]
+            obj.find_feature(pos)
+            return obj
+
+        else:  # bedtools never annotated
+            #    obj = cls('intergenic')
+            return 'intergenic'
 
     @classmethod
     def secondary_transcript(cls, coord):
@@ -158,20 +186,6 @@ class Transcript:
             obj = 'None'
         return obj
 
-    @classmethod
-    def transcript(cls, coord):
-        # Call upon specific coords that were loaded with bedtools
-        if coord in cls.coord2tid.keys():
-            tid = cls.coord2tid[coord]
-            start, end = coord.split(':')[1].split('-')
-            pos = int((int(start) + int(end)) /2)
-            obj = cls.tx_lib[tid]
-            obj.find_feature(pos)
-            return obj
-
-        else: # bedtools never annotated
-        #    obj = cls('intergenic')
-            return 'intergenic'
 
     def __dict__(self):
         return self.entry
@@ -185,7 +199,7 @@ class Transcript:
         if self.exons:
             ogexons = [(int(exon_starts[i]) - self.entry['txStart'], int(exon_ends[i]) - self.entry['txStart']) for i in range(len(exon_ends))]
 
-            utrs = [(ogexons[0][0], self.exons[0][0] - 1),(self.exons[-1][1], ogexons[-1][1] - 1)]
+            utrs = [(ogexons[0][0], self.exons[0][0] - 1),(self.exons[-1][1]+1, ogexons[-1][1] - 1)]
 
             if exon_frames[-1] == '-1':  # -1 means entire exon is UTR
                 utrs[1] = ogexons[-1]
@@ -268,8 +282,8 @@ class Transcript:
         if self.entry['tid'] == 'intergenic':
             feature = 'intergenic'
 
-        if self.entry['tid'].startswith('NR'):
-            feature = 'non-coding RNA'
+        elif self.entry['tid'].startswith('NR'):
+            feature = 'ncRNA'
 
         elif 'cdsStart' not in self.entry.keys():
             feature = 'Not Found'
@@ -303,12 +317,13 @@ class Transcript:
                 dist = sum([e[1] - e[0] for e in self.exons[0:0]])
                 dist_from_cds_start = dist + (t_snvpos - self.exons[0][0])
                 feature = "start_codon" if self.entry['strand'] == '+' else 'stop_codon'
+                if self.entry['strand'] == '-':
+                    dist_from_cds_start = (t_snvpos-self.exons[0][0]) + 1
             else:
-                dist = sum([e[1] - e[0] for e in self.exons[0:len(self.exons)]])
-                dist_from_cds_start = dist + (t_snvpos - self.exons[-1][0])
+                dist_from_cds_start =  len_cds - (self.exons[-1][-1]-t_snvpos)
                 feature = 'stop_codon' if self.entry['strand'] == '+' else 'start_codon'
-            if self.entry['strand'] == '-':
-                dist_from_cds_start = (len_cds - dist_from_cds_start) + 1
+                if self.entry['strand'] == '-':
+                    dist_from_cds_start = (self.exons[-1][-1]-t_snvpos) + 1
 
             rf = self.find_reading_frame(dist_from_cds_start)
 
