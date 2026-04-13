@@ -53,6 +53,7 @@ class Fetch_Guides:
 		:param kwargs:
 		"""
 		##-----------------User Required_Inputs--------------------##
+		self.not_found = {} ## this needs to come before validate
 		if qtype == 'hgvs':
 			self.queries = self.validate_hgvs(queries)
 		if qtype == 'coord':
@@ -86,7 +87,6 @@ class Fetch_Guides:
 		self.snv_info = {}  # {chrom: (queryterm,tid,eid,gene,strand,ref,alt,feature,extracted_seq,rf,coord)}
 		self.all_guides = {}
 		self.all_BE = {}
-		self.not_found = {}
 		self.all_variant = pd.DataFrame()
 		self.all_gene = pd.DataFrame()
 		self.nguides_df = pd.DataFrame()
@@ -281,6 +281,8 @@ class Fetch_Guides:
 		# tallies number of guides per query
 		if guides_found:
 			allgdf = pd.DataFrame(self.all_guides)
+			if len(self.all_BE.keys()) != 0:
+				allgdf = pd.concat([allgdf, pd.DataFrame(self.all_BE)])
 			nguides_per_query = allgdf.groupby(['QueryTerm']).size().reset_index()
 			nguides_per_query = nguides_per_query.rename(columns={0: 'Number of Guides Found'})
 			self.nguides_df = pd.DataFrame(searched_queries, columns=['QueryTerm']).join(
@@ -293,31 +295,30 @@ class Fetch_Guides:
 			self.all_variant.to_csv(variant_out, index=False)
 
 	def add_not_found(self, nfqueries, reason):
-		# adds queries that are not found ex: no guides or hgvs not found
+		# adds queries that have no gRNAs found and the reason ex. inncorrect format, HGVS not in database etc.
 		for nf in nfqueries:
 			self.not_found[nf] = reason
 
 	@staticmethod
 	def extract_seqs(searchseq, pos, ref, alt, window):
-		# extracts the sequence +/windowbp surrounding a SNV then swaps ref for alt allele
+		# extracts the sequence +/window bp surrounding a SNV then swaps ref for alt allele
 
 		alt = alt.lower()
 		searchseq = searchseq.upper()
 
 		if len(ref) == len(alt):  ##substitution
 			extracted_seq = str(searchseq[pos - window:pos + window])
-			variant_seq = (extracted_seq[0:window] + alt + extracted_seq[window + len(alt):])  # .upper()
+			variant_seq = (extracted_seq[0:window] + alt + extracted_seq[window + len(alt):])
 
 
 		elif len(ref) > len(alt):  # deletion
 			diff = len(ref) - len(alt)
 			extracted_seq = str(searchseq[pos - window:(pos + window + diff)])
-			variant_seq = (extracted_seq[0:window] + alt + extracted_seq[window + len(ref):])  # .upper()
+			variant_seq = (extracted_seq[0:window] + alt + extracted_seq[window + len(ref):])
 
 		elif len(ref) < len(alt):  # insertion
 			extracted_seq = str(searchseq[pos - window:pos + window - (len(alt))])
-			variant_seq = (extracted_seq[0:window] + alt + extracted_seq[window:])  # .upper()
-		# print(new_seq)
+			variant_seq = (extracted_seq[0:window] + alt + extracted_seq[window:])
 
 		else:
 			logging.warning('Variant in reference and alternative genomes do not comply')
@@ -396,8 +397,6 @@ class Fetch_Guides:
 			try:
 				Transcript.load_transcripts(self.annote_path, snvcoords)
 			except IndexError:
-				# TODO: Something on commit f6f4b19 has changed the communication between fetchGuides and annotate.py
-				# TODO: @ACTG802 --> please advise on whether this needs fixing or just a bypass message would be enough
 				logging.warning(f"WARNING: function 'load_transcripts' from annotate.py got the wrong number of indices from snvcoords"
 								f"This is how it looks like: {snvcoords}")
 				continue
@@ -461,8 +460,8 @@ class Fetch_Guides:
 					self.add_not_found(query, 'ref or alt allele contain non-ATCG characters')
 			self.snv_info[ch] = new_data
 
-	@staticmethod
-	def validate_hgvs(queries):
+
+	def validate_hgvs(self,queries):
 		'''
 		standardizes input hgvs and checks formating
 		'''
@@ -474,14 +473,16 @@ class Fetch_Guides:
 		for q in set(queries):
 			if re.search(rsuffix, q) and re.search(rprefix, q):
 				validated_queries.append(re.search(rprefix, q).groups()[0] + re.search(rsuffix, q).groups()[0])
+			else:
+				self.add_not_found([q], 'incorrect format')
 		n = len(validated_queries)
 		logging.info(f'{n} out of {len(queries)} HGVS IDs validated')
 		if n == 0:
-			logging.warning('Query are not in the correct HGVS Format')
+			logging.warning('Queries are not in the correct HGVS Format')
 		return validated_queries
 
-	@staticmethod
-	def validate_coord(queries):
+
+	def validate_coord(self,queries):
 		'''
 		standardizes input coordinate and checks formatting
 		'''
@@ -496,7 +497,7 @@ class Fetch_Guides:
 			if re.search(coord_fmt, q):
 				validated_queries.append(re.search(coord_fmt, q).groups()[0])
 			else:
-				pass
+				self.add_not_found([q], 'incorrect format')
 		n = len(validated_queries)
 		logging.info(f'{n} out of {len(queries)} Coordinate IDs validated')
 		if n == 0:
