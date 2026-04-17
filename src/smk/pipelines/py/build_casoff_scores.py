@@ -20,7 +20,6 @@ def fix_cfd(lines,models_dir,score_guides=True):
 	fixes guidescan2 cfd scoring and adds edit distance to each site
 	:param lines: lines from guidescan bed file
 	:param models_dir: cfd score model weights
-	:return:
 	'''
 	new_lines = []
 	new_lines.append(lines[0]+",Distance")
@@ -78,15 +77,12 @@ def compile_mutliple_alignments(dist_lines,max_bulge):
 		prefix = line[0]+"_"+line[11]+"_"+line[2] + "_"
 		not_found = True
 		for i in range(0, max_bulge+1):
-
 			if f"{prefix}{str(pos+i)}" in ot_dict.keys():
 				ot_dict[f"{prefix}{str(pos+i)}"].append(line)
 				not_found = False
-				break
 			elif f"{prefix}{str(pos-i)}" in ot_dict.keys():
 				ot_dict[f"{prefix}{str(pos-i)}"].append(line)
 				not_found = False
-				break
 			else:
 				pass
 		if not_found:
