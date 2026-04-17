@@ -825,7 +825,8 @@ def validate_editor_list(editor_request: str, built_in_editors: list, parameter_
 		for built_in_editor in built_in_editors:
 			clean_editor = editor.strip()
 			clean_editor = re.sub(r'．', '.', clean_editor)
-			if re.search(built_in_editor, re.escape(clean_editor), re.IGNORECASE):
+			#			if re.search(built_in_editor, re.escape(clean_editor), re.IGNORECASE):
+			if re.search(built_in_editor,clean_editor, re.IGNORECASE):
 				green_light = True
 				validated_editors.append(built_in_editor)
 		if not green_light:
