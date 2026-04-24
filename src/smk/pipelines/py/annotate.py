@@ -54,6 +54,18 @@ class Transcript:
             self.flanking = [(-50, 0), (self.tx_len, self.tx_len + 50)]
 
     @classmethod
+    def validate_coord(cls, coord):
+        coord_field = coord.split(':')
+        chrom = coord_field[0] if 'chr' in coord_field[0] else 'chr' + coord_field[0].upper()
+        start = coord_field[1].split('-')[0]
+        try:
+            end = coord_field[1].split('-')[1]
+        except IndexError:
+            end = str(int(start) + 1)
+        return chrom,start,end
+
+
+    @classmethod
     def load_transcripts(cls, annote_path, snvcoords):
         '''
         Must be initiated before annotating!
@@ -71,13 +83,7 @@ class Transcript:
 
         # with open(temp_bedfname, 'w') as tempbed:
         for coord in snvcoords:
-            coord_field = coord.split(':')
-            chrom = coord_field[0] if 'chr' in coord_field[0] else 'chr' + coord_field[0]
-            start = coord_field[1].split('-')[0]
-            try:
-                end = coord_field[1].split('-')[1]
-            except IndexError:
-                end = str(int(start) + 1)
+            chrom,start,end = cls.validate_coord(coord)
             line = "\t".join([chrom, start, end])
             bed_data += line + "\n"
 
@@ -161,9 +167,10 @@ class Transcript:
     @classmethod
     def transcript(cls, coord):
         # Call upon specific coords that were loaded with bedtools
+        chrom, start, end = cls.validate_coord(coord)
+        coord = f'{chrom}:{start}-{end}'
         if coord in cls.coord2tid.keys():
             tid = cls.coord2tid[coord]
-            start, end = coord.split(':')[1].split('-')
             pos = int((int(start) + int(end)) / 2)
             obj = cls.tx_lib[tid]
             obj.find_feature(pos)
