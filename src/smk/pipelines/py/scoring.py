@@ -2,7 +2,7 @@
 from math import exp
 import pickle
 import re
-import os
+import warnings
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 # Installed Modules
@@ -318,24 +318,38 @@ def cfd_score(seq1, seq2, seq2_pam,mm_scores, pam_scores):
     '''
     Doench 2016 off-target scoring
     Doench, Fusi, et al.  Nature Biotechnology 34, 184–191 (2016)."
+
+      ## Test
+    lines = ['CD28AAACAGTGACGTTCCGTCTC,AAACAGTGACGTTCCGTCTCNGG,chr1,60802363,+,0,AAACAGTGACGTTCCGTCTCTGG,0,0,0.619194',
+    'CD28AAACAGTGACGTTCCGTCTC,AAACAGTGACGTTCCGTCTCNGG,chr18,11455391,-,3,AAACAGTGACaTTCaGTCaCCGG,0,0,0.619194',
+    'CD28AAACAGTGACGTTCCGTCTC,AAACAGTGACGTTCCGTCTCNGG,chr9,102436784,-,3,AAACAtTGAtGTTCCGTtTCTGG,0,0,0.619194',
+    'CD28AAACAGTGACGTTCCGTCTC,AAACAGTGACGTTCCGTCTCNGG,chr14,94440720,-,3,AAACAaTGgCGTTCaGTCTCAGG,0,0,0.619194']
+
+    scores = [1.0,0.063492063,0.403361345,0.148148148]
+
     '''
-    m_seq1 = str(seq1).upper().replace('T', 'U')
-    m_seq2 = str(seq2).upper().replace('T', 'U')
-    pam = str(seq2_pam).upper()
+    warnings.warn("PAM is too short for CFD scoring") if len(seq2_pam) < 2 else None
+    #warnings.warn("ON and OFF seq different len") if len(seq1) != len(seq2) else None
+
+    m_seq1 = seq1.upper().replace('T', 'U')[-len(seq1):]
+    m_seq2 = seq2.upper().replace('T', 'U')[-len(seq1):]
     score =1
     shorter, longer = sorted([m_seq1, m_seq2], key=len)
     try:
         for i in range(-len(shorter), 0):
             if (m_seq1[i] != m_seq2[i]):
-                key = 'r' + m_seq1[i] + ':d' + revcom(m_seq2[i]) + ',' + str(20 + i + 1)
+                key = 'r' + m_seq1[i] + ':d' + revcom(m_seq2[i]) + ',' + str(len(shorter) + i + 1)
                 score *= mm_scores[key]
     except KeyError:
         return -1
+
     try:
-        score *= pam_scores[pam[-2:]]
+        warnings.warn("PAM too short or not provided") if len(seq2_pam) < 2 else None
+        score *= pam_scores[str(seq2_pam).upper()[-2:]]
     except KeyError:
-        return round(score,4)
-    return round(score,4)
+        return round(score,6)
+
+    return round(score,6)
 
 
 def cfd_spec_score(sum_cfd_scores):

@@ -111,6 +111,20 @@ def offtarget_prediction(args, jobtag):
     reference_genome = str(config_db['sequence_id'])
     offtarget_genomes = offtarget_mode_formatting(mode, reference_genome, dynamic_config_guidepred)
 
+    # == Set off-target directory
+    offtarget_path = set_export(str(f"{root_dir}/{mode_alias[mode]}/jobs/{run_name}/guide_prediction-{reference_genome}/offtarget_prediction/"))
+    guides_per_editor_path = set_export(str(f"{root_dir}/{mode_alias[mode]}/jobs/{run_name}/guide_prediction-{reference_genome}/offtarget_prediction/dynamic_params"))
+
+    #
+    # if user_jobtag:
+    #     ## has run before
+    #     if is_empty_or_nonexistent(offtarget_path) or is_empty_or_nonexistent(guides_per_editor_path):
+    #         smk_run_triggers ='--forcerun "casoff_input_formatting" '
+    #         set_export(guides_per_editor_path)
+    #     else:
+    #         smk_run_triggers = '--rerun-triggers "mtime"'
+
+
     # Adjust genomes pool for fast mode
     if fast_mode:
         offtarget_genomes = offtarget_mode_formatting('fast', reference_genome, dynamic_config_guidepred)
@@ -143,7 +157,6 @@ def offtarget_prediction(args, jobtag):
     params_per_editors_dict = {}
     alt_pam_per_editor_dict = {}
     pam_is_first_per_editor_dict = {}
-    guides_per_editor_path = ""
     genome_type_dict = {}
 
     for index in query_index:
@@ -181,7 +194,15 @@ def offtarget_prediction(args, jobtag):
                 pam_is_first_per_editor_dict.setdefault(offtarget_genome, {}).setdefault(editor, "--start" if guide_search_params[editor][1] is True else " ")
                 params_per_editors_dict.setdefault(editor, guide_search_params[editor])
 
+
     # === Export Variables to Configuration File ===
+    if len(guides_per_editor_path.keys()) == 0:
+        raise (f"The editor(s) you requested, {editing_tool_request} "
+               f"Do not have gRNAs found by guide_prediction  "
+               f"Please search again or choose another editor  ")
+        exit(0)
+
+
     config_template['guides_per_editor_path'] = guides_per_editor_path
     config_template['pam_per_editor_dict'] = pam_per_editor_dict
     config_template['params_per_editors_dict'] = params_per_editors_dict

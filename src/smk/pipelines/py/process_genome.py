@@ -174,11 +174,13 @@ def guide_compare(guides_report, be_report, ALTguides_dict, ALTinfo, altgenome_n
 	'''
 
 	new_guides = []
+	refgdf = pd.DataFrame()
 
 	altgdf = pd.DataFrame(ALTguides_dict)
-	refgdf = pd.read_csv(guides_report) # combine both be guides and endo guides together
-	refbedf = pd.read_csv(be_report)
-	refgdf = pd.concat([refgdf,refbedf])
+	for report_file in [guides_report,be_report]:
+		df = pd.read_csv(report_file)
+		if not df.empty:
+			refgdf = pd.concat([refgdf,df])
 	altgdf =altgdf.loc[:,refgdf.columns] # reorder cols to match
 
 	refgdf = refgdf[refgdf['QueryTerm'].isin(list(ALTinfo.keys()))]
@@ -340,8 +342,8 @@ def main():
 if __name__ == "__main__":
 	main()
 
-# altgenome_name = "HG02257"
-# outdir = "/groups/clinical/projects/editability/medit_queries/medit_test_3/standard/jobs/standard_TEST_standard/guide_prediction-hg38_GCA_000001405.15"
+# altgenome_name = "test_1"
+# outdir = "/groups/clinical/projects/editability/medit_queries/test_260726/vcf/jobs/vcf_test/guide_prediction-GRCh38.p14/"
 # db = "/groups/clinical/projects/editability/medit_queries/medit_database"
 # filtered_vcf = f"/groups/clinical/projects/clinical_shared_data/hprc/hprc-v1.1-combined-phased-decomposed/{altgenome_name}.vcf.gz"
 # guides_report = f"{outdir}/guides_report_ref/0_Guides_found.csv"
@@ -352,7 +354,7 @@ if __name__ == "__main__":
 # snv_site_info = f"{outdir}/dynamic_params/0_snv_site_info.pkl"
 # diffguides_out = f"{outdir}/guides_report_{altgenome_name}/0_Guide_differences.csv"
 # altvar_out = f"{outdir}/guides_report_{altgenome_name}/0_Alternative_genome_variants.csv"
-# refgenome_name = "hg38"
+# refgenome_name = "-GRCh38.p14"
 #
 #
 # df =pd.read_csv(diffguides_out)

@@ -22,36 +22,23 @@ class Transcript:
         '''
         :param entry: NCBI Transcript Entry
         '''
-
         self.entry = entry
         for k in ['txStart', 'txEnd', 'cdsStart', 'cdsEnd']:
-            if k in self.entry.keys():
+            if k in self.entry:
                 self.entry[k] = int(self.entry[k])
 
         self.overlapping_transcripts = []
-
-        ##output
-        # mapping transcript features (relative to transcript start)
-        if 'exonStarts' in self.entry.keys():
+        if 'exonStarts' in self.entry:
             self.exons = self.get_exons()
             self.utrs = self.get_utrs()
+
         self.tx_len = self.entry['txEnd'] - self.entry['txStart']
         self.flanking = [(-50, 0), (self.tx_len, self.tx_len + 50)]
 
-        if self.entry == "intergenic":
-            self.feature = "intergenic"
-
-        else:
-            for k in ['txStart', 'txEnd', 'cdsStart', 'cdsEnd']:
-                if k in self.entry.keys():
-                    self.entry[k] = int(self.entry[k])
-            ##output
-            # mapping transcript features (relative to transcript start)
-            if 'exonStarts' in self.entry.keys():
-                self.exons = self.get_exons()
-                self.utrs = self.get_utrs()
-            self.tx_len = self.entry['txEnd'] - self.entry['txStart']
-            self.flanking = [(-50, 0), (self.tx_len, self.tx_len + 50)]
+        ##output
+        # mapping transcript features (relative to transcript start)
+        self.tx_len = self.entry['txEnd'] - self.entry['txStart']
+        self.flanking = [(-50, 0), (self.tx_len, self.tx_len + 50)]
 
     @classmethod
     def validate_coord(cls, coord):
@@ -305,7 +292,7 @@ class Transcript:
             if t_snvpos in range(self.flanking[0][0],self.flanking[0][1]+1):
                 feature = 'flanking-upstream' if self.entry['strand'] == '+' else 'flanking-downstream'
             else:
-                feature = 'flanking-downstream' if self.entry['strand'] == '+' else 'flanking-downstream'
+                feature = 'flanking-downstream' if self.entry['strand'] == '+' else 'flanking-upstream'
 
 
         elif t_snvpos in range(self.utrs[0][0],self.utrs[0][1]+1) or t_snvpos in range(self.utrs[1][0],self.utrs[1][1]+1):

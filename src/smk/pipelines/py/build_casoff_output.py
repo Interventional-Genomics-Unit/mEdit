@@ -5,6 +5,7 @@ import re
 # == Installed Modules
 import pandas as pd
 import copy
+import logging
 # == Project Modules
 
 ####
@@ -40,9 +41,9 @@ class Offtarget_Aggregator():
 		#outputs
 		empty_dict = self.init_site_count_dict()
 		self.site_counts = empty_dict
-		self.cfd_sums = {}
-		for k in empty_dict.keys():
-			self.cfd_sums[k] = -1
+
+		self.cfd_sums = {k: 0.0 for k in empty_dict.keys()}
+		self._cfd_has_data = {k: False for k in empty_dict.keys()}
 
 		self.feature_counts = self.init_feature_count_dict()
 		self.ref_counts_set = False
@@ -53,15 +54,20 @@ class Offtarget_Aggregator():
 	def __repr__(self):
 		return f"OfftargetAggregator|{self.gid}_{self.offtarget_genome}_{sum(list(self.site_counts.values()))}"
 
-	def set_ref_counts(self,ots_counts,feature_counts,cfd_sums):
+	def set_ref_counts(self, ots_counts, feature_counts, cfd_sums, cfd_has_data):
+		"""
+        reference-genome tallies.
+        The extended CSV only lists sites that differ from ref, so we start
+        from a ref copy and let add_site adjust from there.
+        """
 		if self.ref_counts_set:
-			print('ref counts have already been set')
-			pass
-		else:
-			self.cfd_sums= copy.deepcopy(cfd_sums)
-			self.site_counts = copy.deepcopy(ots_counts)
-			self.feature_counts = copy.deepcopy(feature_counts)
-			self.ref_counts_set = True
+			logging.debug(f"ref counts already set for {self.gid}/{self.offtarget_genome}, skipping")
+			return
+		self.cfd_sums = copy.deepcopy(cfd_sums)
+		self._cfd_has_data = copy.deepcopy(cfd_has_data)
+		self.site_counts = copy.deepcopy(ots_counts)
+		self.feature_counts = copy.deepcopy(feature_counts)
+		self.ref_counts_set = True
 
 	def format_gene_feature(self,feature):
 		#'stop/start codon, exon, utr, flanking,intron,ncRNA,intergenic'
@@ -80,65 +86,87 @@ class Offtarget_Aggregator():
 	def add_site(self,site_thresholds,site_coords,cfd,impact,feature):
 		site_pos = int(site_coords.split(":")[1][:-1])
 		site_chrom = site_coords.replace('chr', '').split(":")[0]
-		feature_point,point,cfd_add  = 0,0,0
 		feature = self.format_gene_feature(feature)
-		
+
+		#feature_point, point, cfd_add = 0, 0, 0
+
+		#on-target no tally
 		if site_chrom == self.chrom and self.on_target_pos >= site_pos - 10 and self.on_target_pos <= site_pos + 10:
-				feature_point, point, cfd_add = 0, 0, 0
+				return
+				#feature_point, point, cfd_add = 0, 0, 0
 
 		elif impact == 'removed': # for alt genomes where a site was no longer present, reduce tallies
-			point =  -1
-			feature_point = -1
+			point = -1
 			if cfd > 0:
-				cfd_add = -1*cfd
+				self.cfd_sums[site_thresholds] -= cfd
+				self._cfd_has_data[site_thresholds] = True
+
 		else: # for ref genome and alt genomes where a sitewas added, tally
+			# Reference genome, or extended genome where the site was added
+			# or altered (not removed): tally positively.
 			point = 1
-			feature_point = +1
 			if cfd > 0:
-				cfd_add =cfd
+				self.cfd_sums[site_thresholds] += cfd
+				self._cfd_has_data[site_thresholds] = True
 
 		self.site_counts[site_thresholds] += point
-		self.feature_counts[site_thresholds][feature] += feature_point
-		self.cfd_sums[site_thresholds]+=cfd_add
+		try:
+			self.feature_counts[site_thresholds][feature] += point
+		except KeyError:
+			# Unexpected feature label — bucket to intergenic rather than
+			# crash. If this fires, format_gene_feature likely needs another
+
+			logging.warning(f"unexpected feature label {feature!r} on "
+							f"{self.gid}/{self.offtarget_genome} — bucketed to intergenic")
+			self.feature_counts[site_thresholds]['intergenic'] += point
+
 
 	def init_feature_count_dict(self):
 		# creates empty dict for tallying gene annotation features for each site at mm and bulge thresholds
 		site_counts = {}
-		max_mm, max_db, max_rb, max_both = self.thresholds
-		for m in range(0, max_mm + 1):
-			for i in range(0, max_db + 1):
-				for j in range(0, max_rb + 1):
-					site_counts[str(m) + str(i) + str(j)] = {'stop/start_codon':0,
-															 'exon':0,
-															 'utr':0,
-															 "flanking":0,
-															 "intron":0,
-															 "ncRNA":0,
-															 "intergenic":0}
+		max_mm, max_db, max_rb, _ = self.thresholds
+		for m in range(max_mm + 1):
+			for r in range(max_rb + 1):  # RNA bulges — was dna
+				for d in range(max_db + 1):  # DNA bulges — was rna
+					site_counts[f"{m}{r}{d}"] = {
+						'stop/start_codon': 0,
+						'exon': 0,
+						'utr': 0,
+						'splice': 0,
+						'flanking': 0,
+						'intron': 0,
+						'ncRNA': 0,
+						'intergenic': 0,
+					}
 		return site_counts
 
 	def init_site_count_dict(self):
-		# creates empty dict for tallying each site at mm and bulge thresholds
+		"""Empty per-threshold site counter. Same mm+rna+dna key convention."""
 		site_counts = {}
-		max_mm, max_db, max_rb, max_both = self.thresholds
-		for m in range(0, max_mm + 1):
-			for i in range(0, max_db + 1):
-				for j in range(0, max_rb + 1):
-					site_counts[str(m) + str(i) + str(j)] = 0
+		max_mm, max_db, max_rb, _ = self.thresholds
+		for m in range(max_mm + 1):
+			for r in range(max_rb + 1):
+				for d in range(max_db + 1):
+					site_counts[f"{m}{r}{d}"] = 0
 		return site_counts
 
 	def get_cfd_aggregate_scores(self):
 		# reports/formats of CFDscore post summation
 		cfd_aggregated = {}
 		for site_threshold, cfd_sum in self.cfd_sums.items():
-			cfd_aggregated[site_threshold] = str(round(1 / (1 + cfd_sum ), 4)) if cfd_sum != -1 else -1
+			if not self._cfd_has_data[site_threshold]:
+				cfd_aggregated[site_threshold] = -1
+			else:
+				cfd_sum = max(0.0, cfd_sum)
+				cfd_aggregated[site_threshold] = str(round(1.0 / (1.0 + cfd_sum), 6))
+
 		return cfd_aggregated
 
 	def as_rows(self):
 		#output fed into offtarget library
 		# header = ['Guide_ID','Offtarget Genome', 'Number of Mismatches','Number of RNA Bulges','Number of DNA Bulges',
 		# 'Total Site Count','CFD/Guidescan Spec Score','Stop/Start Codon Site Count', 'Exon Site Count', 'Utr Site Count',
-		# 'Flanking Site Count','Intron Site Count','ncRNA Site Count','Intergenic Site Count']
+		# 'Splice Site Count','Flanking Site Count','Intron Site Count','ncRNA Site Count','Intergenic Site Count']
 		stats= []
 		cfd_aggregated = self.get_cfd_aggregate_scores()
 		for site_threshold in self.site_counts.keys():
@@ -167,50 +195,119 @@ class OffTargets_Library:
 		# {'spCas9_0': {'hg38_GCA_000001405.15': Offtarget_Compilier(), 'HG02557' :Offtarget_Compilier()....}
 
 	def add_data_from_file(self,offtarget_csv,offtarget_genome,genome_type):
-		# 'Guide_ID,Match_Coords,Mismatch,RNA_Bulges,DNA_Bulges,Alt Site Impact,Feature'
+		# 0:Guide_ID 1:On_Target_Sequence 2:Match_Coords 3:Mismatch 4:Match_Sequence
+		# 5:RNA_Bulges 6:DNA_Bulges 7:CFD_Score 8:Distance 9:N_Base_Editable
+		# 10:Base_Change_Consequence 11:Feature 12:Gene 13:Multi Alignment
+		# 14:Alt Genome 15:Alt Site Impact 16:Alt Variants
+		# doesn't preserve the order you pass
 
-		data = np.genfromtxt(offtarget_csv, delimiter=',',usecols=(0,2,3,5,6,10,14),dtype=str,  skip_header=1)
-		cfd_scores = np.genfromtxt(offtarget_csv, delimiter=',', usecols=(7), skip_header=1)
+		needed = ['Guide_ID', 'Match_Coords', 'Mismatch',
+				  'RNA_Bulges', 'DNA_Bulges',
+				  'CFD_Score', 'Alt Site Impact', 'Feature']
 
-		# Safety measure: Handle empty file case
-		if data.size == 0:
+		try:
+			df = pd.read_csv(
+				offtarget_csv,
+				usecols=needed,
+				dtype={'Guide_ID': str, 'Match_Coords': str,
+					   'Mismatch': str, 'RNA_Bulges': str, 'DNA_Bulges': str,
+					   'Alt Site Impact': str, 'Feature': str},
+			)
+		except (pd.errors.EmptyDataError, FileNotFoundError):
 			return
 
-		# Ensure data is at least 2D
-		if data.ndim == 1:
-			data = np.expand_dims(data, axis=0)
+		if df.empty:
+			return
 
-		site_thresholds = np.char.add(np.char.add(data[:, 2], data[:, 3]), data[:, 4])
-		nrows = data.shape[0]
+		df['CFD_Score'] = pd.to_numeric(df['CFD_Score'], errors='coerce').fillna(-1.0)
 
-		if nrows != 0:
-			# For alternative genomes set intial counts to the ref sites which do not differ.
-			# Subtract and add based on the sites that do differ
-			if genome_type == "extended":
+		# preverse concatenation order
+		df['thresh'] = df['Mismatch'] + df['RNA_Bulges'] + df['DNA_Bulges']
 
-				for guide_id in set(data[:,0]):
-					# SAFETY MEASURE -> Some Guide_ids from the "Offtargets_found.csv" were absent in guidescan Inputs
+		# itertuples exposes columns as attributes; rename the one with a space
+		df = df.rename(columns={'Alt Site Impact': 'AltSiteImpact'})
 
-					aggregator =self.gid_stats[guide_id][offtarget_genome]
-
-					if aggregator.ref_counts_set:
-						pass
-					else:
-						ref_aggregator = self.gid_stats[guide_id][self.ref_genome]
-						ref_counts = copy.deepcopy(ref_aggregator.site_counts)
-						ref_cfd_sums = copy.deepcopy(ref_aggregator.cfd_sums)
-						ref_features = copy.deepcopy(ref_aggregator.feature_counts)
-						aggregator.set_ref_counts(ref_counts, ref_features,ref_cfd_sums)
-
-			for i in range(nrows):
-				# SAFETY MEASURE -> Some Guide_ids from the "Offtargets_found.csv" were absent in guidescan Inputs
-				try:
-					aggregator = self.gid_stats[data[i,0]][offtarget_genome]
-					aggregator.add_site(site_thresholds[i],data[i,1],cfd_scores[i],data[i,5],data[i,6])
-					self.gid_stats[data[i, 0]][offtarget_genome] = aggregator
-
-				except KeyError:
+		# For extended (patient) genomes, seed each guide's aggregator with the
+		# reference counts before applying additions/removals from this file.
+		if genome_type == "extended":
+			for guide_id in df['Guide_ID'].unique():
+				if guide_id not in self.gid_stats:
 					continue
+				aggregator = self.gid_stats[guide_id].get(offtarget_genome)
+				if aggregator is None or aggregator.ref_counts_set:
+					continue
+				ref_aggregator = self.gid_stats[guide_id][self.ref_genome]
+				aggregator.set_ref_counts(
+					copy.deepcopy(ref_aggregator.site_counts),
+					copy.deepcopy(ref_aggregator.feature_counts),
+					copy.deepcopy(ref_aggregator.cfd_sums),
+					copy.deepcopy(ref_aggregator._cfd_has_data))
+
+		for row in df.itertuples(index=False):
+			try:
+				aggregator = self.gid_stats[row.Guide_ID][offtarget_genome]
+			except KeyError:
+				# Guide id from CSV wasn't in the guidescan input we started with
+				continue
+
+			try:
+				aggregator.add_site(
+					row.thresh,
+					row.Match_Coords,
+					row.CFD_Score,
+					row.AltSiteImpact,
+					row.Feature)
+
+			except KeyError as e:
+				logging.warning(
+					f"add_site KeyError: guide={row.Guide_ID!r} "
+					f"coords={row.Match_Coords!r} feature={row.Feature!r} "
+					f"impact={row.AltSiteImpact!r} threshold={row._thresh!r}: {e}")
+				continue
+
+
+		# #data = np.genfromtxt(offtarget_csv, delimiter=',',usecols=(0,2,3,5,6,10,14),dtype=str,  skip_header=1)
+		# cfd_scores = np.genfromtxt(offtarget_csv, delimiter=',', usecols=(7), skip_header=1)
+		#
+		# # Safety measure: Handle empty file case
+		# if data.size == 0:
+		# 	return
+		#
+		# # Ensure data is at least 2D
+		# if data.ndim == 1:
+		# 	data = np.expand_dims(data, axis=0)
+		#
+		# site_thresholds = np.char.add(np.char.add(data[:, 2], data[:, 3]), data[:, 4])
+		# nrows = data.shape[0]
+		#
+		# if nrows != 0:
+		# 	# For alternative genomes set intial counts to the ref sites which do not differ.
+		# 	# Subtract and add based on the sites that do differ
+		# 	if genome_type == "extended":
+		#
+		# 		for guide_id in set(data[:,0]):
+		# 			# SAFETY MEASURE -> Some Guide_ids from the "Offtargets_found.csv" were absent in guidescan Inputs
+		#
+		# 			aggregator =self.gid_stats[guide_id][offtarget_genome]
+		#
+		# 			if aggregator.ref_counts_set:
+		# 				pass
+		# 			else:
+		# 				ref_aggregator = self.gid_stats[guide_id][self.ref_genome]
+		# 				ref_counts = copy.deepcopy(ref_aggregator.site_counts)
+		# 				ref_cfd_sums = copy.deepcopy(ref_aggregator.cfd_sums)
+		# 				ref_features = copy.deepcopy(ref_aggregator.feature_counts)
+		# 				aggregator.set_ref_counts(ref_counts, ref_features,ref_cfd_sums)
+		#
+		# 	for i in range(nrows):
+		# 		# SAFETY MEASURE -> Some Guide_ids from the "Offtargets_found.csv" were absent in guidescan Inputs
+		# 		try:
+		# 			aggregator = self.gid_stats[data[i,0]][offtarget_genome]
+		# 			aggregator.add_site(site_thresholds[i],data[i,1],cfd_scores[i],data[i,5],data[i,6])
+		# 			self.gid_stats[data[i, 0]][offtarget_genome] = aggregator
+		#
+		# 		except KeyError:
+		# 			continue
 
 	def populate_empty_library(self):
 		gid_stats = {}
@@ -229,7 +326,7 @@ class OffTargets_Library:
 	def generate_rows(self):
 		header = ['Guide_ID','Offtarget Genome', 'Number of Mismatches','Number of RNA Bulges','Number of DNA Bulges',
 		 'Total Site Count','CFD/Guidescan Spec Score','Stop/Start Codon Site Count', 'Exon Site Count', 'UTR Site Count',
-		 'Flanking Site Count','Intron Site Count','ncRNA Site Count','Intergenic Site Count']
+		 'Splice Site Count','Flanking Site Count','Intron Site Count','ncRNA Site Count','Intergenic Site Count']
 		rows = [header]
 		for gid in self.gid_stats.keys():
 			for aggregator in self.gid_stats[gid].values():
