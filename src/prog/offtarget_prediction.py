@@ -60,12 +60,12 @@ def offtarget_prediction(args, jobtag):
             pam_request = list(pam_request.upper().split(","))
             pam_request_dict = dict(zip(editing_tool_request,pam_request))
             if len(editing_tool_request) == len(pam_request):
-                raise (f"--pam needs to be the same length of selected editors\n"
+                print(f"--pam needs to be the same length of selected editors\n"
                        f"you requested, {pam_request}")
                 exit(0)
     else:
         if pam_request:
-            raise (f"--pam can only be used if \n"
+            print(f"--pam can only be used if \n"
                    f"argument for --select_editors is added"
                    f"you requested, {editing_tool_request}")
             exit(0)
@@ -222,8 +222,8 @@ def offtarget_prediction(args, jobtag):
 
     # === Export Variables to Configuration File ===
     if len(editors_extracted_from_guides) == 0:
-        raise (f"The editor(s) you requested, {editing_tool_request} "
-               f"Do not have gRNAs found by guide_prediction  "
+        print(f"The editor(s) you requested, {editing_tool_request}\n "
+               f"Do not have gRNAs found by guide_prediction\n  "
                f"Please search again or choose another editor  ")
         exit(0)
 
