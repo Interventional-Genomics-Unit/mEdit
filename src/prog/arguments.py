@@ -451,6 +451,18 @@ def parse_arguments():
 											[default: 3] 
 											\n''')
 							)
+	off_in_out.add_argument('--pam',
+							dest='pam',
+							default='',
+							help=textwrap.dedent('''
+											Set to use a different pam than used for guide prediction. 
+											Can ONLY be used when --select_editors is not the default (all)
+											If searching with a list of multiple select_editors, 
+											Provide a comma-separated list to select which pam in the
+											same order as the editors were listed in --select_editors
+											 
+											\n''')
+							)
 
 
 	off_cluster_opt = casoff_parser.add_argument_group("== SLURM Options ==")

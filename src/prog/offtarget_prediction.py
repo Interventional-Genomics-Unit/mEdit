@@ -32,6 +32,7 @@ def offtarget_prediction(args, jobtag):
     root_dir = abspath(args.output)
     db_path_full = f"{abspath(args.db_path)}/medit_database"
     editing_tool_request = args.select_editors
+    pam_request = args.pam
     # == Load SLURM-related values ==
     cluster_request = args.cluster_request
     ncores = args.ncores
@@ -52,8 +53,23 @@ def offtarget_prediction(args, jobtag):
     # == Set export paths tied to the SMK pipeline ==
     config_dir_path = f"{root_dir}/config"
 
+    pam_request_dict = None
     if editing_tool_request:
         editing_tool_request = list(editing_tool_request.split(","))
+        if pam_request:
+            pam_request = list(pam_request.upper().split(","))
+            pam_request_dict = dict(zip(editing_tool_request,pam_request))
+            if len(editing_tool_request) == len(pam_request):
+                raise (f"--pam needs to be the same length of selected editors\n"
+                       f"you requested, {pam_request}")
+                exit(0)
+    else:
+        if pam_request:
+            raise (f"--pam can only be used if \n"
+                   f"argument for --select_editors is added"
+                   f"you requested, {editing_tool_request}")
+            exit(0)
+
 
     # == Set import/export paths for dynamic YAML files ==
     config_db_path = f"{db_path_full}/config_db/config_db.yaml"
@@ -150,7 +166,15 @@ def offtarget_prediction(args, jobtag):
         be_search_params = pickle.load(file)
 
     for editor, stats in be_search_params.items():
-        guide_search_params[editor] = list(stats[0]) + [stats[1][0]]
+        # be: [(pam,pamisfirst,guidelen,win_size,notes),(conversion,be)
+        #'ABE7.10F148A-NGG': [('NGG', False, 20, [4, 6], ''), ('AG', 'ABE7.10F148A-NGG')]
+        guide_search_params[editor] = list(stats[0]) + [stats[1][0]] # ['NGG', False, 20, [4, 6], '', 'AG']
+
+    for editor,stats in guide_search_params.items():
+        if pam_request_dict:
+            if editor in pam_request_dict.keys():
+                stats[0] = pam_request_dict[editor]
+                guide_search_params[editor] = stats
 
     # == Setup core off-target variables
     pam_per_editor_dict = {}
@@ -189,14 +213,15 @@ def offtarget_prediction(args, jobtag):
 
             for editor in editors_extracted_from_guides:
                 # configure pams in extended forms if there's an IUPAC that is not N
-                pam_per_editor_dict.setdefault(editor, expand_pam(guide_search_params[editor][0])[0])
-                alt_pam_per_editor_dict.setdefault(offtarget_genome, {}).setdefault(editor, expand_pam(guide_search_params[editor][0])[1])
+                pam = guide_search_params[editor][0]
+                pam_per_editor_dict.setdefault(editor, expand_pam(pam)[0])
+                alt_pam_per_editor_dict.setdefault(offtarget_genome, {}).setdefault(editor, expand_pam(pam)[1])
                 pam_is_first_per_editor_dict.setdefault(offtarget_genome, {}).setdefault(editor, "--start" if guide_search_params[editor][1] is True else " ")
                 params_per_editors_dict.setdefault(editor, guide_search_params[editor])
 
 
     # === Export Variables to Configuration File ===
-    if len(guides_per_editor_path.keys()) == 0:
+    if len(editors_extracted_from_guides) == 0:
         raise (f"The editor(s) you requested, {editing_tool_request} "
                f"Do not have gRNAs found by guide_prediction  "
                f"Please search again or choose another editor  ")
