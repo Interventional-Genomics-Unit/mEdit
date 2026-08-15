@@ -59,7 +59,7 @@ def offtarget_prediction(args, jobtag):
         if pam_request:
             pam_request = list(pam_request.upper().split(","))
             pam_request_dict = dict(zip(editing_tool_request,pam_request))
-            if len(editing_tool_request) == len(pam_request):
+            if len(editing_tool_request) != len(pam_request):
                 print(f"--pam needs to be the same length of selected editors\n"
                        f"you requested, {pam_request}")
                 exit(0)
